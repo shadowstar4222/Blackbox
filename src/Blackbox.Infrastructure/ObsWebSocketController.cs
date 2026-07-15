@@ -3,7 +3,10 @@ using Blackbox.Domain;
 
 namespace Blackbox.Infrastructure;
 
-public sealed class ObsWebSocketController(ILogger<ObsWebSocketController> logger) : IObsController
+public sealed class ObsWebSocketController(
+    IObsWebSocketRpcClient rpcClient,
+    ObsSetupRequestBuilder requestBuilder,
+    ILogger<ObsWebSocketController> logger) : IObsController
 {
     public Task LaunchAsync(CancellationToken cancellationToken = default)
     {
@@ -19,13 +22,14 @@ public sealed class ObsWebSocketController(ILogger<ObsWebSocketController> logge
             settings.Host,
             settings.Port,
             settings.UseAuthentication);
-        return Task.FromResult(ObsConnectionStatus.Connected("OBS websocket connection settings validated."));
+        return rpcClient.TestConnectionAsync(settings, cancellationToken);
     }
 
     public Task ApplySetupPlanAsync(ObsConnectionSettings settings, ObsSetupPlan plan, CancellationToken cancellationToken = default)
     {
         settings.Validate();
         plan.Validate();
+        var requests = requestBuilder.BuildSetupRequests(plan);
         logger.LogInformation(
             "OBS automatic setup requested. Profile={ProfileName}, SceneCollection={SceneCollectionName}, Scene={SceneName}, Sources={SourceCount}, Filters={FilterCount}",
             plan.ProfileName,
@@ -33,7 +37,7 @@ public sealed class ObsWebSocketController(ILogger<ObsWebSocketController> logge
             plan.SceneName,
             plan.Sources.Count,
             plan.Filters.Count);
-        return Task.CompletedTask;
+        return rpcClient.SendBatchAsync(settings, requests, cancellationToken);
     }
 
     public Task ConfigureSegmentedRecordingAsync(string recordingDirectory, int segmentMinutes, CancellationToken cancellationToken = default)
@@ -42,7 +46,9 @@ public sealed class ObsWebSocketController(ILogger<ObsWebSocketController> logge
             "OBS segmented recording configuration requested. Directory={RecordingDirectory}, SegmentMinutes={SegmentMinutes}",
             recordingDirectory,
             segmentMinutes);
-        return Task.CompletedTask;
+        var settings = new ObsConnectionSettings();
+        var requests = requestBuilder.BuildRecordingConfigurationRequests(recordingDirectory);
+        return rpcClient.SendBatchAsync(settings, requests, cancellationToken);
     }
 
     public Task ConfigureAudioAsync(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings, CancellationToken cancellationToken = default)
@@ -54,18 +60,20 @@ public sealed class ObsWebSocketController(ILogger<ObsWebSocketController> logge
             profile.Tracks.Count,
             profile.ApplicationAssignments.Count,
             profile.DisableDesktopAudioWhenIsolatedSourcesAreActive);
-        return Task.CompletedTask;
+        var settings = new ObsConnectionSettings();
+        var requests = requestBuilder.BuildAudioRequests(profile, microphoneSettings);
+        return rpcClient.SendBatchAsync(settings, requests, cancellationToken);
     }
 
     public Task StartRecordingAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("OBS recording start requested.");
-        return Task.CompletedTask;
+        return rpcClient.SendRequestAsync(new ObsConnectionSettings(), new ObsRequest("StartRecord"), cancellationToken);
     }
 
     public Task StopRecordingAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("OBS recording stop requested.");
-        return Task.CompletedTask;
+        return rpcClient.SendRequestAsync(new ObsConnectionSettings(), new ObsRequest("StopRecord"), cancellationToken);
     }
 }

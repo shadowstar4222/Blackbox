@@ -26,6 +26,7 @@ Implemented:
 - Microphone level meter calculations for peak and RMS dBFS snapshots.
 - OBS audio configuration boundary connected to the recording start pipeline and WPF `Apply Audio` action.
 - Automatic OBS setup milestone foundation with OBS connection settings, setup plan generation, and WPF `Setup OBS` action.
+- OBS websocket RPC client with v5 identify/auth handling and request batching for setup, recording, and audio commands.
 - Automated unit/integration tests for settings, coordinator sequencing, SQLite persistence, segment scanning, quota pruning, protection, audio routing, microphone filters, and level metering.
 
 The concrete obs-websocket protocol calls are intentionally isolated behind `IObsController`; replacing the placeholder adapter is the next Milestone 1 hardening task before real capture use.
@@ -68,4 +69,4 @@ OBS setup for manual testing is documented in `docs/obs-test-setup.md`.
 18. In OBS, confirm track 1 is the full mix, track 2 game audio, track 3 voice chat, track 4 raw microphone, and track 5 processed microphone.
 19. Confirm the raw microphone source has no destructive filters and the processed microphone source has noise suppression, expander, compressor, and limiter.
 
-Until the real obs-websocket adapter is completed, this procedure validates application orchestration, state persistence setup, and the OBS control boundary rather than actual media capture.
+The websocket transport is implemented, but OBS request names/source kinds may still need adjustment against the exact OBS version and plugins installed on your machine.

@@ -52,4 +52,4 @@ Keep the raw microphone source free of destructive gating. Apply filters only to
 6. Use `Protect 5 Min` or `Ctrl+Shift+F7` to mark recent footage in the database.
 7. Use `Apply Quotas` to test pruning behavior.
 
-The current `ObsWebSocketController` logs intended OBS actions but does not yet perform real websocket RPC calls. The automatic setup milestone creates and validates the full setup plan in code; the next integration step is to map that plan to OBS websocket `SetProfileParameter`, source creation, filter creation, and recording commands.
+`ObsWebSocketController` now sends real OBS websocket requests. If `Setup OBS` fails, check that OBS is running, websocket is enabled, the port is `4455`, and the OBS source kinds used by your installed OBS build match Blackbox's setup plan.

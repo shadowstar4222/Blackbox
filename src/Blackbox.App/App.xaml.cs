@@ -38,6 +38,8 @@ public partial class App : Application
                 services.AddSingleton(new RecordingSettings { RecordingLocation = recordingPath });
                 services.AddSingleton<IClock, SystemClock>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(Path.Combine(appData, "blackbox.db")));
+                services.AddSingleton<ObsSetupRequestBuilder>();
+                services.AddSingleton<IObsWebSocketRpcClient, ObsWebSocketRpcClient>();
                 services.AddSingleton<IObsController, ObsWebSocketController>();
                 services.AddSingleton<RecordingCoordinator>();
                 services.AddSingleton<AudioConfigurationService>();
