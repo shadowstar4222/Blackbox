@@ -1,11 +1,12 @@
 <Window x:Class="Blackbox.App.RecordingLibraryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Recordings - Blackbox"
-        Height="660"
-        Width="960"
-        MinHeight="580"
-        MinWidth="820"
+        xmlns:local="clr-namespace:Blackbox.App"
+        Title="Timeline - Blackbox"
+        Height="820"
+        Width="1180"
+        MinHeight="700"
+        MinWidth="1000"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="18">
         <Grid.RowDefinitions>
@@ -20,7 +21,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="Recordings" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="Recording timeline" FontSize="22" FontWeight="SemiBold" />
                 <TextBlock x:Name="StatusText"
                            Margin="0,4,0,0"
                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
@@ -42,9 +43,9 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,18,0,18">
+        <Grid Grid.Row="1" Margin="0,16,0,16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="270" />
                 <ColumnDefinition Width="24" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -54,7 +55,7 @@
                      SelectionChanged="SessionListBox_SelectionChanged">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Grid Margin="8" Width="260">
+                        <Grid Margin="8" Width="232">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -79,125 +80,355 @@
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <TextBlock x:Name="SessionTitleText"
-                           Text="Select a recording"
-                           FontSize="18"
-                           FontWeight="SemiBold"
-                           TextWrapping="Wrap" />
-
-                <Grid Grid.Row="1" Margin="0,14,0,0">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="120" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                        <RowDefinition Height="28" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="Recorded" FontWeight="SemiBold" />
-                    <TextBlock x:Name="RecordedText" Grid.Column="1" Text="-" />
-                    <TextBlock Grid.Row="1" Text="Duration" FontWeight="SemiBold" />
-                    <TextBlock x:Name="DurationText" Grid.Row="1" Grid.Column="1" Text="-" />
-                    <TextBlock Grid.Row="2" Text="Media" FontWeight="SemiBold" />
-                    <TextBlock x:Name="MediaText" Grid.Row="2" Grid.Column="1" Text="-" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="3" Text="Timeline" FontWeight="SemiBold" />
-                    <TextBlock x:Name="HealthText" Grid.Row="3" Grid.Column="1" Text="-" TextWrapping="Wrap" />
+                    <StackPanel>
+                        <TextBlock x:Name="SessionTitleText"
+                                   Text="Select a recording"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="SessionSummaryText"
+                                   Margin="0,4,0,0"
+                                   Text="-"
+                                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBlock x:Name="HealthText"
+                               Grid.Column="1"
+                               Margin="20,0,0,0"
+                               FontWeight="SemiBold"
+                               Text="-"
+                               VerticalAlignment="Center" />
                 </Grid>
 
-                <Separator Grid.Row="2" Margin="0,14" />
+                <TabControl Grid.Row="1" Margin="0,14,0,0">
+                    <TabItem Header="Timeline">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="180" />
+                                <RowDefinition Height="112" />
+                                <RowDefinition Height="92" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                <Grid Grid.Row="3">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="78" />
-                    </Grid.ColumnDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="320" />
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#1E1E1E" BorderBrush="#555555" BorderThickness="1">
+                                    <Image x:Name="PreviewImage"
+                                           Width="318"
+                                           Height="178"
+                                           Stretch="Uniform"
+                                           SnapsToDevicePixels="True" />
+                                </Border>
+                                <Grid Grid.Column="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock x:Name="CursorTimeText" Text="0:00" FontSize="26" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="PreviewStatusText"
+                                               Grid.Row="1"
+                                               Margin="0,6,0,0"
+                                               Text="Timeline preview pending"
+                                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                               TextWrapping="Wrap" />
+                                    <StackPanel Grid.Row="2" Margin="0,18,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Rectangle Width="18" Height="10" Fill="#733A8B5A" Margin="0,0,8,0" />
+                                            <TextBlock Text="Protected" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Rectangle Width="18" Height="10" Fill="#96B64D4D" Margin="0,0,8,0" />
+                                            <TextBlock Text="Damaged" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Rectangle Width="2" Height="12" Fill="#F4C95D" Margin="8,0,16,0" />
+                                            <TextBlock Text="Marker" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <TextBlock x:Name="HealthDetailText"
+                                               Grid.Row="3"
+                                               Margin="0,16,0,0"
+                                               Text="-"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                </Grid>
+                            </Grid>
 
-                    <TextBlock Text="Selection" FontWeight="SemiBold" />
-                    <Button x:Name="FullSessionButton"
-                            Grid.Column="2"
-                            Content="Use full"
-                            Height="26"
-                            IsEnabled="False"
-                            Click="FullSessionButton_Click" />
+                            <ScrollViewer Grid.Row="1"
+                                          Margin="0,10,0,0"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl x:Name="ThumbnailItemsControl">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Width="162" Margin="0,0,6,0">
+                                                <Border Width="160" Height="90" Background="#1E1E1E" BorderBrush="#555555" BorderThickness="1">
+                                                    <Image Source="{Binding Image}" Stretch="Uniform" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Time}" Margin="0,3,0,0" FontSize="11" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
 
-                    <TextBlock Grid.Row="1" Text="Start" Margin="0,14,0,0" VerticalAlignment="Center" />
-                    <Slider x:Name="SelectionStartSlider"
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            Margin="0,14,12,0"
-                            Minimum="0"
-                            IsEnabled="False"
-                            ValueChanged="SelectionStartSlider_ValueChanged" />
-                    <TextBlock x:Name="SelectionStartText"
-                               Grid.Row="1"
-                               Grid.Column="2"
-                               Margin="0,14,0,0"
-                               Text="00:00"
-                               VerticalAlignment="Center" />
+                            <local:TimelineWaveformControl x:Name="WaveformTimeline"
+                                                           Grid.Row="2"
+                                                           Height="82"
+                                                           Margin="0,10,0,0"
+                                                           ToolTip="Scrub timeline" />
 
-                    <TextBlock Grid.Row="2" Text="End" Margin="0,10,0,0" VerticalAlignment="Center" />
-                    <Slider x:Name="SelectionEndSlider"
-                            Grid.Row="2"
-                            Grid.Column="1"
-                            Margin="0,10,12,0"
-                            Minimum="0"
-                            IsEnabled="False"
-                            ValueChanged="SelectionEndSlider_ValueChanged" />
-                    <TextBlock x:Name="SelectionEndText"
-                               Grid.Row="2"
-                               Grid.Column="2"
-                               Margin="0,10,0,0"
-                               Text="00:00"
-                               VerticalAlignment="Center" />
+                            <Grid Grid.Row="3" Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Cursor" VerticalAlignment="Center" />
+                                <Slider x:Name="PlayheadSlider"
+                                        Grid.Column="1"
+                                        Margin="0,0,12,0"
+                                        Minimum="0"
+                                        IsEnabled="False"
+                                        ValueChanged="PlayheadSlider_ValueChanged" />
+                                <TextBlock x:Name="PlayheadTimeText" Grid.Column="2" Text="0:00" VerticalAlignment="Center" />
+                            </Grid>
 
-                </Grid>
+                            <Grid Grid.Row="4" Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Start" VerticalAlignment="Center" />
+                                <Slider x:Name="SelectionStartSlider"
+                                        Grid.Column="1"
+                                        Margin="0,0,12,0"
+                                        Minimum="0"
+                                        IsEnabled="False"
+                                        ValueChanged="SelectionStartSlider_ValueChanged" />
+                                <TextBlock x:Name="SelectionStartText" Grid.Column="2" Text="0:00" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Text="End" Margin="0,8,0,0" VerticalAlignment="Center" />
+                                <Slider x:Name="SelectionEndSlider"
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        Margin="0,8,12,0"
+                                        Minimum="0"
+                                        IsEnabled="False"
+                                        ValueChanged="SelectionEndSlider_ValueChanged" />
+                                <TextBlock x:Name="SelectionEndText"
+                                           Grid.Row="1"
+                                           Grid.Column="2"
+                                           Margin="0,8,0,0"
+                                           Text="0:00"
+                                           VerticalAlignment="Center" />
+                            </Grid>
 
-                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,20,0,0">
-                    <Button x:Name="PlayButton"
-                            Content="Play session"
-                            MinWidth="120"
-                            Height="34"
-                            IsEnabled="False"
-                            Click="PlayButton_Click" />
-                    <Button x:Name="ExportButton"
-                            Content="Export selection"
-                            MinWidth="140"
-                            Height="34"
-                            Margin="10,0,0,0"
-                            IsEnabled="False"
-                            Click="ExportButton_Click" />
-                    <Button x:Name="CancelExportButton"
-                            Content="Cancel"
-                            MinWidth="85"
-                            Height="34"
-                            Margin="10,0,0,0"
-                            Visibility="Collapsed"
-                            Click="CancelExportButton_Click" />
-                    <Button x:Name="OpenExportButton"
-                            Content="Open export"
-                            MinWidth="110"
-                            Height="34"
-                            Margin="10,0,0,0"
-                            Visibility="Collapsed"
-                            Click="OpenExportButton_Click" />
-                </StackPanel>
+                            <Grid Grid.Row="5" Margin="0,14,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="PlayButton"
+                                            Content="Play from cursor"
+                                            MinWidth="130"
+                                            Height="32"
+                                            IsEnabled="False"
+                                            Click="PlayButton_Click" />
+                                    <Button x:Name="FullSessionButton"
+                                            Content="Use full"
+                                            MinWidth="90"
+                                            Height="32"
+                                            Margin="8,0,0,0"
+                                            IsEnabled="False"
+                                            Click="FullSessionButton_Click" />
+                                    <Button x:Name="AddMarkerButton"
+                                            Content="Add marker"
+                                            MinWidth="100"
+                                            Height="32"
+                                            Margin="8,0,0,0"
+                                            IsEnabled="False"
+                                            Click="AddMarkerButton_Click" />
+                                    <Button x:Name="ProtectSelectionButton"
+                                            Content="Protect selection"
+                                            MinWidth="130"
+                                            Height="32"
+                                            Margin="8,0,0,0"
+                                            IsEnabled="False"
+                                            Click="ProtectSelectionButton_Click" />
+                                </StackPanel>
+                                <ListBox x:Name="MarkerListBox"
+                                         Grid.Row="1"
+                                         Margin="0,10,0,0"
+                                         BorderThickness="0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="70" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Time}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                                <Button Grid.Column="2"
+                                                        Content="Remove"
+                                                        MinWidth="70"
+                                                        Height="24"
+                                                        CommandParameter="{Binding Id}"
+                                                        Click="DeleteMarkerButton_Click" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Grid>
+                    </TabItem>
 
+                    <TabItem Header="Audio &amp; export">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="260" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Preset" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                <ComboBox x:Name="ExportPresetComboBox"
+                                          Grid.Column="1"
+                                          Height="30"
+                                          SelectionChanged="ExportPresetComboBox_SelectionChanged" />
+                                <TextBlock x:Name="ExportRangeText"
+                                           Grid.Column="2"
+                                           Margin="18,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text="Selection 0:00 - 0:00"
+                                           Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                            </Grid>
+
+                            <Grid Grid.Row="1" Margin="0,18,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="58" />
+                                    <ColumnDefinition Width="64" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Track" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="Mute" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="Solo" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="Volume" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="5" Text="WAV" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="AudioTrackItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Height="48">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="220" />
+                                                    <ColumnDefinition Width="64" />
+                                                    <ColumnDefinition Width="64" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="58" />
+                                                    <ColumnDefinition Width="64" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                <CheckBox Grid.Column="1"
+                                                          IsChecked="{Binding IsMuted}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Checked="AudioTrackControl_Changed"
+                                                          Unchecked="AudioTrackControl_Changed" />
+                                                <CheckBox Grid.Column="2"
+                                                          IsChecked="{Binding IsSolo}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Checked="AudioTrackControl_Changed"
+                                                          Unchecked="AudioTrackControl_Changed" />
+                                                <Slider Grid.Column="3"
+                                                        Minimum="0"
+                                                        Maximum="2"
+                                                        Value="{Binding Volume}"
+                                                        Margin="0,0,12,0"
+                                                        VerticalAlignment="Center"
+                                                        ValueChanged="AudioVolumeSlider_ValueChanged" />
+                                                <TextBlock Grid.Column="4"
+                                                           Text="{Binding VolumeText}"
+                                                           VerticalAlignment="Center" />
+                                                <CheckBox Grid.Column="5"
+                                                          IsChecked="{Binding ExportAsWav}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Checked="AudioTrackControl_Changed"
+                                                          Unchecked="AudioTrackControl_Changed" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,18,0,0">
+                                <Button x:Name="ExportButton"
+                                        Content="Export selection"
+                                        MinWidth="140"
+                                        Height="34"
+                                        IsEnabled="False"
+                                        Click="ExportButton_Click" />
+                                <Button x:Name="CancelExportButton"
+                                        Content="Cancel"
+                                        MinWidth="85"
+                                        Height="34"
+                                        Margin="10,0,0,0"
+                                        Visibility="Collapsed"
+                                        Click="CancelExportButton_Click" />
+                                <Button x:Name="OpenExportButton"
+                                        Content="Open export"
+                                        MinWidth="110"
+                                        Height="34"
+                                        Margin="10,0,0,0"
+                                        Visibility="Collapsed"
+                                        Click="OpenExportButton_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Grid>
 

@@ -36,4 +36,28 @@ public sealed class FfprobeOutputParserTests
         Assert.True(result.IsHdr);
         Assert.Equal(["Full listening mix", "Game audio"], result.AudioTrackTitles);
     }
+
+    [Fact]
+    public void Parse_replaces_generic_obs_track_tags_with_readable_names()
+    {
+        const string json = """
+            {
+              "streams": [
+                { "codec_type": "video", "codec_name": "h264", "width": 1280, "height": 720, "avg_frame_rate": "30/1" },
+                { "codec_type": "audio", "tags": { "title": "Track1" } },
+                { "codec_type": "audio", "tags": { "title": "Track2" } },
+                { "codec_type": "audio", "tags": { "title": "Track3" } },
+                { "codec_type": "audio", "tags": { "title": "Track4" } },
+                { "codec_type": "audio", "tags": { "title": "Track5" } }
+              ],
+              "format": { "duration": "10" }
+            }
+            """;
+
+        var result = FfprobeOutputParser.Parse(json);
+
+        Assert.Equal(
+            ["Full listening mix", "Game audio", "Voice chat", "Raw microphone", "Processed microphone"],
+            result.AudioTrackTitles);
+    }
 }

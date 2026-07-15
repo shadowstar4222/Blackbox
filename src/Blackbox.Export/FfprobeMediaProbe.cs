@@ -74,15 +74,6 @@ public sealed class FfprobeMediaProbe(
 
 internal static class FfprobeOutputParser
 {
-    private static readonly string[] DefaultAudioTitles =
-    [
-        "Full listening mix",
-        "Game audio",
-        "Voice chat",
-        "Raw microphone",
-        "Processed microphone"
-    ];
-
     public static MediaFileProbeResult Parse(string json)
     {
         using var document = JsonDocument.Parse(json);
@@ -128,12 +119,10 @@ internal static class FfprobeOutputParser
             tags.TryGetProperty("title", out var title) &&
             !string.IsNullOrWhiteSpace(title.GetString()))
         {
-            return title.GetString()!;
+            return RecordingAudioLayout.NormalizeTitle(title.GetString()!, index);
         }
 
-        return index < DefaultAudioTitles.Length
-            ? DefaultAudioTitles[index]
-            : $"Audio track {index + 1}";
+        return RecordingAudioLayout.DefaultTitle(index);
     }
 
     private static decimal ReadFrameRate(JsonElement video)

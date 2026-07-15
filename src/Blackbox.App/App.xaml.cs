@@ -49,7 +49,8 @@ public partial class App : Application
                 services.AddSingleton(new FfmpegOptions
                 {
                     RootDirectory = Path.Combine(appData, "ffmpeg"),
-                    WorkDirectory = Path.Combine(appData, "ffmpeg-work")
+                    WorkDirectory = Path.Combine(appData, "ffmpeg-work"),
+                    TimelineCacheDirectory = Path.Combine(appData, "timeline-cache")
                 });
                 services.AddSingleton(new HttpClient
                 {
@@ -65,6 +66,7 @@ public partial class App : Application
                 services.AddSingleton<IFfmpegCommandRunner, FfmpegCommandRunner>();
                 services.AddSingleton<SessionExportService>();
                 services.AddSingleton<SessionPlaybackService>();
+                services.AddSingleton<TimelineAssetService>();
                 services.AddSingleton<ObsSetupRequestBuilder>();
                 services.AddSingleton<ObsConnectionSettingsProvider>();
                 services.AddSingleton<IObsConnectionSettingsProvider>(provider =>

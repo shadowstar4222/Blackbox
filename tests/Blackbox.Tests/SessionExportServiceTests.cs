@@ -91,6 +91,56 @@ public sealed class SessionExportServiceTests
         }
     }
 
+    [Fact]
+    public async Task ExportAsync_writes_checked_audio_tracks_as_separate_wav_files()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var sourcePath = Path.Combine(root, "source.mkv");
+        var outputPath = Path.Combine(root, "export.mkv");
+        await File.WriteAllTextAsync(sourcePath, "source");
+        try
+        {
+            var segment = TestSegments.Create(sourcePath, duration: TimeSpan.FromSeconds(10));
+            var session = new RecordingSession(
+                segment.SessionId,
+                segment.StartTime,
+                segment.EndTime,
+                "Recording",
+                [segment],
+                false,
+                false);
+            var tracks = RecordingAudioLayout.CreateExportSelections(segment.AudioTrackLayout)
+                .Select(track => track.StreamIndex is 3 or 4 ? track with { ExportAsWav = true } : track)
+                .ToArray();
+            var registry = new SegmentUsageRegistry();
+            var runner = new CountingWritingCommandRunner();
+            var service = new SessionExportService(
+                new FixedProvisioner(root),
+                runner,
+                registry,
+                new FfmpegOptions { RootDirectory = root, WorkDirectory = Path.Combine(root, "work") },
+                NullLogger<SessionExportService>.Instance);
+
+            var result = await service.ExportAsync(new SessionExportRequest(
+                session,
+                TimeSpan.Zero,
+                session.Duration,
+                outputPath,
+                tracks));
+
+            Assert.Equal(3, runner.Calls);
+            Assert.Equal(2, result.AudioOutputPaths?.Count);
+            Assert.All(result.AudioOutputPaths!, AssertFileExists);
+            Assert.Contains(result.AudioOutputPaths!, path => path.Contains("Raw microphone", StringComparison.Ordinal));
+            Assert.Contains(result.AudioOutputPaths!, path => path.Contains("Processed microphone", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private sealed class FixedProvisioner(string root) : IFfmpegProvisioner
     {
         public Task<FfmpegInstallation> EnsureInstalledAsync(
@@ -130,4 +180,23 @@ public sealed class SessionExportServiceTests
             throw new OperationCanceledException();
         }
     }
+
+    private sealed class CountingWritingCommandRunner : IFfmpegCommandRunner
+    {
+        public int Calls { get; private set; }
+
+        public async Task RunAsync(
+            string executablePath,
+            IReadOnlyList<string> arguments,
+            TimeSpan expectedDuration,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            await File.WriteAllTextAsync(arguments[^1], "exported", cancellationToken);
+            progress?.Report(100);
+        }
+    }
+
+    private static void AssertFileExists(string path) => Assert.True(File.Exists(path));
 }

@@ -25,4 +25,3 @@
 ## Planned
 
 - Windows process/GPU activity discovery.
-- Asynchronous thumbnail and waveform generation for the integrated timeline.

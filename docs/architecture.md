@@ -32,10 +32,12 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 16. `MicrophoneCalibrationService` captures live OBS meter events, calculates processing recommendations, and persists one device for both microphone paths.
 17. `MicrophoneDeviceMonitor` watches the selected device only while recording, leaves OBS sources alive during disconnects, and reapplies the saved configuration after reconnection.
 18. Milestone 5 groups segments into a virtual continuous session for seamless browsing and playback without replacing the interruption-resistant source files.
-19. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 while preserving synchronized isolated audio tracks.
-20. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
-21. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
-22. Later milestones bind detected games to application-audio inputs and add crash recovery.
+19. `TimelineAssetService` generates and caches codec-safe thumbnails plus a full-mix waveform while holding source-segment leases.
+20. Timeline markers and protected ranges are stored in SQLite; protected selections also mark overlapping segments against quota deletion.
+21. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 with the chosen track mix and optional separate 24-bit PCM WAV files.
+22. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
+23. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
+24. Later milestones bind detected games to application-audio inputs and add crash recovery.
 
 ## Safety Boundaries
 
@@ -49,17 +51,19 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Raw microphone and processed microphone are modeled as separate tracks so the raw path remains non-destructive.
 - Microphone disconnects do not remove either OBS source, preserving silence and timeline alignment until the selected device returns.
 - Missing or discontinuous session media is shown as unhealthy and is rejected by continuous playback and export rather than silently skipped.
-- Exports write to a unique partial path and move into place only after FFmpeg exits successfully with a non-empty file.
+- Damaged files remain visible in the library with their probe failure instead of disappearing from recording history.
+- Timeline assets are generated in a staging directory and moved into a keyed local cache only after successful completion.
+- Exports write video and WAV outputs to unique partial paths and publish them only after FFmpeg exits successfully with non-empty files.
 
 ## Database
 
-Milestone 1 stores one row per completed segment, including session, time range, game identity, video format, audio track layout, encoder, resolution, frame rate, HDR flag, protection flag, path, and size.
+The `segments` table stores one row per completed segment, including session, time range, game identity, video format, audio track layout, encoder, resolution, frame rate, HDR flag, protection and damage state, path, and size.
+
+The `timeline_markers` and `protected_ranges` tables store durable user annotations against session wall-clock time. Existing databases are migrated in place when new damage columns or timeline tables are introduced.
 
 Future tables:
 
 - sessions
-- markers
-- protected_ranges
 - clips
 - devices
 - game_profiles

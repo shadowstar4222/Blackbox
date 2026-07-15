@@ -4,7 +4,8 @@ public sealed record SessionExportRequest(
     RecordingSession Session,
     TimeSpan RangeStart,
     TimeSpan RangeEnd,
-    string DestinationPath)
+    string DestinationPath,
+    IReadOnlyList<AudioTrackExportSelection>? AudioTracks = null)
 {
     public void Validate()
     {
@@ -28,6 +29,24 @@ public sealed record SessionExportRequest(
             !extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Blackbox exports must use MKV or MP4.");
+        }
+
+        if (AudioTracks is null)
+        {
+            return;
+        }
+
+        if (AudioTracks.Select(static track => track.StreamIndex).Distinct().Count() != AudioTracks.Count)
+        {
+            throw new InvalidOperationException("Each export audio stream can be configured only once.");
+        }
+
+        if (AudioTracks.Any(static track =>
+            track.StreamIndex < 0 ||
+            string.IsNullOrWhiteSpace(track.Name) ||
+            track.Volume is < 0 or > 2))
+        {
+            throw new InvalidOperationException("Export audio settings contain an invalid stream, name, or volume.");
         }
     }
 }

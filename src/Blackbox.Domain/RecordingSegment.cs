@@ -16,4 +16,6 @@ public sealed record RecordingSegment(
     bool IsHdr,
     bool IsProtected,
     string FilePath,
-    long FileSizeBytes);
+    long FileSizeBytes,
+    bool IsDamaged = false,
+    string? DamageDetail = null);

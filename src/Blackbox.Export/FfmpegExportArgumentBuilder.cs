@@ -11,22 +11,14 @@ internal static class FfmpegExportArgumentBuilder
         string temporaryOutputPath,
         out bool usesStreamCopy)
     {
-        usesStreamCopy = request.RangeStart <= TimeSpan.FromMilliseconds(10) &&
+        var isFullRange = request.RangeStart <= TimeSpan.FromMilliseconds(10) &&
             request.Session.Duration - request.RangeEnd <= TimeSpan.FromMilliseconds(10);
-        var arguments = new List<string>
-        {
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            concatPath
-        };
-        if (!usesStreamCopy)
+        var configuredTracks = AudioTrackSelectionResolver.Resolve(request);
+        var audibleTracks = AudioTrackSelectionResolver.Audible(configuredTracks);
+        var audioIsUnchanged = AudioTrackSelectionResolver.IsDefault(request, configuredTracks);
+        usesStreamCopy = isFullRange && audioIsUnchanged;
+        var arguments = CommonInput(concatPath);
+        if (!isFullRange)
         {
             arguments.Add("-ss");
             arguments.Add(FormatTime(request.RangeStart));
@@ -36,11 +28,15 @@ internal static class FfmpegExportArgumentBuilder
 
         arguments.Add("-map");
         arguments.Add("0:v:0");
-        arguments.Add("-map");
-        arguments.Add("0:a?");
-        if (usesStreamCopy)
+        foreach (var track in audibleTracks)
         {
-            arguments.Add("-c");
+            arguments.Add("-map");
+            arguments.Add($"0:a:{track.StreamIndex}?");
+        }
+
+        if (isFullRange)
+        {
+            arguments.Add("-c:v");
             arguments.Add("copy");
         }
         else
@@ -51,13 +47,38 @@ internal static class FfmpegExportArgumentBuilder
             arguments.Add("veryfast");
             arguments.Add("-crf");
             arguments.Add("18");
+        }
+
+        if (audibleTracks.Count == 0)
+        {
+            arguments.Add("-an");
+        }
+        else if (usesStreamCopy)
+        {
+            arguments.Add("-c:a");
+            arguments.Add("copy");
+        }
+        else
+        {
             arguments.Add("-c:a");
             arguments.Add("aac");
             arguments.Add("-b:a");
             arguments.Add("192k");
         }
 
-        AddAudioTitles(arguments, request.Session.Segments[0].AudioTrackLayout);
+        for (var outputIndex = 0; outputIndex < audibleTracks.Count; outputIndex++)
+        {
+            var track = audibleTracks[outputIndex];
+            if (Math.Abs(track.Volume - 1) >= 0.0001)
+            {
+                arguments.Add($"-filter:a:{outputIndex}");
+                arguments.Add($"volume={track.Volume.ToString("0.###", CultureInfo.InvariantCulture)}");
+            }
+
+            arguments.Add($"-metadata:s:a:{outputIndex}");
+            arguments.Add($"title={track.Name}");
+        }
+
         arguments.Add("-avoid_negative_ts");
         arguments.Add("make_zero");
         arguments.Add("-max_muxing_queue_size");
@@ -75,31 +96,16 @@ internal static class FfmpegExportArgumentBuilder
         return arguments;
     }
 
-    private static void AddAudioTitles(List<string> arguments, string layout)
-    {
-        var titles = layout
-            .Split(';', StringSplitOptions.RemoveEmptyEntries)
-            .Select(static value => value.Contains(':') ? value[(value.IndexOf(':') + 1)..] : value)
-            .Select(NormalizeAudioTitle)
-            .ToArray();
-        for (var index = 0; index < titles.Length; index++)
-        {
-            arguments.Add($"-metadata:s:a:{index}");
-            arguments.Add($"title={titles[index]}");
-        }
-    }
+    internal static List<string> CommonInput(string concatPath) =>
+    [
+        "-y",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", concatPath
+    ];
 
-    private static string NormalizeAudioTitle(string value) =>
-        value.Trim().ToLowerInvariant() switch
-        {
-            "full_mix" => "Full listening mix",
-            "game" => "Game audio",
-            "voice" => "Voice chat",
-            "raw_mic" => "Raw microphone",
-            "processed_mic" => "Processed microphone",
-            _ => value.Trim()
-        };
-
-    private static string FormatTime(TimeSpan value) =>
+    internal static string FormatTime(TimeSpan value) =>
         value.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture);
 }

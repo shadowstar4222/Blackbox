@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Blackbox.Domain;
 using Microsoft.Extensions.Logging;
 
@@ -15,9 +16,23 @@ public sealed class SessionPlaybackService(
         IProgress<RecordingLibraryProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        if (session.HasGaps || session.HasMissingSegments)
+        await PlayAsync(session, TimeSpan.Zero, progress, cancellationToken);
+    }
+
+    public async Task PlayAsync(
+        RecordingSession session,
+        TimeSpan startOffset,
+        IProgress<RecordingLibraryProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (session.HasGaps || session.HasMissingSegments || session.HasDamagedSegments)
         {
-            throw new InvalidOperationException("This recording has a missing section and cannot play continuously.");
+            throw new InvalidOperationException("This recording has a missing or damaged section and cannot play continuously.");
+        }
+
+        if (startOffset < TimeSpan.Zero || startOffset >= session.Duration)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startOffset), "The playback position is outside this recording.");
         }
 
         var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
@@ -32,16 +47,7 @@ public sealed class SessionPlaybackService(
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        foreach (var argument in new[]
-        {
-            "-hide_banner",
-            "-loglevel", "warning",
-            "-autoexit",
-            "-window_title", $"Blackbox - {session.StartTime.LocalDateTime:g}",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concatPath
-        })
+        foreach (var argument in BuildArguments(session, startOffset, concatPath))
         {
             startInfo.ArgumentList.Add(argument);
         }
@@ -61,6 +67,31 @@ public sealed class SessionPlaybackService(
             TryDeleteFile(concatPath);
             throw;
         }
+    }
+
+    internal static IReadOnlyList<string> BuildArguments(
+        RecordingSession session,
+        TimeSpan startOffset,
+        string concatPath)
+    {
+        var arguments = new List<string>
+        {
+            "-hide_banner",
+            "-loglevel", "warning",
+            "-autoexit",
+            "-window_title", $"Blackbox - {session.StartTime.LocalDateTime:g}",
+            "-f", "concat",
+            "-safe", "0"
+        };
+        if (startOffset > TimeSpan.Zero)
+        {
+            arguments.Add("-ss");
+            arguments.Add(startOffset.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture));
+        }
+
+        arguments.Add("-i");
+        arguments.Add(concatPath);
+        return arguments;
     }
 
     private async Task MonitorPlaybackAsync(Process process, IDisposable lease, string concatPath)

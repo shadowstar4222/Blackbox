@@ -42,14 +42,11 @@ public sealed class RecordingLibraryService(
             .ToDictionary(
                 static segment => Path.GetFullPath(segment.FilePath),
                 StringComparer.OrdinalIgnoreCase);
-        var needsProbe = mediaFiles.Any(file =>
-            !existingSegments.TryGetValue(file.FullName, out var existing) || existing.FileSizeBytes != file.Length);
-        if (needsProbe)
-        {
-            var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
-                progress?.Report(new RecordingLibraryProgress(update.Message, update.Percent is null ? null : update.Percent * 0.45)));
-            await ffmpegProvisioner.EnsureInstalledAsync(provisionProgress, cancellationToken);
-        }
+        var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
+            progress?.Report(new RecordingLibraryProgress(
+                update.Message,
+                update.Percent is null ? null : update.Percent * 0.45)));
+        await ffmpegProvisioner.EnsureInstalledAsync(provisionProgress, cancellationToken);
 
         var candidates = new List<MediaCandidate>(mediaFiles.Length);
         for (var index = 0; index < mediaFiles.Length; index++)
@@ -59,14 +56,20 @@ public sealed class RecordingLibraryService(
             progress?.Report(new RecordingLibraryProgress(
                 $"Indexing {file.Name}...",
                 45 + (index + 1) * 45d / mediaFiles.Length));
-            if (existingSegments.TryGetValue(file.FullName, out var existing) && existing.FileSizeBytes == file.Length)
+            existingSegments.TryGetValue(file.FullName, out var existing);
+            try
             {
-                candidates.Add(MediaCandidate.FromExisting(file, existing));
-                continue;
+                var probe = await mediaProbe.ProbeAsync(file.FullName, cancellationToken);
+                candidates.Add(MediaCandidate.FromProbe(file, existing, probe));
             }
-
-            var probe = await mediaProbe.ProbeAsync(file.FullName, cancellationToken);
-            candidates.Add(MediaCandidate.FromProbe(file, existing, probe));
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                candidates.Add(MediaCandidate.FromDamaged(file, existing, ex.Message));
+                logger.LogWarning(
+                    ex,
+                    "Recording {RecordingPath} could not be read and was marked as damaged.",
+                    file.FullName);
+            }
         }
 
         var groups = GroupCandidates(candidates.OrderBy(static candidate => candidate.StartTime).ToArray());
@@ -88,6 +91,52 @@ public sealed class RecordingLibraryService(
             mediaFiles.Length,
             sessions.Count);
         return sessions;
+    }
+
+    public async Task<TimelineMarker> AddMarkerAsync(
+        RecordingSession session,
+        TimeSpan offset,
+        string? label = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (offset < TimeSpan.Zero || offset > session.Duration)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), "The marker is outside this recording.");
+        }
+
+        var marker = new TimelineMarker(
+            Guid.NewGuid(),
+            session.Id,
+            offset,
+            string.IsNullOrWhiteSpace(label) ? $"Marker {FormatOffset(offset)}" : label.Trim(),
+            DateTimeOffset.UtcNow);
+        await repository.AddMarkerAsync(marker, cancellationToken);
+        logger.LogInformation(
+            "Added marker {MarkerId} to recording session {RecordingSessionId} at {MarkerOffset}.",
+            marker.Id,
+            session.Id,
+            marker.Offset);
+        return marker;
+    }
+
+    public Task DeleteMarkerAsync(Guid markerId, CancellationToken cancellationToken = default) =>
+        repository.DeleteMarkerAsync(markerId, cancellationToken);
+
+    public async Task<ProtectedTimelineRange> ProtectRangeAsync(
+        RecordingSession session,
+        TimeSpan rangeStart,
+        TimeSpan rangeEnd,
+        CancellationToken cancellationToken = default)
+    {
+        if (rangeStart < TimeSpan.Zero || rangeEnd <= rangeStart || rangeEnd > session.Duration)
+        {
+            throw new InvalidOperationException("The protected selection is outside this recording.");
+        }
+
+        var startTime = RecordingTimeline.ToTimestamp(session, rangeStart);
+        var endTime = RecordingTimeline.ToTimestamp(session, rangeEnd);
+        await repository.MarkProtectedRangeAsync(startTime, endTime, cancellationToken);
+        return new ProtectedTimelineRange(Guid.Empty, startTime, endTime, DateTimeOffset.UtcNow);
     }
 
     private static IReadOnlyList<List<MediaCandidate>> GroupCandidates(IReadOnlyList<MediaCandidate> candidates)
@@ -143,6 +192,9 @@ public sealed class RecordingLibraryService(
         return new Guid(hash.AsSpan(0, 16));
     }
 
+    private static string FormatOffset(TimeSpan offset) =>
+        offset.TotalHours >= 1 ? offset.ToString(@"h\:mm\:ss") : offset.ToString(@"m\:ss");
+
     private sealed record MediaCandidate(
         FileInfo File,
         Guid SegmentId,
@@ -157,7 +209,9 @@ public sealed class RecordingLibraryService(
         decimal FrameRate,
         bool IsHdr,
         bool IsProtected,
-        IReadOnlyList<string> AudioTrackTitles)
+        IReadOnlyList<string> AudioTrackTitles,
+        bool IsDamaged,
+        string? DamageDetail)
     {
         public DateTimeOffset EndTime => StartTime + Duration;
 
@@ -175,7 +229,9 @@ public sealed class RecordingLibraryService(
             segment.FrameRate,
             segment.IsHdr,
             segment.IsProtected,
-            ParseAudioTitles(segment.AudioTrackLayout));
+            ParseAudioTitles(segment.AudioTrackLayout),
+            segment.IsDamaged,
+            segment.DamageDetail);
 
         public static MediaCandidate FromProbe(
             FileInfo file,
@@ -194,7 +250,42 @@ public sealed class RecordingLibraryService(
             probe.FrameRate,
             probe.IsHdr,
             existing?.IsProtected ?? false,
-            probe.AudioTrackTitles);
+            probe.AudioTrackTitles,
+            false,
+            null);
+
+        public static MediaCandidate FromDamaged(
+            FileInfo file,
+            RecordingSegment? existing,
+            string detail)
+        {
+            if (existing is not null)
+            {
+                return FromExisting(file, existing) with
+                {
+                    IsDamaged = true,
+                    DamageDetail = detail
+                };
+            }
+
+            return new MediaCandidate(
+                file,
+                Guid.NewGuid(),
+                ParseStartTime(file),
+                TimeSpan.FromSeconds(1),
+                string.Empty,
+                "Damaged recording",
+                "unknown",
+                "unknown",
+                0,
+                0,
+                0,
+                false,
+                false,
+                [],
+                true,
+                detail);
+        }
 
         public RecordingSegment ToSegment(Guid sessionId) => new(
             SegmentId,
@@ -212,7 +303,9 @@ public sealed class RecordingLibraryService(
             IsHdr,
             IsProtected,
             File.FullName,
-            File.Length);
+            File.Length,
+            IsDamaged,
+            DamageDetail);
 
         private static DateTimeOffset ParseStartTime(FileInfo file)
         {

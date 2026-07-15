@@ -17,6 +17,9 @@ public sealed class SessionExportService(
     {
         request.Validate();
         ValidateSession(request.Session);
+        var configuredTracks = AudioTrackSelectionResolver.Resolve(request);
+        ValidateTracks(request.Session, configuredTracks);
+        var wavTracks = configuredTracks.Where(static track => track.ExportAsWav).ToArray();
         progress?.Report(new ExportProgress(ExportStage.Preparing, "Preparing the recording export...", 0));
         var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
             progress?.Report(new ExportProgress(
@@ -24,61 +27,106 @@ public sealed class SessionExportService(
                 update.Message,
                 update.Percent is null ? null : update.Percent * 0.1)));
         var installation = await ffmpegProvisioner.EnsureInstalledAsync(provisionProgress, cancellationToken);
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(request.DestinationPath))
-            ?? throw new InvalidOperationException("The export destination has no parent directory."));
+        var destinationDirectory = Path.GetDirectoryName(Path.GetFullPath(request.DestinationPath))
+            ?? throw new InvalidOperationException("The export destination has no parent directory.");
+        Directory.CreateDirectory(destinationDirectory);
         Directory.CreateDirectory(options.WorkDirectory);
 
-        using var usageLease = usageRegistry.Acquire(request.Session.Segments.Select(static segment => segment.Id).ToArray());
+        using var usageLease = usageRegistry.Acquire(
+            request.Session.Segments.Select(static segment => segment.Id).ToArray());
         var concatPath = FfmpegConcatFile.Create(options.WorkDirectory, request.Session.Segments);
+        var temporaryPaths = new List<string>();
+        var publishedAudioPaths = new List<string>();
         var extension = Path.GetExtension(request.DestinationPath);
-        var temporaryOutputPath = Path.Combine(
-            Path.GetDirectoryName(Path.GetFullPath(request.DestinationPath))!,
-            $"{Path.GetFileNameWithoutExtension(request.DestinationPath)}.partial-{Guid.NewGuid():N}{extension}");
+        var temporaryVideoPath = CreateTemporaryPath(request.DestinationPath, extension);
+        temporaryPaths.Add(temporaryVideoPath);
         try
         {
             var arguments = FfmpegExportArgumentBuilder.Build(
                 request,
                 concatPath,
-                temporaryOutputPath,
+                temporaryVideoPath,
                 out var usesStreamCopy);
             var expectedDuration = request.RangeEnd - request.RangeStart;
+            var videoProgressCeiling = wavTracks.Length == 0 ? 95d : 78d;
             var commandProgress = new Progress<double>(percent =>
                 progress?.Report(new ExportProgress(
                     ExportStage.Exporting,
-                    usesStreamCopy ? "Joining recording segments..." : "Rendering the selected range...",
-                    10 + percent * 0.85)));
+                    usesStreamCopy ? "Joining recording segments..." : "Rendering video and audio tracks...",
+                    10 + percent / 100d * (videoProgressCeiling - 10))));
             await commandRunner.RunAsync(
                 installation.FfmpegPath,
                 arguments,
                 expectedDuration,
                 commandProgress,
                 cancellationToken);
+            EnsureOutput(temporaryVideoPath, "FFmpeg did not produce the exported video.");
 
-            progress?.Report(new ExportProgress(ExportStage.Finalizing, "Finalizing the exported video...", 97));
-            var output = new FileInfo(temporaryOutputPath);
-            if (!output.Exists || output.Length == 0)
+            var wavOutputs = new List<(string Temporary, string Final)>();
+            for (var index = 0; index < wavTracks.Length; index++)
             {
-                throw new InvalidOperationException("FFmpeg did not produce the exported video.");
+                var track = wavTracks[index];
+                var finalPath = CreateAvailableWavPath(request.DestinationPath, track);
+                var temporaryPath = CreateTemporaryPath(finalPath, ".wav");
+                temporaryPaths.Add(temporaryPath);
+                wavOutputs.Add((temporaryPath, finalPath));
+                var trackStart = 78 + index * 17d / wavTracks.Length;
+                var trackSpan = 17d / wavTracks.Length;
+                progress?.Report(new ExportProgress(
+                    ExportStage.Exporting,
+                    $"Exporting {track.Name} WAV...",
+                    trackStart));
+                await commandRunner.RunAsync(
+                    installation.FfmpegPath,
+                    FfmpegAudioExportArgumentBuilder.Build(request, track, concatPath, temporaryPath),
+                    expectedDuration,
+                    new Progress<double>(percent => progress?.Report(new ExportProgress(
+                        ExportStage.Exporting,
+                        $"Exporting {track.Name} WAV...",
+                        trackStart + percent / 100d * trackSpan))),
+                    cancellationToken);
+                EnsureOutput(temporaryPath, $"FFmpeg did not produce the {track.Name} WAV file.");
             }
 
-            File.Move(temporaryOutputPath, request.DestinationPath, true);
-            output = new FileInfo(request.DestinationPath);
+            progress?.Report(new ExportProgress(ExportStage.Finalizing, "Finalizing exported files...", 97));
+            foreach (var wavOutput in wavOutputs)
+            {
+                File.Move(wavOutput.Temporary, wavOutput.Final);
+                publishedAudioPaths.Add(wavOutput.Final);
+            }
+
+            File.Move(temporaryVideoPath, request.DestinationPath, true);
+            var output = new FileInfo(request.DestinationPath);
             progress?.Report(new ExportProgress(ExportStage.Complete, "Export complete.", 100));
             logger.LogInformation(
-                "Exported recording session {RecordingSessionId} to {ExportPath}. StreamCopy={UsedStreamCopy}.",
+                "Exported recording session {RecordingSessionId} to {ExportPath}. StreamCopy={UsedStreamCopy}, WavFiles={WavFileCount}.",
                 request.Session.Id,
                 request.DestinationPath,
-                usesStreamCopy);
+                usesStreamCopy,
+                publishedAudioPaths.Count);
             return new SessionExportResult(
                 request.DestinationPath,
                 expectedDuration,
                 output.Length,
-                usesStreamCopy);
+                usesStreamCopy,
+                publishedAudioPaths);
+        }
+        catch
+        {
+            foreach (var path in publishedAudioPaths)
+            {
+                TryDeleteFile(path);
+            }
+
+            throw;
         }
         finally
         {
             TryDeleteFile(concatPath);
-            TryDeleteFile(temporaryOutputPath);
+            foreach (var path in temporaryPaths)
+            {
+                TryDeleteFile(path);
+            }
         }
     }
 
@@ -87,6 +135,12 @@ public sealed class SessionExportService(
         if (session.HasMissingSegments)
         {
             throw new InvalidOperationException("This recording has a missing segment. Blackbox will not silently skip it.");
+        }
+
+        if (session.HasDamagedSegments)
+        {
+            var detail = session.Segments.First(static segment => segment.IsDamaged).DamageDetail;
+            throw new InvalidOperationException($"This recording contains damaged media: {detail}");
         }
 
         if (session.HasGaps)
@@ -108,6 +162,51 @@ public sealed class SessionExportService(
             !segment.AudioTrackLayout.Equals(first.AudioTrackLayout, StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidOperationException("The recording changes media format between segments and cannot be joined without normalization.");
+        }
+    }
+
+    private static void ValidateTracks(
+        RecordingSession session,
+        IReadOnlyList<AudioTrackExportSelection> tracks)
+    {
+        var availableCount = AudioTrackSelectionResolver.ParseLayout(
+            session.Segments[0].AudioTrackLayout).Count;
+        if (tracks.Any(track => track.StreamIndex >= availableCount))
+        {
+            throw new InvalidOperationException("An export audio selection refers to a track this recording does not contain.");
+        }
+    }
+
+    private static string CreateTemporaryPath(string finalPath, string extension)
+    {
+        return Path.Combine(
+            Path.GetDirectoryName(Path.GetFullPath(finalPath))!,
+            $"{Path.GetFileNameWithoutExtension(finalPath)}.partial-{Guid.NewGuid():N}{extension}");
+    }
+
+    private static string CreateAvailableWavPath(
+        string videoPath,
+        AudioTrackExportSelection track)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var safeName = new string(track.Name.Select(character => invalid.Contains(character) ? '_' : character).ToArray());
+        var directory = Path.GetDirectoryName(Path.GetFullPath(videoPath))!;
+        var baseName = $"{Path.GetFileNameWithoutExtension(videoPath)} - {track.StreamIndex + 1:00} {safeName}";
+        var candidate = Path.Combine(directory, $"{baseName}.wav");
+        for (var suffix = 2; File.Exists(candidate); suffix++)
+        {
+            candidate = Path.Combine(directory, $"{baseName} ({suffix}).wav");
+        }
+
+        return candidate;
+    }
+
+    private static void EnsureOutput(string path, string errorMessage)
+    {
+        var output = new FileInfo(path);
+        if (!output.Exists || output.Length == 0)
+        {
+            throw new InvalidOperationException(errorMessage);
         }
     }
 

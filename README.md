@@ -4,7 +4,7 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 5A Status
+## Milestone 5 Status
 
 Implemented:
 
@@ -32,8 +32,12 @@ Implemented:
 - Startup database initialization and contained UI command failures so feature errors do not terminate the app.
 - Automated coverage for provisioning, connection reuse, protocol responses, repeat setup, recording configuration, storage, protection, and audio models.
 - A recordings library that backfills completed MKV and MP4 files into SQLite and groups compatible adjacent segments into continuous sessions.
+- An integrated timeline with cached thumbnails, a full-mix waveform, continuous seeking, and playback from the cursor.
+- Durable markers and protected ranges plus clear damaged-media and timeline-gap reporting.
 - Continuous playback through an automatically provisioned local FFmpeg toolset.
-- Full-session stream-copy export and accurate selected-range export to one MKV or MP4 while preserving all five named audio tracks.
+- Full-session stream-copy export and accurate selected-range export to one MKV or MP4 while preserving readable isolated audio tracks.
+- Per-track mute, solo, volume, WAV-selection controls, and common export presets.
+- Optional 24-bit PCM WAV export for selected isolated audio tracks.
 - Export progress, cancellation, atomic completion, and source-segment locks that prevent quota deletion during playback and export.
 
 Game and voice-chat audio sources are created during setup, but selecting their exact executable/window is not automatic yet. That binding will be added with game detection and per-game profiles; the current setup probe validates the backend and recording structure.
@@ -60,11 +64,11 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 4. Confirm the status changes to `OBS is installed, configured, and ready.`
 5. Use `Calibrate Mic` to select and tune the microphone.
 6. Use `Start Recording` and `Stop` for recording tests.
-7. Use `Recordings` to browse, play, select a range, and export one continuous video.
+7. Use `Recordings` to browse the visual timeline, play from any cursor position, select a range, mix tracks, and export one continuous video.
 8. Use `Open Folder` when you need direct access to the underlying safe segments.
 
 The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`.
 
-## Current Milestone
+## Next Milestone
 
-Milestone 5A now presents safe segmented recordings as continuous sessions and exports a full session or selected range to one MKV or MP4 file. Milestone 5 remains in progress while the integrated thumbnail, waveform, marker, protected-range, and per-track mixing timeline is built. See `docs/roadmap.md` for the acceptance criteria.
+Milestone 5 is complete. Milestone 6 adds automatic game detection, per-game capture profiles, crash recovery, and recording/export diagnostics. See `docs/roadmap.md` for the acceptance criteria.

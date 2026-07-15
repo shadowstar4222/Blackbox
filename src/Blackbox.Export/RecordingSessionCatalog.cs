@@ -10,7 +10,18 @@ public sealed class RecordingSessionCatalog(ISegmentRepository repository)
         CancellationToken cancellationToken = default)
     {
         var segments = await repository.GetAllAsync(cancellationToken);
-        return Build(segments);
+        var markers = await repository.GetMarkersAsync(cancellationToken);
+        var protectedRanges = await repository.GetProtectedRangesAsync(cancellationToken);
+        return Build(segments)
+            .Select(session => session with
+            {
+                Markers = markers
+                    .Where(marker => marker.SessionId == session.Id && marker.Offset <= session.Duration)
+                    .OrderBy(static marker => marker.Offset)
+                    .ToArray(),
+                ProtectedRanges = GetProtectedRanges(session, protectedRanges)
+            })
+            .ToArray();
     }
 
     internal static IReadOnlyList<RecordingSession> Build(IReadOnlyList<RecordingSegment> segments)
@@ -47,5 +58,29 @@ public sealed class RecordingSessionCatalog(ISegmentRepository repository)
             segments,
             hasGaps,
             segments.Any(static segment => !File.Exists(segment.FilePath)));
+    }
+
+    private static IReadOnlyList<ProtectedTimelineRange> GetProtectedRanges(
+        RecordingSession session,
+        IReadOnlyList<ProtectedTimelineRange> persistedRanges)
+    {
+        var ranges = persistedRanges
+            .Where(range => range.StartTime < session.EndTime && range.EndTime > session.StartTime)
+            .ToList();
+        foreach (var segment in session.Segments.Where(static segment => segment.IsProtected))
+        {
+            if (ranges.Any(range => range.StartTime < segment.EndTime && range.EndTime > segment.StartTime))
+            {
+                continue;
+            }
+
+            ranges.Add(new ProtectedTimelineRange(
+                segment.Id,
+                segment.StartTime,
+                segment.EndTime,
+                segment.StartTime));
+        }
+
+        return ranges.OrderBy(static range => range.StartTime).ToArray();
     }
 }

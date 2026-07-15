@@ -27,8 +27,6 @@
 - Measure room noise, normal voice, and loud voice.
 - Recommend gain and filter thresholds and record a comparison.
 
-## In Progress
-
 ### Milestone 5: Continuous Sessions, Timeline, And One-File Export
 
 The segmented MKV files remain the safe recording format on disk, but the application must hide those boundaries during normal use.
@@ -37,20 +35,22 @@ The segmented MKV files remain the safe recording format on disk, but the applic
 - [x] Provide a recordings library that selects the latest session by default.
 - [x] Play continuously across segment boundaries.
 - [x] Show duration, recording time, segment count, and missing media or timeline gaps without silently skipping them.
-- [ ] Add integrated seeking and scrubbing with thumbnail previews.
-- [ ] Show markers, protected ranges, and damaged-media details on the visual timeline.
-- [ ] Generate thumbnails and audio waveforms asynchronously.
+- [x] Add integrated seeking and scrubbing with thumbnail previews.
+- [x] Show markers, protected ranges, and damaged-media details on the visual timeline.
+- [x] Generate thumbnails and audio waveforms asynchronously and cache them between launches.
 - [x] Support start/end range selection plus a full-session shortcut.
 - [x] Join every compatible segment in the selected range into one output file using FFmpeg.
 - [x] Use stream copy for a full compatible session and re-encode accurately trimmed selections.
 - [x] Preserve synchronization and readable names for the full mix, game, voice chat, raw microphone, and processed microphone tracks.
 - [x] Export one MKV or editor-compatible MP4.
-- [ ] Add optional separate WAV files for chosen audio tracks.
-- [ ] Add track mute, solo, and volume controls plus export presets.
+- [x] Add optional separate WAV files for chosen audio tracks.
+- [x] Add track mute, solo, and volume controls plus export presets.
 - [x] Show export progress, cancellation, completion, and contained failure details.
 - [x] Lock source segments against quota deletion while playback or export is using them.
 
 Milestone 5 is complete only when a multi-segment test session can be viewed as one recording and exported as one playable file with matching duration and synchronized audio.
+
+## Next
 
 ### Milestone 6: Automatic Capture And Recovery
 

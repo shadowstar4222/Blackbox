@@ -12,4 +12,7 @@ public sealed record RecordingSession(
     public TimeSpan Duration => TimeSpan.FromTicks(
         Segments.Sum(static segment => (segment.EndTime - segment.StartTime).Ticks));
     public bool IsProtected => Segments.Any(static segment => segment.IsProtected);
+    public bool HasDamagedSegments => Segments.Any(static segment => segment.IsDamaged);
+    public IReadOnlyList<TimelineMarker> Markers { get; init; } = [];
+    public IReadOnlyList<ProtectedTimelineRange> ProtectedRanges { get; init; } = [];
 }

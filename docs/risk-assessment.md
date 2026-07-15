@@ -12,8 +12,8 @@
 
 - Global hotkeys can conflict with games or overlays.
 - Game detection from foreground process and GPU activity can misclassify launchers.
-- Long-running thumbnail/waveform generation can contend with recording IO.
-- Crash recovery may preserve damaged files that need clear UI labeling.
+- Long-running thumbnail/waveform generation can contend with recording IO or leave stale cache data.
+- Crash recovery may preserve damaged files that require clear UI labeling and repeatable probing.
 - MP4 export compatibility can conflict with multi-track workflows.
 - Downloaded capture backends create supply-chain and partial-installation risks.
 
@@ -34,3 +34,6 @@
 - Download the FFmpeg toolset only over HTTPS, verify the separately published SHA-256 checksum, and install through a unique staging directory.
 - Reject continuous playback and export when a session has missing media, a timeline gap, or incompatible segment formats.
 - Keep playback and export source segments leased against quota deletion, and publish exports only after atomic partial-file completion.
+- Limit generated thumbnails and waveform buckets, key the cache to source size and modification time, and stage new assets atomically.
+- Re-probe stable media during library refresh and keep damaged rows visible with a diagnostic message.
+- Stream-copy video whenever trimming is unnecessary, and transcode only audio when track mixing or volume changes require it.

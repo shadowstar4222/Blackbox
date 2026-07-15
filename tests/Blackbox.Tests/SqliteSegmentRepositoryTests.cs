@@ -72,4 +72,41 @@ public sealed class SqliteSegmentRepositoryTests
 
         Assert.Empty(await repository.GetAllAsync());
     }
+
+    [Fact]
+    public async Task Repository_persists_markers_protected_ranges_and_damaged_media_state()
+    {
+        var database = Path.Combine(Path.GetTempPath(), "blackbox-tests", $"{Guid.NewGuid():N}.db");
+        var repository = new SqliteSegmentRepository(database);
+        await repository.InitializeAsync();
+        var segment = TestSegments.Create("C:\\Recordings\\damaged.mkv") with
+        {
+            IsDamaged = true,
+            DamageDetail = "Container read failed"
+        };
+        await repository.UpsertAsync(segment);
+        var marker = new TimelineMarker(
+            Guid.NewGuid(),
+            segment.SessionId,
+            TimeSpan.FromSeconds(30),
+            "Good play",
+            DateTimeOffset.UtcNow);
+
+        await repository.AddMarkerAsync(marker);
+        await repository.MarkProtectedRangeAsync(
+            segment.StartTime.AddSeconds(10),
+            segment.StartTime.AddSeconds(40));
+
+        var stored = Assert.Single(await repository.GetAllAsync());
+        Assert.True(stored.IsDamaged);
+        Assert.Equal("Container read failed", stored.DamageDetail);
+        Assert.True(stored.IsProtected);
+        Assert.Equal(marker, Assert.Single(await repository.GetMarkersAsync()));
+        var range = Assert.Single(await repository.GetProtectedRangesAsync());
+        Assert.Equal(segment.StartTime.AddSeconds(10), range.StartTime);
+        Assert.Equal(segment.StartTime.AddSeconds(40), range.EndTime);
+
+        await repository.DeleteMarkerAsync(marker.Id);
+        Assert.Empty(await repository.GetMarkersAsync());
+    }
 }

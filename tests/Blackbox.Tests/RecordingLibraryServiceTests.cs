@@ -7,7 +7,7 @@ namespace Blackbox.Tests;
 public sealed class RecordingLibraryServiceTests
 {
     [Fact]
-    public async Task RefreshAsync_indexes_adjacent_files_as_one_continuous_session_and_reuses_metadata()
+    public async Task RefreshAsync_indexes_adjacent_files_and_revalidates_media_health()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -38,8 +38,39 @@ public sealed class RecordingLibraryServiceTests
             Assert.Equal(2, session.Segments.Count);
             Assert.Equal(TimeSpan.FromMinutes(4), session.Duration);
             Assert.Single(secondRefresh);
-            Assert.Equal(2, probe.Calls);
-            Assert.Equal(1, provisioner.Calls);
+            Assert.Equal(4, probe.Calls);
+            Assert.Equal(2, provisioner.Calls);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshAsync_keeps_unreadable_media_visible_as_damaged()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "2026-07-15 12-00-00.mkv");
+        await File.WriteAllTextAsync(path, "damaged");
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddSeconds(-2));
+        try
+        {
+            var repository = new InMemorySegmentRepository();
+            var service = new RecordingLibraryService(
+                repository,
+                new FailingMediaProbe(),
+                new FixedProvisioner(root),
+                new RecordingSessionCatalog(repository),
+                new RecordingSettings { RecordingLocation = root },
+                NullLogger<RecordingLibraryService>.Instance);
+
+            var session = Assert.Single(await service.RefreshAsync());
+
+            Assert.True(session.HasDamagedSegments);
+            Assert.Contains("Unreadable test media", session.Segments[0].DamageDetail);
+            Assert.True(File.Exists(session.Segments[0].FilePath));
         }
         finally
         {
@@ -79,5 +110,13 @@ public sealed class RecordingLibraryServiceTests
             Calls++;
             return Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe", "ffplay"));
         }
+    }
+
+    private sealed class FailingMediaProbe : IMediaProbe
+    {
+        public Task<MediaFileProbeResult> ProbeAsync(
+            string filePath,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidDataException("Unreadable test media.");
     }
 }
