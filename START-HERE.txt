@@ -4,9 +4,10 @@ BLACKBOX MILESTONE 3C TEST BUILD
 2. Double-click Blackbox.App.exe.
 3. Click Setup OBS and wait for the ready message.
 
-The first setup downloads the official OBS Studio Windows x64 portable package,
-verifies it, and stores it under your local Blackbox app-data folder. It may take
-several minutes. Administrator access is not required.
+The first setup checks normal and Steam OBS locations first. If OBS is already
+installed, Blackbox prepares its private runtime from those local files without a
+download. Otherwise, it downloads and verifies the official OBS Studio package.
+Administrator access is not required.
 
 After setup succeeds, use Start Recording and Stop. Recordings and the short setup
 test recording are stored in your Videos\Blackbox folder.

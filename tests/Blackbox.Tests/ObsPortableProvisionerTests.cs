@@ -64,7 +64,54 @@ public sealed class ObsPortableProvisionerTests
         }
     }
 
-    private static ObsPortableProvisioner CreateProvisioner(string testRoot, HttpMessageHandler handler) =>
+    [Fact]
+    public async Task EnsureInstalledAsync_clones_discovered_installation_without_network()
+    {
+        var testRoot = CreateTestRoot();
+        var parentDirectory = Directory.GetParent(testRoot)!.FullName;
+        try
+        {
+            var existingRoot = Path.Combine(parentDirectory, "steam-obs");
+            var executable = Path.Combine(existingRoot, "bin", "64bit", "obs64.exe");
+            var dataFile = Path.Combine(existingRoot, "data", "obs-studio", "locale.ini");
+            var existingConfiguration = Path.Combine(existingRoot, "config", "obs-studio", "user.ini");
+            Directory.CreateDirectory(Path.GetDirectoryName(executable)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(dataFile)!);
+            Directory.CreateDirectory(Path.Combine(existingRoot, "obs-plugins"));
+            Directory.CreateDirectory(Path.GetDirectoryName(existingConfiguration)!);
+            await File.WriteAllTextAsync(executable, "test executable");
+            await File.WriteAllTextAsync(dataFile, "test data");
+            await File.WriteAllTextAsync(existingConfiguration, "existing user settings");
+            var handler = new ReleaseHandler([], string.Empty);
+            var progress = new RecordingProgress();
+            var provisioner = CreateProvisioner(
+                testRoot,
+                handler,
+                new StubInstallationLocator(new ObsInstallation(existingRoot, executable, "steam-test")));
+
+            var installation = await provisioner.EnsureInstalledAsync(progress);
+
+            Assert.Equal("steam-test", installation.Version);
+            Assert.Equal(0, handler.RequestCount);
+            Assert.True(File.Exists(installation.ExecutablePath));
+            Assert.Equal("test data", await File.ReadAllTextAsync(Path.Combine(testRoot, "data", "obs-studio", "locale.ini")));
+            Assert.DoesNotContain(
+                "existing user settings",
+                await File.ReadAllTextAsync(Path.Combine(testRoot, "config", "obs-studio", "user.ini")));
+            Assert.Contains(
+                progress.Updates,
+                static update => update.Stage == ObsSetupStage.CopyingExistingInstallation);
+        }
+        finally
+        {
+            Directory.Delete(parentDirectory, true);
+        }
+    }
+
+    private static ObsPortableProvisioner CreateProvisioner(
+        string testRoot,
+        HttpMessageHandler handler,
+        IObsInstallationLocator? installationLocator = null) =>
         new(
             new HttpClient(handler),
             new ObsProvisioningOptions
@@ -72,6 +119,7 @@ public sealed class ObsPortableProvisionerTests
                 PortableRootDirectory = testRoot,
                 LatestReleaseApiUri = new Uri("https://api.example.test/latest")
             },
+            installationLocator ?? new StubInstallationLocator(null),
             NullLogger<ObsPortableProvisioner>.Instance);
 
     private static string CreateTestRoot() =>
@@ -133,5 +181,10 @@ public sealed class ObsPortableProvisionerTests
         public List<ObsSetupProgress> Updates { get; } = [];
 
         public void Report(ObsSetupProgress value) => Updates.Add(value);
+    }
+
+    private sealed class StubInstallationLocator(ObsInstallation? installation) : IObsInstallationLocator
+    {
+        public ObsInstallation? FindExistingInstallation() => installation;
     }
 }

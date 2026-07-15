@@ -54,6 +54,7 @@ public partial class App : Application
                 services.AddSingleton<ObsConnectionSettingsProvider>();
                 services.AddSingleton<IObsConnectionSettingsProvider>(provider =>
                     provider.GetRequiredService<ObsConnectionSettingsProvider>());
+                services.AddSingleton<IObsInstallationLocator, ObsInstallationLocator>();
                 services.AddSingleton<IObsPortableProvisioner, ObsPortableProvisioner>();
                 services.AddSingleton<IObsWebSocketRpcClient, ObsWebSocketRpcClient>();
                 services.AddSingleton<IObsController, ObsWebSocketController>();

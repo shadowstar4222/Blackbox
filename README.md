@@ -11,7 +11,8 @@ Implemented:
 - Recording coordination, completed-segment discovery, and SQLite metadata from Milestone 1.
 - Quota pruning, missing-file reconciliation, five-minute protection, and the `Ctrl+Shift+F7` hotkey from Milestone 2.
 - Five-track audio routing, processed microphone filters, and microphone level calculations from Milestone 3.
-- One-click portable OBS provisioning from the official OBS GitHub release.
+- One-click OBS provisioning that first detects standard and Steam installations, including secondary Steam libraries.
+- A private portable runtime prepared from local OBS files when available, with the official OBS GitHub release used only as a fallback.
 - SHA-256 package verification when the official release publishes a digest.
 - User-writable portable OBS storage under `%LOCALAPPDATA%\Blackbox\obs-portable`; no administrator access is required.
 - Private localhost websocket authentication on a dynamically selected port.
@@ -43,7 +44,7 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 
 1. Start Blackbox.
 2. Click `Setup OBS`.
-3. Wait while Blackbox downloads, verifies, and starts its private OBS copy.
+3. Wait while Blackbox finds an existing OBS installation or downloads the official package, then starts its private OBS runtime.
 4. Confirm the status changes to `OBS is installed, configured, and ready.`
 5. Use `Start Recording` and `Stop` for recording tests.
 

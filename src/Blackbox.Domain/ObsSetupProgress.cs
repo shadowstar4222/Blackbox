@@ -3,6 +3,7 @@ namespace Blackbox.Domain;
 public enum ObsSetupStage
 {
     CheckingInstallation,
+    CopyingExistingInstallation,
     Downloading,
     Verifying,
     Extracting,

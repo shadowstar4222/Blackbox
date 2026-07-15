@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,6 +12,7 @@ namespace Blackbox.Infrastructure;
 public sealed class ObsPortableProvisioner(
     HttpClient httpClient,
     ObsProvisioningOptions options,
+    IObsInstallationLocator installationLocator,
     ILogger<ObsPortableProvisioner> logger) : IObsPortableProvisioner
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -28,6 +30,12 @@ public sealed class ObsPortableProvisioner(
         {
             PreparePortableConfiguration(options.PortableRootDirectory);
             return new ObsInstallation(options.PortableRootDirectory, executablePath, "installed");
+        }
+
+        var existingInstallation = installationLocator.FindExistingInstallation();
+        if (existingInstallation is not null)
+        {
+            return await CloneExistingInstallationAsync(existingInstallation, progress, cancellationToken);
         }
 
         var release = await GetLatestReleaseAsync(cancellationToken);
@@ -133,6 +141,120 @@ public sealed class ObsPortableProvisioner(
             ?? throw new InvalidDataException("GitHub returned an empty OBS release response.");
     }
 
+    private async Task<ObsInstallation> CloneExistingInstallationAsync(
+        ObsInstallation existingInstallation,
+        IProgress<ObsSetupProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var parentDirectory = Directory.GetParent(options.PortableRootDirectory)?.FullName
+            ?? throw new InvalidOperationException("The OBS portable directory has no parent directory.");
+        Directory.CreateDirectory(parentDirectory);
+        var stagingDirectory = Path.Combine(parentDirectory, $"obs-staging-{Guid.NewGuid():N}");
+
+        try
+        {
+            progress?.Report(new ObsSetupProgress(
+                ObsSetupStage.CopyingExistingInstallation,
+                "Found OBS Studio. Preparing Blackbox from the local installation...",
+                0));
+            var files = Directory
+                .EnumerateFiles(existingInstallation.RootDirectory, "*", SearchOption.AllDirectories)
+                .Where(path => ShouldCloneFile(existingInstallation.RootDirectory, path))
+                .ToArray();
+            var lastPercent = -1;
+            for (var index = 0; index < files.Length; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var sourcePath = files[index];
+                var relativePath = Path.GetRelativePath(existingInstallation.RootDirectory, sourcePath);
+                var destinationPath = Path.Combine(stagingDirectory, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+                if (!TryCreateHardLink(destinationPath, sourcePath))
+                {
+                    await CopyFileAsync(sourcePath, destinationPath, cancellationToken);
+                }
+
+                var percent = files.Length == 0 ? 100 : (index + 1) * 100 / files.Length;
+                if (percent != lastPercent)
+                {
+                    lastPercent = percent;
+                    progress?.Report(new ObsSetupProgress(
+                        ObsSetupStage.CopyingExistingInstallation,
+                        $"Preparing Blackbox from the local OBS installation... {percent}%",
+                        percent));
+                }
+            }
+
+            Directory.Move(stagingDirectory, options.PortableRootDirectory);
+            PreparePortableConfiguration(options.PortableRootDirectory);
+            logger.LogInformation(
+                "Provisioned portable OBS {Version} from existing installation {ExistingRootDirectory}.",
+                existingInstallation.Version,
+                existingInstallation.RootDirectory);
+            return new ObsInstallation(
+                options.PortableRootDirectory,
+                GetExecutablePath(options.PortableRootDirectory),
+                existingInstallation.Version);
+        }
+        finally
+        {
+            TryDeleteDirectory(stagingDirectory);
+        }
+    }
+
+    private static bool ShouldCloneFile(string sourceRoot, string path)
+    {
+        var relativePath = Path.GetRelativePath(sourceRoot, path);
+        var firstSegment = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
+        var fileName = Path.GetFileName(relativePath);
+        return !firstSegment.Equals("config", StringComparison.OrdinalIgnoreCase) &&
+            !fileName.Equals("portable_mode", StringComparison.OrdinalIgnoreCase) &&
+            !fileName.Equals("portable_mode.txt", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryCreateHardLink(string destinationPath, string sourcePath)
+    {
+        if (!OperatingSystem.IsWindows() ||
+            !string.Equals(
+                Path.GetPathRoot(destinationPath),
+                Path.GetPathRoot(sourcePath),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            return CreateHardLink(destinationPath, sourcePath, IntPtr.Zero);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task CopyFileAsync(
+        string sourcePath,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        await using var source = new FileStream(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using var destination = new FileStream(
+            destinationPath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await source.CopyToAsync(destination, cancellationToken);
+    }
+
     private async Task DownloadAsync(
         ObsReleaseAsset asset,
         string destinationPath,
@@ -229,4 +351,11 @@ public sealed class ObsPortableProvisioner(
         [property: JsonPropertyName("browser_download_url")] Uri DownloadUrl,
         [property: JsonPropertyName("digest")] string? Digest,
         [property: JsonPropertyName("size")] long Size);
+
+    [DllImport("Kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateHardLink(
+        string newFileName,
+        string existingFileName,
+        IntPtr securityAttributes);
 }

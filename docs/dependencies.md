@@ -4,8 +4,8 @@
 
 - Windows 10 version 2004, build 19041 or later.
 - .NET 8 Desktop Runtime.
-- OBS Studio with obs-websocket support, provisioned as a private portable copy by Blackbox on first use.
-- Internet access during first-time OBS provisioning.
+- OBS Studio with obs-websocket support, provisioned as a private portable runtime by Blackbox on first use.
+- An existing standard or Steam OBS installation, or internet access for first-time download fallback.
 - FFmpeg for clip export in later milestones.
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
