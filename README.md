@@ -59,3 +59,7 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 7. Use `Open Recordings` to view the resulting files.
 
 The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`.
+
+## Next Milestone
+
+Milestone 5 presents the safe segmented recordings as continuous sessions. It adds seamless playback and scrubbing across segment boundaries plus full-session or selected-range export to one MKV or MP4 file. See `docs/roadmap.md` for the acceptance criteria.

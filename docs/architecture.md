@@ -31,7 +31,9 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 15. Setup records a short probe and succeeds only when OBS returns an output path that exists on disk.
 16. `MicrophoneCalibrationService` captures live OBS meter events, calculates processing recommendations, and persists one device for both microphone paths.
 17. `MicrophoneDeviceMonitor` watches the selected device only while recording, leaves OBS sources alive during disconnects, and reapplies the saved configuration after reconnection.
-18. Later milestones bind detected games to application-audio inputs, browse the timeline, and export segments.
+18. Milestone 5 groups segments into a virtual continuous session for seamless browsing and playback without replacing the interruption-resistant source files.
+19. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 while preserving synchronized isolated audio tracks.
+20. Later milestones bind detected games to application-audio inputs and add crash recovery.
 
 ## Safety Boundaries
 
