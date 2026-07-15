@@ -3,6 +3,7 @@ using Blackbox.Domain;
 using Blackbox.Infrastructure;
 using Blackbox.Recording;
 using Blackbox.Storage;
+using Blackbox.App.Hotkeys;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -35,9 +36,13 @@ public partial class App : Application
                     "Blackbox");
 
                 services.AddSingleton(new RecordingSettings { RecordingLocation = recordingPath });
+                services.AddSingleton<IClock, SystemClock>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(Path.Combine(appData, "blackbox.db")));
                 services.AddSingleton<IObsController, ObsWebSocketController>();
                 services.AddSingleton<RecordingCoordinator>();
+                services.AddSingleton<ProtectionService>();
+                services.AddSingleton<StorageQuotaEnforcer>();
+                services.AddSingleton<GlobalHotkeyService>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

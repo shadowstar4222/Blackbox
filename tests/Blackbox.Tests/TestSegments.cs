@@ -4,9 +4,14 @@ namespace Blackbox.Tests;
 
 internal static class TestSegments
 {
-    public static RecordingSegment Create(string filePath)
+    public static RecordingSegment Create(
+        string filePath,
+        DateTimeOffset? startTime = null,
+        TimeSpan? duration = null,
+        long fileSizeBytes = 1024,
+        bool isProtected = false)
     {
-        var metadata = Metadata();
+        var metadata = Metadata(startTime, duration);
         return new RecordingSegment(
             Guid.NewGuid(),
             metadata.SessionId,
@@ -21,18 +26,18 @@ internal static class TestSegments
             metadata.Height,
             metadata.FrameRate,
             metadata.IsHdr,
-            false,
+            isProtected,
             filePath,
-            1024);
+            fileSizeBytes);
     }
 
-    public static SegmentMetadata Metadata()
+    public static SegmentMetadata Metadata(DateTimeOffset? startTime = null, TimeSpan? duration = null)
     {
-        var start = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var start = startTime ?? DateTimeOffset.UtcNow.AddMinutes(-2);
         return new SegmentMetadata(
             Guid.NewGuid(),
             start,
-            start.AddMinutes(2),
+            start.Add(duration ?? TimeSpan.FromMinutes(2)),
             "game.exe",
             "Test Game",
             "NV12",

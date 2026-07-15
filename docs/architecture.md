@@ -20,14 +20,16 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 4. `IObsController` launches/configures OBS with MKV segmentation.
 5. OBS writes short independent MKV segments.
 6. `SegmentScanner` imports completed stable MKV files into SQLite.
-7. Later milestones protect, prune, browse, and export segments from database state.
+7. `ProtectionService` marks recent overlapping rows as protected when the user presses a protection command.
+8. `StorageQuotaEnforcer` reconciles missing files, then deletes oldest unprotected rows until quota policy is satisfied.
+9. Later milestones browse and export segments from database state.
 
 ## Safety Boundaries
 
 - Blackbox does not inject into Steam, games, or voice-chat processes.
 - OBS interaction is isolated behind `IObsController`.
 - Segment files are imported only after they are stable and non-empty.
-- Deletion logic is not present in Milestone 1; future deletion must validate database state first.
+- Deletion logic validates database state, skips protected footage, and removes a database row only after the file is gone.
 - WPF targets `net8.0-windows` and stays within Windows 10-compatible UI technology.
 
 ## Database

@@ -7,6 +7,7 @@
 - OBS Studio with obs-websocket support.
 - FFmpeg for clip export in later milestones.
 - SQLite via `Microsoft.Data.Sqlite`.
+- Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
 
 ## NuGet
 
@@ -21,7 +22,6 @@
 ## Planned
 
 - obs-websocket client library or a small first-party WebSocket JSON-RPC adapter.
-- Windows global hotkey registration.
 - Windows process/GPU activity discovery.
 - Audio device monitoring.
 - FFmpeg process execution and progress parsing.

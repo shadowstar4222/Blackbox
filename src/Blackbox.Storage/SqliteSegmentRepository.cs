@@ -90,6 +90,45 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         return value is not null;
     }
 
+    public async Task MarkProtectedRangeAsync(DateTimeOffset startTime, DateTimeOffset endTime, CancellationToken cancellationToken = default)
+    {
+        if (endTime <= startTime)
+        {
+            throw new ArgumentException("Protected range end must be after start.", nameof(endTime));
+        }
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE segments
+            SET is_protected = 1
+            WHERE start_time < $end_time AND end_time > $start_time;
+            """;
+        command.Parameters.AddWithValue("$start_time", startTime.ToString("O"));
+        command.Parameters.AddWithValue("$end_time", endTime.ToString("O"));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task DeleteByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM segments WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task ReconcileMissingFilesAsync(CancellationToken cancellationToken = default)
+    {
+        var segments = await GetAllAsync(cancellationToken);
+        foreach (var segment in segments.Where(static segment => !File.Exists(segment.FilePath)))
+        {
+            await DeleteByIdAsync(segment.Id, cancellationToken);
+        }
+    }
+
     private static void AddSegmentParameters(SqliteCommand command, RecordingSegment segment)
     {
         command.Parameters.AddWithValue("$id", segment.Id.ToString());

@@ -30,4 +30,30 @@ internal sealed class InMemorySegmentRepository : ISegmentRepository
     {
         return Task.FromResult(_segments.Any(segment => segment.FilePath == filePath));
     }
+
+    public Task MarkProtectedRangeAsync(DateTimeOffset startTime, DateTimeOffset endTime, CancellationToken cancellationToken = default)
+    {
+        for (var i = 0; i < _segments.Count; i++)
+        {
+            var segment = _segments[i];
+            if (segment.StartTime < endTime && segment.EndTime > startTime)
+            {
+                _segments[i] = segment with { IsProtected = true };
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        _segments.RemoveAll(segment => segment.Id == id);
+        return Task.CompletedTask;
+    }
+
+    public Task ReconcileMissingFilesAsync(CancellationToken cancellationToken = default)
+    {
+        _segments.RemoveAll(segment => !File.Exists(segment.FilePath));
+        return Task.CompletedTask;
+    }
 }

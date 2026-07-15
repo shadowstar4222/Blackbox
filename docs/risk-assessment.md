@@ -24,3 +24,5 @@
 - Add integration tests around reconciliation and quota deletion before Milestone 2 is considered complete.
 - Treat raw microphone as non-destructive input and route processed microphone separately.
 - Log every recording, import, export, and deletion decision with structured context.
+- Keep protected footage immutable to quota pruning unless a future explicit user action unlocks it.
+- Run quota deletion tests against real files so file-system and database state transitions stay paired.
