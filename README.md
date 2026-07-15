@@ -16,6 +16,7 @@ Implemented:
 - SHA-256 package verification when the official release publishes a digest.
 - User-writable portable OBS storage under `%LOCALAPPDATA%\Blackbox\obs-portable`; no administrator access is required.
 - Private localhost websocket authentication on a dynamically selected port.
+- Automatic websocket-server enablement and repair before each private OBS launch.
 - Persisted connection settings so a running Blackbox OBS instance is reused after an app restart.
 - Idempotent creation of the Blackbox profile, scene collection, scene, sources, filters, and track assignments.
 - OBS response validation with readable per-request failure messages.

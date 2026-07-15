@@ -42,4 +42,5 @@ The isolated game and voice-chat sources do not yet select a process automatical
 - A failed package checksum stops extraction and reports a verification error.
 - A missing OBS source or filter type is reported by name.
 - A rejected websocket operation reports the OBS request name, status code, and comment.
+- If OBS starts but cannot become ready, confirm `plugin_config\obs-websocket\config.json` has `server_enabled` set to `true`; Blackbox rewrites this setting before every launch.
 - Delete only `%LOCALAPPDATA%\Blackbox\obs-portable` when intentionally forcing clean provisioning. Blackbox will check local OBS installations again before using the download fallback. Keep recording files and `blackbox.db` intact.

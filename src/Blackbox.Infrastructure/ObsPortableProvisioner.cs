@@ -104,6 +104,7 @@ public sealed class ObsPortableProvisioner(
             throw new FileNotFoundException("The Blackbox OBS executable is missing.", installation.ExecutablePath);
         }
 
+        ObsWebSocketConfigurationWriter.Write(installation.RootDirectory, connectionSettings);
         var startInfo = new ProcessStartInfo
         {
             FileName = installation.ExecutablePath,
