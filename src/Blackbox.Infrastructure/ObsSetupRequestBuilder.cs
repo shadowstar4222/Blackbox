@@ -5,58 +5,31 @@ namespace Blackbox.Infrastructure;
 
 public sealed class ObsSetupRequestBuilder
 {
-    public IReadOnlyList<ObsRequest> BuildSetupRequests(ObsSetupPlan plan)
+    public IReadOnlyList<ObsRequest> BuildRecordingConfigurationRequests(string recordingDirectory, int segmentMinutes)
     {
-        plan.Validate();
-        var requests = new List<ObsRequest>
+        if (string.IsNullOrWhiteSpace(recordingDirectory))
         {
-            new("CreateProfile", new JsonObject { ["profileName"] = plan.ProfileName }),
-            new("SetCurrentProfile", new JsonObject { ["profileName"] = plan.ProfileName }),
-            new("CreateSceneCollection", new JsonObject { ["sceneCollectionName"] = plan.SceneCollectionName }),
-            new("SetCurrentSceneCollection", new JsonObject { ["sceneCollectionName"] = plan.SceneCollectionName }),
-            new("SetRecordDirectory", new JsonObject { ["recordDirectory"] = plan.RecordingDirectory }),
-            new("CreateScene", new JsonObject { ["sceneName"] = plan.SceneName })
-        };
-
-        foreach (var source in plan.Sources)
-        {
-            requests.Add(new ObsRequest("CreateInput", new JsonObject
-            {
-                ["sceneName"] = plan.SceneName,
-                ["inputName"] = source.Name,
-                ["inputKind"] = source.Kind,
-                ["inputSettings"] = ToJsonObject(source.Settings),
-                ["sceneItemEnabled"] = true
-            }));
-
-            if (source.AudioCategory is not null)
-            {
-                requests.Add(new ObsRequest("SetInputAudioTracks", new JsonObject
-                {
-                    ["inputName"] = source.Name,
-                    ["inputAudioTracks"] = BuildTrackMap(plan.AudioRoutingProfile, source.AudioCategory.Value)
-                }));
-            }
+            throw new InvalidOperationException("Recording directory is required.");
         }
 
-        foreach (var filter in plan.Filters)
+        if (segmentMinutes is < 1 or > 10)
         {
-            requests.Add(new ObsRequest("CreateSourceFilter", new JsonObject
-            {
-                ["sourceName"] = filter.SourceName,
-                ["filterName"] = filter.Name,
-                ["filterKind"] = filter.Kind,
-                ["filterSettings"] = ToJsonObject(filter.Settings)
-            }));
+            throw new InvalidOperationException("Segment duration must be between 1 and 10 minutes.");
         }
 
-        requests.Add(new ObsRequest("SetCurrentProgramScene", new JsonObject { ["sceneName"] = plan.SceneName }));
-        return requests;
-    }
-
-    public IReadOnlyList<ObsRequest> BuildRecordingConfigurationRequests(string recordingDirectory)
-    {
-        return [new ObsRequest("SetRecordDirectory", new JsonObject { ["recordDirectory"] = recordingDirectory })];
+        return
+        [
+            new ObsRequest("SetRecordDirectory", new JsonObject { ["recordDirectory"] = recordingDirectory }),
+            ProfileParameter("Output", "Mode", "Advanced"),
+            ProfileParameter("AdvOut", "RecType", "Standard"),
+            ProfileParameter("AdvOut", "RecFilePath", recordingDirectory),
+            ProfileParameter("AdvOut", "RecFormat2", "mkv"),
+            ProfileParameter("AdvOut", "RecTracks", "31"),
+            ProfileParameter("AdvOut", "RecSplitFile", "true"),
+            ProfileParameter("AdvOut", "RecSplitFileType", "Time"),
+            ProfileParameter("AdvOut", "RecSplitFileTime", segmentMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Audio", "SampleRate", "48000")
+        ];
     }
 
     public IReadOnlyList<ObsRequest> BuildAudioRequests(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings)
@@ -64,6 +37,7 @@ public sealed class ObsSetupRequestBuilder
         profile.Validate();
         microphoneSettings.Validate();
         return profile.Tracks
+            .Where(static track => track.Category != AudioCategory.FullMix)
             .Select(track => new ObsRequest("SetInputAudioTracks", new JsonObject
             {
                 ["inputName"] = SourceNameFor(track.Category),
@@ -77,21 +51,11 @@ public sealed class ObsSetupRequestBuilder
         var tracks = new JsonObject();
         foreach (var track in profile.Tracks)
         {
-            tracks[$"{track.TrackNumber}"] = track.Category == category || track.Category == AudioCategory.FullMix;
+            tracks[$"{track.TrackNumber}"] = track.Category == category ||
+                (track.Category == AudioCategory.FullMix && category != AudioCategory.RawMicrophone);
         }
 
         return tracks;
-    }
-
-    private static JsonObject ToJsonObject(IReadOnlyDictionary<string, string> settings)
-    {
-        var json = new JsonObject();
-        foreach (var (key, value) in settings)
-        {
-            json[key] = value;
-        }
-
-        return json;
     }
 
     private static string SourceNameFor(AudioCategory category)
@@ -105,4 +69,12 @@ public sealed class ObsSetupRequestBuilder
             _ => "Blackbox Full Mix"
         };
     }
+
+    private static ObsRequest ProfileParameter(string category, string name, string value) =>
+        new("SetProfileParameter", new JsonObject
+        {
+            ["parameterCategory"] = category,
+            ["parameterName"] = name,
+            ["parameterValue"] = value
+        });
 }

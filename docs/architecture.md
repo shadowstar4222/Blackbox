@@ -23,14 +23,19 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 7. `ProtectionService` marks recent overlapping rows as protected when the user presses a protection command.
 8. `StorageQuotaEnforcer` reconciles missing files, then deletes oldest unprotected rows until quota policy is satisfied.
 9. `AudioConfigurationService` validates isolated app audio assignments and microphone processing before forwarding them to OBS.
-10. `ObsAutoSetupService` builds a setup plan and sends it to the OBS controller after connection validation.
-11. `ObsWebSocketRpcClient` identifies with obs-websocket v5, sends setup batches, and sends recording commands.
-12. Later milestones browse and export segments from database state.
+10. `ObsPortableProvisioner` downloads, verifies, extracts, and launches a user-writable portable OBS copy when one is not already available.
+11. `ObsAutoSetupService` reuses a running private connection when possible, otherwise creates a private localhost websocket connection and launches OBS.
+12. `ObsWebSocketController` creates or reuses the Blackbox OBS resources and configures MKV splitting, five tracks, and 48 kHz audio.
+13. `ObsWebSocketRpcClient` identifies with obs-websocket v5 and validates every single or batched response.
+14. Setup records a short probe and succeeds only when OBS returns an output path that exists on disk.
+15. Later milestones bind detected games to application-audio inputs, browse the timeline, and export segments.
 
 ## Safety Boundaries
 
 - Blackbox does not inject into Steam, games, or voice-chat processes.
 - OBS interaction is isolated behind `IObsController`.
+- Portable OBS is stored under Blackbox app data and does not modify the user's normal OBS profile.
+- OBS release archives use HTTPS and are checked against the release SHA-256 digest when one is published.
 - Segment files are imported only after they are stable and non-empty.
 - Deletion logic validates database state, skips protected footage, and removes a database row only after the file is gone.
 - WPF targets `net8.0-windows` and stays within Windows 10-compatible UI technology.

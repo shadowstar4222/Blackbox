@@ -1,3 +1,5 @@
+using System.IO;
+using System.Net.Http;
 using System.Windows;
 using Blackbox.Domain;
 using Blackbox.Infrastructure;
@@ -36,9 +38,23 @@ public partial class App : Application
                     "Blackbox");
 
                 services.AddSingleton(new RecordingSettings { RecordingLocation = recordingPath });
+                services.AddSingleton(new ObsProvisioningOptions
+                {
+                    PortableRootDirectory = Path.Combine(appData, "obs-portable"),
+                    ConnectionSettingsPath = Path.Combine(appData, "obs-connection.json")
+                });
+                services.AddSingleton(new ObsOnboardingOptions());
+                services.AddSingleton(new HttpClient
+                {
+                    Timeout = TimeSpan.FromMinutes(20)
+                });
                 services.AddSingleton<IClock, SystemClock>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(Path.Combine(appData, "blackbox.db")));
                 services.AddSingleton<ObsSetupRequestBuilder>();
+                services.AddSingleton<ObsConnectionSettingsProvider>();
+                services.AddSingleton<IObsConnectionSettingsProvider>(provider =>
+                    provider.GetRequiredService<ObsConnectionSettingsProvider>());
+                services.AddSingleton<IObsPortableProvisioner, ObsPortableProvisioner>();
                 services.AddSingleton<IObsWebSocketRpcClient, ObsWebSocketRpcClient>();
                 services.AddSingleton<IObsController, ObsWebSocketController>();
                 services.AddSingleton<RecordingCoordinator>();

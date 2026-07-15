@@ -27,45 +27,79 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
         }
     }
 
-    public async Task SendRequestAsync(ObsConnectionSettings settings, ObsRequest request, CancellationToken cancellationToken = default)
+    public async Task<ObsResponse> SendRequestAsync(
+        ObsConnectionSettings settings,
+        ObsRequest request,
+        CancellationToken cancellationToken = default)
     {
-        await SendBatchAsync(settings, [request], cancellationToken);
+        settings.Validate();
+        await using var session = await ObsWebSocketSession.ConnectAsync(settings, cancellationToken);
+        var requestId = Guid.NewGuid().ToString("N");
+        var payload = new JsonObject
+        {
+            ["op"] = 6,
+            ["d"] = BuildRequestData(request, requestId)
+        };
+
+        await session.SendAsync(payload, cancellationToken);
+        var responsePayload = await session.ReceiveForRequestAsync(7, requestId, cancellationToken);
+        var response = ObsProtocolParser.ParseResponse(responsePayload["d"]?.AsObject()
+            ?? throw new InvalidOperationException("OBS returned an invalid request response."));
+        ObsProtocolParser.EnsureSuccessful([response]);
+        return response;
     }
 
-    public async Task SendBatchAsync(ObsConnectionSettings settings, IReadOnlyList<ObsRequest> requests, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ObsResponse>> SendBatchAsync(
+        ObsConnectionSettings settings,
+        IReadOnlyList<ObsRequest> requests,
+        CancellationToken cancellationToken = default)
     {
         settings.Validate();
         if (requests.Count == 0)
         {
-            return;
+            return [];
         }
 
         await using var session = await ObsWebSocketSession.ConnectAsync(settings, cancellationToken);
         var requestBatch = new JsonArray();
         foreach (var request in requests)
         {
-            requestBatch.Add(new JsonObject
-            {
-                ["requestType"] = request.RequestType,
-                ["requestId"] = Guid.NewGuid().ToString("N"),
-                ["requestData"] = request.RequestData?.DeepClone()
-            });
+            requestBatch.Add(BuildRequestData(request, Guid.NewGuid().ToString("N")));
         }
 
+        var batchRequestId = Guid.NewGuid().ToString("N");
         var payload = new JsonObject
         {
             ["op"] = 8,
             ["d"] = new JsonObject
             {
-                ["requestId"] = Guid.NewGuid().ToString("N"),
+                ["requestId"] = batchRequestId,
                 ["haltOnFailure"] = false,
+                ["executionType"] = 0,
                 ["requests"] = requestBatch
             }
         };
 
         await session.SendAsync(payload, cancellationToken);
-        logger.LogInformation("Sent OBS websocket batch containing {RequestCount} request(s).", requests.Count);
+        var responsePayload = await session.ReceiveForRequestAsync(9, batchRequestId, cancellationToken);
+        var resultNodes = responsePayload["d"]?["results"]?.AsArray()
+            ?? throw new InvalidOperationException("OBS returned an invalid batch response.");
+        var responses = resultNodes
+            .Select(static node => ObsProtocolParser.ParseResponse(node?.AsObject()
+                ?? throw new InvalidOperationException("OBS returned an invalid result in a batch response.")))
+            .ToArray();
+
+        ObsProtocolParser.EnsureSuccessful(responses);
+        logger.LogInformation("OBS accepted a websocket batch containing {RequestCount} request(s).", requests.Count);
+        return responses;
     }
+
+    private static JsonObject BuildRequestData(ObsRequest request, string requestId) => new()
+    {
+        ["requestType"] = request.RequestType,
+        ["requestId"] = requestId,
+        ["requestData"] = request.RequestData?.DeepClone()
+    };
 
     private sealed class ObsWebSocketSession : IAsyncDisposable
     {
@@ -109,6 +143,22 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
             _socket.Dispose();
         }
 
+        public async Task<JsonObject> ReceiveForRequestAsync(
+            int expectedOpCode,
+            string requestId,
+            CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                var payload = await ReceiveAsync(cancellationToken);
+                if (payload["op"]?.GetValue<int>() == expectedOpCode &&
+                    payload["d"]?["requestId"]?.GetValue<string>() == requestId)
+                {
+                    return payload;
+                }
+            }
+        }
+
         private async Task<JsonObject> ReceiveAsync(CancellationToken cancellationToken)
         {
             var buffer = new byte[8192];
@@ -119,7 +169,7 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
                 result = await _socket.ReceiveAsync(buffer, cancellationToken);
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    throw new IOException("OBS websocket closed the connection.");
+                    throw new IOException($"OBS websocket closed the connection: {result.CloseStatusDescription ?? "no reason provided"}.");
                 }
 
                 stream.Write(buffer, 0, result.Count);

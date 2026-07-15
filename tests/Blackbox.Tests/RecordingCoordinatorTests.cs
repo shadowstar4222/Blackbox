@@ -62,10 +62,10 @@ public sealed class RecordingCoordinatorTests
             return Task.CompletedTask;
         }
 
-        public Task StopRecordingAsync(CancellationToken cancellationToken = default)
+        public Task<string?> StopRecordingAsync(CancellationToken cancellationToken = default)
         {
             Calls.Add("Stop");
-            return Task.CompletedTask;
+            return Task.FromResult<string?>(null);
         }
     }
 }

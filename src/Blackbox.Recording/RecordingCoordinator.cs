@@ -27,9 +27,9 @@ public sealed class RecordingCoordinator(
         logger.LogInformation("Blackbox recording started with {SegmentDurationMinutes}-minute segments.", settings.SegmentDurationMinutes);
     }
 
-    public Task StopAsync(CancellationToken cancellationToken = default)
+    public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Blackbox recording stop requested.");
-        return obsController.StopRecordingAsync(cancellationToken);
+        await obsController.StopRecordingAsync(cancellationToken);
     }
 }

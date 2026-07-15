@@ -4,32 +4,26 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 3 Status
+## Milestone 3C Status
 
 Implemented:
 
-- Solution structure split into app, domain, infrastructure, recording, storage, export, and test projects.
-- WPF shell with start/stop recording controls.
-- OBS controller abstraction and placeholder `ObsWebSocketController` for a dedicated portable OBS profile.
-- Recording coordinator that validates settings, initializes SQLite, configures segmented recording, and starts/stops OBS.
-- SQLite segment repository for completed segment metadata.
-- Completed MKV segment scanner that imports stable segment files once.
-- Storage quota settings for maximum storage, maximum retained duration, recording location, and minimum free space.
-- Storage pruning service that deletes oldest unprotected segments first.
-- Database/file reconciliation when segment files are manually deleted outside the app.
-- Five-minute protection service that marks overlapping existing segments without re-encoding.
-- WPF actions for protecting the previous five minutes and applying quotas.
-- Windows 10-compatible global hotkey registration for protecting the previous five minutes with `Ctrl+Shift+F7`.
-- Audio routing profile for full mix, game, voice chat, raw microphone, and processed microphone tracks.
-- Executable-name audio assignment model for isolated application categories.
-- Microphone processing settings for noise suppression, expander, compressor, and limiter controls.
-- Microphone level meter calculations for peak and RMS dBFS snapshots.
-- OBS audio configuration boundary connected to the recording start pipeline and WPF `Apply Audio` action.
-- Automatic OBS setup milestone foundation with OBS connection settings, setup plan generation, and WPF `Setup OBS` action.
-- OBS websocket RPC client with v5 identify/auth handling and request batching for setup, recording, and audio commands.
-- Automated unit/integration tests for settings, coordinator sequencing, SQLite persistence, segment scanning, quota pruning, protection, audio routing, microphone filters, and level metering.
+- Recording coordination, completed-segment discovery, and SQLite metadata from Milestone 1.
+- Quota pruning, missing-file reconciliation, five-minute protection, and the `Ctrl+Shift+F7` hotkey from Milestone 2.
+- Five-track audio routing, processed microphone filters, and microphone level calculations from Milestone 3.
+- One-click portable OBS provisioning from the official OBS GitHub release.
+- SHA-256 package verification when the official release publishes a digest.
+- User-writable portable OBS storage under `%LOCALAPPDATA%\Blackbox\obs-portable`; no administrator access is required.
+- Private localhost websocket authentication on a dynamically selected port.
+- Persisted connection settings so a running Blackbox OBS instance is reused after an app restart.
+- Idempotent creation of the Blackbox profile, scene collection, scene, sources, filters, and track assignments.
+- OBS response validation with readable per-request failure messages.
+- MKV recording, tracks 1 through 5, 48 kHz audio, and time-based file splitting configuration.
+- A short first-run recording probe that must produce a real output file before setup succeeds.
+- WPF setup progress and recording controls that remain disabled until OBS passes setup.
+- Automated coverage for provisioning, connection reuse, protocol responses, repeat setup, recording configuration, storage, protection, and audio models.
 
-The concrete obs-websocket protocol calls are intentionally isolated behind `IObsController`; replacing the placeholder adapter is the next Milestone 1 hardening task before real capture use.
+Game and voice-chat audio sources are created during setup, but selecting their exact executable/window is not automatic yet. That binding will be added with game detection and per-game profiles; the current setup probe validates the backend and recording structure.
 
 ## Build
 
@@ -45,28 +39,12 @@ Run the WPF app:
 dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 ```
 
-OBS setup for manual testing is documented in `docs/obs-test-setup.md`.
+## First Run
 
-## Manual Test Procedure: Milestone 3
+1. Start Blackbox.
+2. Click `Setup OBS`.
+3. Wait while Blackbox downloads, verifies, and starts its private OBS copy.
+4. Confirm the status changes to `OBS is installed, configured, and ready.`
+5. Use `Start Recording` and `Stop` for recording tests.
 
-1. Install OBS Studio on Windows 10 build 19041 or later.
-2. Create a dedicated portable OBS directory for Blackbox.
-3. Build the solution with `dotnet build`.
-4. Run `dotnet test` and confirm all tests pass.
-5. Start the WPF app.
-6. Press `Start Recording`.
-7. Confirm `%LOCALAPPDATA%\Blackbox\blackbox.db` is created.
-8. Confirm `%USERPROFILE%\Videos\Blackbox` is created.
-9. Press `Stop`.
-10. Review `%LOCALAPPDATA%\Blackbox\logs` for structured start/stop records.
-11. Add test segment rows through the repository tests or a local harness.
-12. Press `Protect 5 Min` or `Ctrl+Shift+F7` and confirm overlapping segment rows have `is_protected = 1`.
-13. Press `Apply Quotas` and confirm oldest unprotected files are deleted before newer or protected files.
-14. Manually remove a known segment file, apply quotas, and confirm the missing row is reconciled from SQLite.
-15. Follow `docs/obs-test-setup.md` to enable OBS websocket.
-16. Press `Setup OBS` and confirm the app validates the Blackbox setup plan.
-17. Press `Apply Audio` and confirm the app validates the Blackbox five-track routing profile.
-18. In OBS, confirm track 1 is the full mix, track 2 game audio, track 3 voice chat, track 4 raw microphone, and track 5 processed microphone.
-19. Confirm the raw microphone source has no destructive filters and the processed microphone source has noise suppression, expander, compressor, and limiter.
-
-The websocket transport is implemented, but OBS request names/source kinds may still need adjustment against the exact OBS version and plugins installed on your machine.
+The complete Milestone 3C manual procedure and troubleshooting steps are in `docs/obs-test-setup.md`.

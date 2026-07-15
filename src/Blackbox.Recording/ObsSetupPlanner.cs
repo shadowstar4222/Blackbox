@@ -19,14 +19,8 @@ public sealed class ObsSetupPlanner
             Sources =
             [
                 new ObsSourcePlan("Blackbox Game Capture", "game_capture", AudioCategory.Game, new Dictionary<string, string>()),
-                new ObsSourcePlan("Blackbox Game Audio", "wasapi_process_output_capture", AudioCategory.Game, new Dictionary<string, string>
-                {
-                    ["executable"] = "{game_executable}"
-                }),
-                new ObsSourcePlan("Blackbox Voice Chat", "wasapi_process_output_capture", AudioCategory.VoiceChat, new Dictionary<string, string>
-                {
-                    ["executable"] = "Discord.exe"
-                }),
+                new ObsSourcePlan("Blackbox Game Audio", "wasapi_process_output_capture", AudioCategory.Game, new Dictionary<string, string>()),
+                new ObsSourcePlan("Blackbox Voice Chat", "wasapi_process_output_capture", AudioCategory.VoiceChat, new Dictionary<string, string>()),
                 new ObsSourcePlan("Blackbox Raw Microphone", "wasapi_input_capture", AudioCategory.RawMicrophone, new Dictionary<string, string>()),
                 new ObsSourcePlan("Blackbox Processed Microphone", "wasapi_input_capture", AudioCategory.ProcessedMicrophone, new Dictionary<string, string>())
             ],

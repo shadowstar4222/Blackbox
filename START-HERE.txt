@@ -1,0 +1,21 @@
+BLACKBOX MILESTONE 3C TEST BUILD
+
+1. Extract the entire ZIP to a normal folder.
+2. Double-click Blackbox.App.exe.
+3. Click Setup OBS and wait for the ready message.
+
+The first setup downloads the official OBS Studio Windows x64 portable package,
+verifies it, and stores it under your local Blackbox app-data folder. It may take
+several minutes. Administrator access is not required.
+
+After setup succeeds, use Start Recording and Stop. Recordings and the short setup
+test recording are stored in your Videos\Blackbox folder.
+
+CURRENT LIMITATION
+
+Blackbox creates the isolated game and voice-chat audio sources, but does not yet
+choose their executable automatically. That is part of the upcoming game-profile
+work. The setup check currently validates OBS launch, recording, file output,
+sources, filters, and audio-track layout.
+
+Logs: %LOCALAPPDATA%\Blackbox\logs

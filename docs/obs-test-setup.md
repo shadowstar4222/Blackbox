@@ -1,55 +1,44 @@
-# OBS Test Setup
+# Milestone 3C Manual Test
 
-Use this when you are ready to test Blackbox against OBS.
+This procedure tests one-click OBS onboarding. Do not install or configure OBS manually first.
 
-## OBS Requirements
+## Prerequisites
 
 - Windows 10 version 2004/build 19041 or later.
-- OBS Studio 28 or later for built-in Application Audio Capture on Windows.
-- OBS Studio with obs-websocket 5.x enabled. Current OBS builds expose this under `Tools > WebSocket Server Settings`; the default websocket port is `4455`.
+- An internet connection for the first setup.
+- At least 1 GB of temporary free disk space for the OBS archive, extraction, and portable copy.
+- A microphone if microphone source/filter behavior will be checked.
 
-## Recommended OBS Profile
+## Procedure
 
-1. Open OBS.
-2. Create a dedicated profile named `Blackbox`.
-3. Create a dedicated scene collection named `Blackbox`.
-4. In `Settings > Output > Recording`, choose:
-   - Recording format: `mkv`
-   - Encoder: your preferred hardware encoder, such as NVENC, AMF, Quick Sync, or x264
-   - Audio tracks: enable tracks `1` through `5`
-5. In `Settings > Audio`, disable global desktop audio when testing isolated application sources.
+1. Run `dotnet build`.
+2. Run `dotnet test` and confirm every test passes.
+3. Run `dotnet run --project src\Blackbox.App\Blackbox.App.csproj`.
+4. Confirm `Start Recording` and `Apply Audio` are disabled before setup.
+5. Click `Setup OBS` once.
+6. Confirm the status moves through download, verification, extraction, launch, connection, configuration, and recording-check stages.
+7. Confirm the final status is `OBS is installed, configured, and ready.`
+8. Confirm `%LOCALAPPDATA%\Blackbox\obs-portable\bin\64bit\obs64.exe` exists.
+9. Confirm `%LOCALAPPDATA%\Blackbox\obs-portable\portable_mode.txt` exists.
+10. Confirm a short MKV probe recording exists under `%USERPROFILE%\Videos\Blackbox`.
+11. Confirm `Start Recording` and `Apply Audio` are enabled.
+12. Click `Setup OBS` again and confirm it reuses the running backend without downloading another copy or failing on existing resources.
+13. Click `Start Recording`, wait at least five seconds, and click `Stop`.
+14. Confirm a new MKV file appears under `%USERPROFILE%\Videos\Blackbox`.
+15. Open the private OBS window and confirm the `Blackbox` profile, `Blackbox` scene collection, and `Blackbox Recording` scene exist.
+16. Confirm the scene contains game capture, game audio, voice chat, raw microphone, and processed microphone sources.
+17. Confirm only the processed microphone has noise suppression, expander, compressor, and limiter filters.
+18. Confirm track 2 is game audio, track 3 is voice chat, track 4 is raw microphone, and track 5 is processed microphone. The processed microphone also contributes to track 1.
+19. Confirm the OBS recording profile uses MKV, 48 kHz audio, tracks 1 through 5, and time-based splitting at the configured segment duration.
 
-## Sources To Add Manually For Testing
+## Expected Limitation
 
-1. Add a Game Capture or Window Capture source for your game.
-2. Add `Application Audio Capture (BETA)` for the game process.
-3. Add `Application Audio Capture (BETA)` for Discord or your voice-chat app.
-4. Add your microphone once as the raw microphone source.
-5. Duplicate the microphone as a separate processed microphone source.
-6. On the processed microphone source, add filters in this order:
-   - Noise suppression
-   - Expander
-   - Compressor
-   - Limiter
+The isolated game and voice-chat sources do not yet select a process automatically. Their exact executable/window binding will be supplied by game detection and per-game profiles. Until then, the recording probe proves OBS startup, encoding, file output, source creation, filters, and track layout; it does not prove isolated game or Discord audio content.
 
-## Track Assignments
+## Troubleshooting
 
-- Track 1: full listening mix
-- Track 2: game audio
-- Track 3: voice chat
-- Track 4: raw microphone
-- Track 5: processed microphone
-
-Keep the raw microphone source free of destructive gating. Apply filters only to the processed microphone path.
-
-## Blackbox App Testing
-
-1. Build with `dotnet build`.
-2. Run with `dotnet run --project src\Blackbox.App\Blackbox.App.csproj`.
-3. Click `Setup OBS` to validate the default websocket connection and apply the Blackbox OBS setup plan.
-4. Click `Apply Audio` to validate the Blackbox audio profile and send it through the current OBS controller boundary.
-5. Click `Start Recording` to exercise the Blackbox start pipeline.
-6. Use `Protect 5 Min` or `Ctrl+Shift+F7` to mark recent footage in the database.
-7. Use `Apply Quotas` to test pruning behavior.
-
-`ObsWebSocketController` now sends real OBS websocket requests. If `Setup OBS` fails, check that OBS is running, websocket is enabled, the port is `4455`, and the OBS source kinds used by your installed OBS build match Blackbox's setup plan.
+- Setup logs are written to `%LOCALAPPDATA%\Blackbox\logs`.
+- A failed package checksum stops extraction and reports a verification error.
+- A missing OBS source or filter type is reported by name.
+- A rejected websocket operation reports the OBS request name, status code, and comment.
+- Delete only `%LOCALAPPDATA%\Blackbox\obs-portable` when intentionally forcing a clean OBS download. Keep recording files and `blackbox.db` intact.

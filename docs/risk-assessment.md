@@ -15,6 +15,7 @@
 - Long-running thumbnail/waveform generation can contend with recording IO.
 - Crash recovery may preserve damaged files that need clear UI labeling.
 - MP4 export compatibility can conflict with multi-track workflows.
+- Downloaded capture backends create supply-chain and partial-installation risks.
 
 ## Mitigations
 
@@ -26,3 +27,5 @@
 - Log every recording, import, export, and deletion decision with structured context.
 - Keep protected footage immutable to quota pruning unless a future explicit user action unlocks it.
 - Run quota deletion tests against real files so file-system and database state transitions stay paired.
+- Download OBS only over HTTPS, validate its published SHA-256 digest, extract through a staging directory, and keep the private copy outside Program Files.
+- Validate every OBS websocket response and make setup repeatable without recreating existing resources.

@@ -85,8 +85,35 @@ public partial class MainWindow : Window
 
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
     {
-        var result = await _obsAutoSetupService.SetupAsync(new ObsConnectionSettings(), _settings);
-        StatusText.Text = result.Message;
+        ObsSetupButton.IsEnabled = false;
+        StartButton.IsEnabled = false;
+        AudioButton.IsEnabled = false;
+        SetupProgressBar.Visibility = Visibility.Visible;
+        SetupProgressBar.IsIndeterminate = true;
+
+        var progress = new Progress<ObsSetupProgress>(update =>
+        {
+            StatusText.Text = update.Message;
+            SetupProgressBar.IsIndeterminate = update.Percent is null;
+            if (update.Percent is not null)
+            {
+                SetupProgressBar.Value = update.Percent.Value;
+            }
+        });
+
+        try
+        {
+            var result = await _obsAutoSetupService.SetupAsync(_settings, progress);
+            StatusText.Text = result.Message;
+            StartButton.IsEnabled = result.IsSuccessful;
+            AudioButton.IsEnabled = result.IsSuccessful;
+            ObsSetupButton.Content = result.IsSuccessful ? "Check OBS" : "Retry OBS Setup";
+        }
+        finally
+        {
+            ObsSetupButton.IsEnabled = true;
+            SetupProgressBar.Visibility = Visibility.Collapsed;
+        }
     }
 
     private async Task ProtectLastFiveMinutesAsync()
