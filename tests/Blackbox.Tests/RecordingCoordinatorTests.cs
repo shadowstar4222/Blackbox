@@ -18,7 +18,7 @@ public sealed class RecordingCoordinatorTests
         await coordinator.StartAsync(new RecordingSettings { RecordingLocation = root, SegmentDurationMinutes = 2 });
 
         Assert.True(repository.Initialized);
-        Assert.Equal(["Launch", "Configure:2", "Start"], obs.Calls);
+        Assert.Equal(["Launch", "Configure:2", "ConfigureAudio:5", "Start"], obs.Calls);
         Assert.True(Directory.Exists(root));
     }
 
@@ -35,6 +35,12 @@ public sealed class RecordingCoordinatorTests
         public Task ConfigureSegmentedRecordingAsync(string recordingDirectory, int segmentMinutes, CancellationToken cancellationToken = default)
         {
             Calls.Add($"Configure:{segmentMinutes}");
+            return Task.CompletedTask;
+        }
+
+        public Task ConfigureAudioAsync(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings, CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"ConfigureAudio:{profile.Tracks.Count}");
             return Task.CompletedTask;
         }
 

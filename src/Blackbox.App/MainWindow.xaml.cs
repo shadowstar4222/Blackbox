@@ -10,6 +10,7 @@ namespace Blackbox.App;
 public partial class MainWindow : Window
 {
     private readonly RecordingCoordinator _coordinator;
+    private readonly AudioConfigurationService _audioConfigurationService;
     private readonly ProtectionService _protectionService;
     private readonly StorageQuotaEnforcer _storageQuotaEnforcer;
     private readonly GlobalHotkeyService _hotkeyService;
@@ -18,12 +19,14 @@ public partial class MainWindow : Window
 
     public MainWindow(
         RecordingCoordinator coordinator,
+        AudioConfigurationService audioConfigurationService,
         ProtectionService protectionService,
         StorageQuotaEnforcer storageQuotaEnforcer,
         GlobalHotkeyService hotkeyService,
         RecordingSettings settings)
     {
         _coordinator = coordinator;
+        _audioConfigurationService = audioConfigurationService;
         _protectionService = protectionService;
         _storageQuotaEnforcer = storageQuotaEnforcer;
         _hotkeyService = hotkeyService;
@@ -69,6 +72,12 @@ public partial class MainWindow : Window
     {
         var result = await _storageQuotaEnforcer.EnforceAsync(_settings);
         StatusText.Text = $"Pruned {result.DeletedSegments} segment(s)";
+    }
+
+    private async void AudioButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _audioConfigurationService.ApplyAsync(AudioRoutingProfile.Default, new MicrophoneProcessingSettings());
+        StatusText.Text = "Applied audio routing";
     }
 
     private async Task ProtectLastFiveMinutesAsync()

@@ -22,7 +22,8 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 6. `SegmentScanner` imports completed stable MKV files into SQLite.
 7. `ProtectionService` marks recent overlapping rows as protected when the user presses a protection command.
 8. `StorageQuotaEnforcer` reconciles missing files, then deletes oldest unprotected rows until quota policy is satisfied.
-9. Later milestones browse and export segments from database state.
+9. `AudioConfigurationService` validates isolated app audio assignments and microphone processing before forwarding them to OBS.
+10. Later milestones browse and export segments from database state.
 
 ## Safety Boundaries
 
@@ -31,6 +32,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Segment files are imported only after they are stable and non-empty.
 - Deletion logic validates database state, skips protected footage, and removes a database row only after the file is gone.
 - WPF targets `net8.0-windows` and stays within Windows 10-compatible UI technology.
+- Raw microphone and processed microphone are modeled as separate tracks so the raw path remains non-destructive.
 
 ## Database
 

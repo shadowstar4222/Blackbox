@@ -40,6 +40,7 @@ public partial class App : Application
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(Path.Combine(appData, "blackbox.db")));
                 services.AddSingleton<IObsController, ObsWebSocketController>();
                 services.AddSingleton<RecordingCoordinator>();
+                services.AddSingleton<AudioConfigurationService>();
                 services.AddSingleton<ProtectionService>();
                 services.AddSingleton<StorageQuotaEnforcer>();
                 services.AddSingleton<GlobalHotkeyService>();

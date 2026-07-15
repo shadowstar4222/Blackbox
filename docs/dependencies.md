@@ -8,6 +8,7 @@
 - FFmpeg for clip export in later milestones.
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
+- OBS Application Audio Capture for isolated per-process audio sources.
 
 ## NuGet
 

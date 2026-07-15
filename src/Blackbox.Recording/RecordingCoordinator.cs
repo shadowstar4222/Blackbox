@@ -19,6 +19,10 @@ public sealed class RecordingCoordinator(
             settings.RecordingLocation,
             settings.SegmentDurationMinutes,
             cancellationToken);
+        await obsController.ConfigureAudioAsync(
+            AudioRoutingProfile.Default,
+            new MicrophoneProcessingSettings(),
+            cancellationToken);
         await obsController.StartRecordingAsync(cancellationToken);
         logger.LogInformation("Blackbox recording started with {SegmentDurationMinutes}-minute segments.", settings.SegmentDurationMinutes);
     }

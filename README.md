@@ -4,7 +4,7 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 2 Status
+## Milestone 3 Status
 
 Implemented:
 
@@ -20,7 +20,12 @@ Implemented:
 - Five-minute protection service that marks overlapping existing segments without re-encoding.
 - WPF actions for protecting the previous five minutes and applying quotas.
 - Windows 10-compatible global hotkey registration for protecting the previous five minutes with `Ctrl+Shift+F7`.
-- Automated unit/integration tests for settings, coordinator sequencing, SQLite persistence, segment scanning, quota pruning, and protection.
+- Audio routing profile for full mix, game, voice chat, raw microphone, and processed microphone tracks.
+- Executable-name audio assignment model for isolated application categories.
+- Microphone processing settings for noise suppression, expander, compressor, and limiter controls.
+- Microphone level meter calculations for peak and RMS dBFS snapshots.
+- OBS audio configuration boundary connected to the recording start pipeline and WPF `Apply Audio` action.
+- Automated unit/integration tests for settings, coordinator sequencing, SQLite persistence, segment scanning, quota pruning, protection, audio routing, microphone filters, and level metering.
 
 The concrete obs-websocket protocol calls are intentionally isolated behind `IObsController`; replacing the placeholder adapter is the next Milestone 1 hardening task before real capture use.
 
@@ -38,7 +43,9 @@ Run the WPF app:
 dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 ```
 
-## Manual Test Procedure: Milestone 2
+OBS setup for manual testing is documented in `docs/obs-test-setup.md`.
+
+## Manual Test Procedure: Milestone 3
 
 1. Install OBS Studio on Windows 10 build 19041 or later.
 2. Create a dedicated portable OBS directory for Blackbox.
@@ -54,5 +61,9 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 12. Press `Protect 5 Min` or `Ctrl+Shift+F7` and confirm overlapping segment rows have `is_protected = 1`.
 13. Press `Apply Quotas` and confirm oldest unprotected files are deleted before newer or protected files.
 14. Manually remove a known segment file, apply quotas, and confirm the missing row is reconciled from SQLite.
+15. Follow `docs/obs-test-setup.md` to create the matching OBS scene/profile manually.
+16. Press `Apply Audio` and confirm the app validates the Blackbox five-track routing profile.
+17. In OBS, confirm track 1 is the full mix, track 2 game audio, track 3 voice chat, track 4 raw microphone, and track 5 processed microphone.
+18. Confirm the raw microphone source has no destructive filters and the processed microphone source has noise suppression, expander, compressor, and limiter.
 
 Until the real obs-websocket adapter is completed, this procedure validates application orchestration, state persistence setup, and the OBS control boundary rather than actual media capture.

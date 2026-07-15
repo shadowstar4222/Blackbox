@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Blackbox.Domain;
 
 namespace Blackbox.Infrastructure;
 
@@ -16,6 +17,18 @@ public sealed class ObsWebSocketController(ILogger<ObsWebSocketController> logge
             "OBS segmented recording configuration requested. Directory={RecordingDirectory}, SegmentMinutes={SegmentMinutes}",
             recordingDirectory,
             segmentMinutes);
+        return Task.CompletedTask;
+    }
+
+    public Task ConfigureAudioAsync(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings, CancellationToken cancellationToken = default)
+    {
+        profile.Validate();
+        microphoneSettings.Validate();
+        logger.LogInformation(
+            "OBS audio configuration requested. Tracks={TrackCount}, Assignments={AssignmentCount}, DisableDesktopAudio={DisableDesktopAudio}",
+            profile.Tracks.Count,
+            profile.ApplicationAssignments.Count,
+            profile.DisableDesktopAudioWhenIsolatedSourcesAreActive);
         return Task.CompletedTask;
     }
 

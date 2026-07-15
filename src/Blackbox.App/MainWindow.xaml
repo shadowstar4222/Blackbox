@@ -22,6 +22,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <TextBlock Text="Status" FontWeight="SemiBold" />
             <TextBlock x:Name="StatusText" Grid.Column="1" Text="Idle" />
@@ -31,8 +32,11 @@
             <TextBlock x:Name="SegmentLengthText" Grid.Row="2" Grid.Column="1" Margin="0,12,0,0" />
             <TextBlock Grid.Row="3" Text="Location" FontWeight="SemiBold" Margin="0,12,0,0" />
             <TextBlock x:Name="LocationText" Grid.Row="3" Grid.Column="1" Margin="0,12,0,0" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="4" Text="Audio tracks" FontWeight="SemiBold" Margin="0,12,0,0" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="Full mix, game, voice chat, raw mic, processed mic" Margin="0,12,0,0" TextWrapping="Wrap" />
         </Grid>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="AudioButton" Content="Apply Audio" Width="110" Height="34" Margin="0,0,8,0" Click="AudioButton_Click" />
             <Button x:Name="ProtectButton" Content="Protect 5 Min" Width="120" Height="34" Margin="0,0,8,0" Click="ProtectButton_Click" />
             <Button x:Name="PruneButton" Content="Apply Quotas" Width="120" Height="34" Margin="0,0,8,0" Click="PruneButton_Click" />
             <Button x:Name="StartButton" Content="Start Recording" Width="130" Height="34" Margin="0,0,8,0" Click="StartButton_Click" />
