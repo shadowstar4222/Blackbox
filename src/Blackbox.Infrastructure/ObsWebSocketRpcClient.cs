@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,7 +9,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Blackbox.Infrastructure;
 
-public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger) : IObsWebSocketRpcClient
+public sealed class ObsWebSocketRpcClient(
+    IClock clock,
+    ILogger<ObsWebSocketRpcClient> logger) : IObsWebSocketRpcClient, IObsAudioMeterClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -94,6 +97,64 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
         return responses;
     }
 
+    public async Task<IReadOnlyList<AudioLevelSnapshot>> CaptureInputLevelsAsync(
+        ObsConnectionSettings settings,
+        string inputName,
+        TimeSpan duration,
+        IProgress<AudioLevelSnapshot>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        settings.Validate();
+        if (string.IsNullOrWhiteSpace(inputName))
+        {
+            throw new ArgumentException("An OBS input name is required.", nameof(inputName));
+        }
+
+        if (duration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration), "Meter capture duration must be greater than zero.");
+        }
+
+        const int inputVolumeMeterSubscription = 1 << 16;
+        await using var session = await ObsWebSocketSession.ConnectAsync(
+            settings,
+            cancellationToken,
+            inputVolumeMeterSubscription);
+        var snapshots = new List<AudioLevelSnapshot>();
+        var stopwatch = Stopwatch.StartNew();
+        while (stopwatch.Elapsed < duration)
+        {
+            var remaining = duration - stopwatch.Elapsed;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            using var receiveTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            receiveTimeout.CancelAfter(remaining);
+            JsonObject payload;
+            try
+            {
+                payload = await session.ReceiveAsync(receiveTimeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            var snapshot = ObsAudioMeterParser.Parse(payload, inputName, clock.UtcNow);
+            if (snapshot is null)
+            {
+                continue;
+            }
+
+            snapshots.Add(snapshot);
+            progress?.Report(snapshot);
+        }
+
+        return snapshots;
+    }
+
     private static JsonObject BuildRequestData(ObsRequest request, string requestId) => new()
     {
         ["requestType"] = request.RequestType,
@@ -109,13 +170,16 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
         {
         }
 
-        public static async Task<ObsWebSocketSession> ConnectAsync(ObsConnectionSettings settings, CancellationToken cancellationToken)
+        public static async Task<ObsWebSocketSession> ConnectAsync(
+            ObsConnectionSettings settings,
+            CancellationToken cancellationToken,
+            int? eventSubscriptions = null)
         {
             var session = new ObsWebSocketSession();
             var uri = new UriBuilder("ws", settings.Host, settings.Port).Uri;
             await session._socket.ConnectAsync(uri, cancellationToken);
             var hello = await session.ReceiveAsync(cancellationToken);
-            var identify = BuildIdentifyPayload(settings, hello);
+            var identify = BuildIdentifyPayload(settings, hello, eventSubscriptions);
             await session.SendAsync(identify, cancellationToken);
             var identified = await session.ReceiveAsync(cancellationToken);
             if (identified["op"]?.GetValue<int>() != 2)
@@ -159,7 +223,7 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
             }
         }
 
-        private async Task<JsonObject> ReceiveAsync(CancellationToken cancellationToken)
+        public async Task<JsonObject> ReceiveAsync(CancellationToken cancellationToken)
         {
             var buffer = new byte[8192];
             using var stream = new MemoryStream();
@@ -180,9 +244,16 @@ public sealed class ObsWebSocketRpcClient(ILogger<ObsWebSocketRpcClient> logger)
             return JsonNode.Parse(json)?.AsObject() ?? throw new InvalidOperationException("OBS websocket returned invalid JSON.");
         }
 
-        private static JsonObject BuildIdentifyPayload(ObsConnectionSettings settings, JsonObject hello)
+        private static JsonObject BuildIdentifyPayload(
+            ObsConnectionSettings settings,
+            JsonObject hello,
+            int? eventSubscriptions)
         {
             var identifyData = new JsonObject { ["rpcVersion"] = 1 };
+            if (eventSubscriptions is not null)
+            {
+                identifyData["eventSubscriptions"] = eventSubscriptions.Value;
+            }
             var authentication = hello["d"]?["authentication"]?.AsObject();
             if (authentication is not null)
             {

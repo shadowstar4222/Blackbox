@@ -22,8 +22,9 @@ public sealed class ObsWebSocketControllerTests
         Assert.Contains(requests, static request => request.RequestType == "CreateSceneCollection");
         Assert.Contains(requests, static request => request.RequestType == "CreateScene");
         Assert.Equal(5, requests.Count(static request => request.RequestType == "CreateInput"));
-        Assert.Equal(4, requests.Count(static request => request.RequestType == "CreateSourceFilter"));
+        Assert.Equal(5, requests.Count(static request => request.RequestType == "CreateSourceFilter"));
         Assert.Contains(requests, static request => request.RequestType == "SetProfileParameter");
+        Assert.Equal(2, requests.Count(static request => request.RequestType == "SetCurrentProfile"));
     }
 
     [Fact]
@@ -36,7 +37,10 @@ public sealed class ObsWebSocketControllerTests
         await controller.ApplySetupPlanAsync(new ObsConnectionSettings(), plan);
 
         var requests = rpc.AllRequests.ToArray();
-        Assert.DoesNotContain(requests, static request => request.RequestType == "CreateProfile");
+        Assert.DoesNotContain(requests, static request =>
+            request.RequestType == "CreateProfile" &&
+            request.RequestData?["profileName"]?.GetValue<string>() == "Blackbox");
+        Assert.Contains(requests, static request => request.RequestType == "RemoveProfile");
         Assert.DoesNotContain(requests, static request => request.RequestType == "CreateSceneCollection");
         Assert.DoesNotContain(requests, static request => request.RequestType == "CreateScene");
         Assert.DoesNotContain(requests, static request => request.RequestType == "CreateInput");
@@ -72,6 +76,7 @@ public sealed class ObsWebSocketControllerTests
 
         private static readonly string[] FilterKinds =
         [
+            "gain_filter",
             "noise_suppress_filter_v2",
             "expander_filter",
             "compressor_filter",
@@ -141,6 +146,7 @@ public sealed class ObsWebSocketControllerTests
                 {
                     ["filters"] = resourcesExist
                         ? new JsonArray(
+                            new JsonObject { ["filterName"] = "Blackbox Input Gain" },
                             new JsonObject { ["filterName"] = "Blackbox Noise Suppression" },
                             new JsonObject { ["filterName"] = "Blackbox Expander" },
                             new JsonObject { ["filterName"] = "Blackbox Compressor" },

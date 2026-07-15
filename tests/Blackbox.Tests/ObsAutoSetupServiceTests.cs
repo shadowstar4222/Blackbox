@@ -13,6 +13,7 @@ public sealed class ObsAutoSetupServiceTests
         var probePath = Path.GetTempFileName();
         try
         {
+            await File.WriteAllTextAsync(probePath, "probe");
             var provisioner = new RecordingProvisioner();
             var provider = new ObsConnectionSettingsProvider();
             var obs = new SetupObsController(ObsConnectionStatus.Connected(), probePath);
@@ -52,6 +53,7 @@ public sealed class ObsAutoSetupServiceTests
         var probePath = Path.GetTempFileName();
         try
         {
+            await File.WriteAllTextAsync(probePath, "probe");
             var provisioner = new RecordingProvisioner();
             var provider = new ObsConnectionSettingsProvider();
             provider.Set(new ObsConnectionSettings { Port = 4567, Password = "saved-password" });
@@ -67,6 +69,34 @@ public sealed class ObsAutoSetupServiceTests
         finally
         {
             File.Delete(probePath);
+        }
+    }
+
+    [Fact]
+    public async Task SetupAsync_waits_for_obs_to_finalize_the_probe_file()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        var probePath = Path.Combine(root, "probe.mkv");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var provisioner = new RecordingProvisioner();
+            var provider = new ObsConnectionSettingsProvider();
+            provider.Set(new ObsConnectionSettings { Port = 4567, Password = "saved-password" });
+            var obs = new SetupObsController(ObsConnectionStatus.Connected(), probePath);
+            var service = CreateService(provisioner, provider, obs);
+
+            var setupTask = service.SetupAsync(new RecordingSettings { RecordingLocation = root });
+            await Task.Delay(150);
+            await File.WriteAllTextAsync(probePath, "finalized");
+            var result = await setupTask;
+
+            Assert.True(result.IsSuccessful);
+            Assert.Equal(probePath, result.ProbeRecordingPath);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
         }
     }
 

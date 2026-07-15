@@ -1,0 +1,164 @@
+<Window x:Class="Blackbox.App.MicrophoneCalibrationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Microphone Calibration - Blackbox"
+        Height="580"
+        Width="720"
+        MinHeight="540"
+        MinWidth="640"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Microphone calibration" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock x:Name="StatusText"
+                       Margin="0,4,0,0"
+                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                       Text="Loading microphones..."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Microphone" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <ComboBox x:Name="DeviceComboBox"
+                      Grid.Column="1"
+                      Height="30"
+                      DisplayMemberPath="Name"
+                      IsEnabled="False"
+                      SelectionChanged="DeviceComboBox_SelectionChanged" />
+        </Grid>
+
+        <ProgressBar x:Name="LevelProgressBar"
+                     Grid.Row="2"
+                     Height="8"
+                     Margin="140,14,0,0"
+                     Minimum="0"
+                     Maximum="100" />
+
+        <Grid Grid.Row="3" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38" />
+                <RowDefinition Height="38" />
+                <RowDefinition Height="38" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="Background noise" VerticalAlignment="Center" />
+            <Button x:Name="BackgroundButton"
+                    Grid.Column="1"
+                    Content="Measure"
+                    Height="30"
+                    Margin="0,0,10,0"
+                    IsEnabled="False"
+                    Click="BackgroundButton_Click" />
+            <TextBlock x:Name="BackgroundResultText" Grid.Column="2" VerticalAlignment="Center" Text="Not measured" />
+
+            <TextBlock Grid.Row="1" Text="Normal voice" VerticalAlignment="Center" />
+            <Button x:Name="NormalButton"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Content="Measure"
+                    Height="30"
+                    Margin="0,0,10,0"
+                    IsEnabled="False"
+                    Click="NormalButton_Click" />
+            <TextBlock x:Name="NormalResultText" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Text="Not measured" />
+
+            <TextBlock Grid.Row="2" Text="Loud voice" VerticalAlignment="Center" />
+            <Button x:Name="LoudButton"
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    Content="Measure"
+                    Height="30"
+                    Margin="0,0,10,0"
+                    IsEnabled="False"
+                    Click="LoudButton_Click" />
+            <TextBlock x:Name="LoudResultText" Grid.Row="2" Grid.Column="2" VerticalAlignment="Center" Text="Not measured" />
+        </Grid>
+
+        <Separator Grid.Row="4" Margin="0,16,0,14" />
+
+        <Grid Grid.Row="5">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="Recommended" FontWeight="SemiBold" />
+            <TextBlock x:Name="RecommendationText"
+                       Grid.Column="1"
+                       Text="Complete all three measurements"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Grid.Row="1" Text="Checks" FontWeight="SemiBold" Margin="0,10,0,0" />
+            <TextBlock x:Name="WarningText"
+                       Grid.Row="1"
+                       Grid.Column="1"
+                       Margin="0,10,0,0"
+                       Text="Waiting for measurements"
+                       TextWrapping="Wrap" />
+
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,16,0,0">
+                <Button x:Name="ApplyButton"
+                        Content="Apply recommendations"
+                        MinWidth="170"
+                        Height="32"
+                        IsEnabled="False"
+                        Click="ApplyButton_Click" />
+                <Button x:Name="CompareButton"
+                        Content="Record comparison"
+                        MinWidth="150"
+                        Height="32"
+                        Margin="10,0,0,0"
+                        IsEnabled="False"
+                        Click="CompareButton_Click" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                <Button x:Name="OpenBeforeButton"
+                        Content="Open before"
+                        MinWidth="110"
+                        Height="30"
+                        Visibility="Collapsed"
+                        Click="OpenBeforeButton_Click" />
+                <Button x:Name="OpenAfterButton"
+                        Content="Open after"
+                        MinWidth="110"
+                        Height="30"
+                        Margin="10,0,0,0"
+                        Visibility="Collapsed"
+                        Click="OpenAfterButton_Click" />
+            </StackPanel>
+        </Grid>
+
+        <Button Grid.Row="6"
+                Content="Close"
+                Width="90"
+                Height="32"
+                HorizontalAlignment="Right"
+                IsCancel="True" />
+    </Grid>
+</Window>

@@ -38,6 +38,7 @@ public sealed class ObsWebSocketController(
             settings,
             requestBuilder.BuildRecordingConfigurationRequests(plan.RecordingDirectory, plan.SegmentMinutes),
             cancellationToken);
+        await ReloadProfileAsync(settings, plan.ProfileName, cancellationToken);
         await EnsureSceneCollectionAsync(settings, plan.SceneCollectionName, cancellationToken);
         await EnsureSceneAsync(settings, plan.SceneName, cancellationToken);
         await ValidateKindsAsync(settings, plan, cancellationToken);
@@ -139,6 +140,42 @@ public sealed class ObsWebSocketController(
             await rpcClient.SendRequestAsync(
                 settings,
                 new ObsRequest("SetCurrentSceneCollection", new JsonObject { ["sceneCollectionName"] = collectionName }),
+                cancellationToken);
+        }
+    }
+
+    private async Task ReloadProfileAsync(
+        ObsConnectionSettings settings,
+        string profileName,
+        CancellationToken cancellationToken)
+    {
+        var response = await rpcClient.SendRequestAsync(settings, new ObsRequest("GetProfileList"), cancellationToken);
+        var reloadProfile = GetStringSet(response, "profiles")
+            .FirstOrDefault(candidate => !candidate.Equals(profileName, StringComparison.Ordinal));
+        var removeTemporaryProfile = reloadProfile is null;
+        reloadProfile ??= $"Blackbox Setup {Guid.NewGuid():N}";
+        if (removeTemporaryProfile)
+        {
+            await rpcClient.SendRequestAsync(
+                settings,
+                new ObsRequest("CreateProfile", new JsonObject { ["profileName"] = reloadProfile }),
+                cancellationToken);
+        }
+
+        await rpcClient.SendRequestAsync(
+            settings,
+            new ObsRequest("SetCurrentProfile", new JsonObject { ["profileName"] = reloadProfile }),
+            cancellationToken);
+        await rpcClient.SendRequestAsync(
+            settings,
+            new ObsRequest("SetCurrentProfile", new JsonObject { ["profileName"] = profileName }),
+            cancellationToken);
+
+        if (removeTemporaryProfile)
+        {
+            await rpcClient.SendRequestAsync(
+                settings,
+                new ObsRequest("RemoveProfile", new JsonObject { ["profileName"] = reloadProfile }),
                 cancellationToken);
         }
     }

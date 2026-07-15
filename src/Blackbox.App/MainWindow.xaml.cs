@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Interop;
 using Blackbox.App.Hotkeys;
@@ -17,6 +19,7 @@ public partial class MainWindow : Window
     private readonly StorageQuotaEnforcer _storageQuotaEnforcer;
     private readonly GlobalHotkeyService _hotkeyService;
     private readonly RecordingSettings _settings;
+    private readonly Func<MicrophoneCalibrationWindow> _microphoneCalibrationWindowFactory;
     private readonly ILogger<MainWindow> _logger;
     private bool _isRecording;
 
@@ -28,6 +31,7 @@ public partial class MainWindow : Window
         StorageQuotaEnforcer storageQuotaEnforcer,
         GlobalHotkeyService hotkeyService,
         RecordingSettings settings,
+        Func<MicrophoneCalibrationWindow> microphoneCalibrationWindowFactory,
         ILogger<MainWindow> logger)
     {
         _coordinator = coordinator;
@@ -37,6 +41,7 @@ public partial class MainWindow : Window
         _storageQuotaEnforcer = storageQuotaEnforcer;
         _hotkeyService = hotkeyService;
         _settings = settings;
+        _microphoneCalibrationWindowFactory = microphoneCalibrationWindowFactory;
         _logger = logger;
         InitializeComponent();
         SegmentLengthText.Text = $"{_settings.SegmentDurationMinutes} minutes";
@@ -107,6 +112,33 @@ public partial class MainWindow : Window
         });
     }
 
+    private void CalibrateButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var window = _microphoneCalibrationWindowFactory();
+            window.Owner = this;
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("Open microphone calibration", ex);
+        }
+    }
+
+    private void OpenRecordingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(_settings.RecordingLocation);
+            Process.Start(new ProcessStartInfo(_settings.RecordingLocation) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("Open recordings", ex);
+        }
+    }
+
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
     {
         ObsSetupButton.IsEnabled = false;
@@ -131,6 +163,7 @@ public partial class MainWindow : Window
             StatusText.Text = result.Message;
             StartButton.IsEnabled = result.IsSuccessful;
             AudioButton.IsEnabled = result.IsSuccessful;
+            CalibrateButton.IsEnabled = result.IsSuccessful;
             ObsSetupButton.Content = result.IsSuccessful ? "Check OBS" : "Retry OBS Setup";
         }
         catch (Exception ex)

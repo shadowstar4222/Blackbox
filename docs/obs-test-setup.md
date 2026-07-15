@@ -28,7 +28,7 @@ This procedure tests one-click OBS onboarding with both existing-installation de
 15. Confirm a new MKV file appears under `%USERPROFILE%\Videos\Blackbox`.
 16. Open the private OBS window and confirm the `Blackbox` profile, `Blackbox` scene collection, and `Blackbox Recording` scene exist.
 17. Confirm the scene contains game capture, game audio, voice chat, raw microphone, and processed microphone sources.
-18. Confirm only the processed microphone has noise suppression, expander, compressor, and limiter filters.
+18. Confirm only the processed microphone has input gain, noise suppression, expander, compressor, and limiter filters.
 19. Confirm track 2 is game audio, track 3 is voice chat, track 4 is raw microphone, and track 5 is processed microphone. The processed microphone also contributes to track 1.
 20. Confirm the OBS recording profile uses MKV, 48 kHz audio, tracks 1 through 5, and time-based splitting at the configured segment duration.
 

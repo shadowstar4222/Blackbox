@@ -13,13 +13,86 @@ public sealed class RecordingCoordinatorTests
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
         var repository = new InMemorySegmentRepository();
         var obs = new RecordingObsController();
-        var coordinator = new RecordingCoordinator(obs, repository, NullLogger<RecordingCoordinator>.Instance);
+        var microphone = new RecordingMicrophoneController();
+        var monitor = new RecordingMicrophoneMonitor();
+        var coordinator = new RecordingCoordinator(
+            obs,
+            microphone,
+            new InMemoryMicrophoneConfigurationStore(),
+            repository,
+            monitor,
+            NullLogger<RecordingCoordinator>.Instance);
 
         await coordinator.StartAsync(new RecordingSettings { RecordingLocation = root, SegmentDurationMinutes = 2 });
 
         Assert.True(repository.Initialized);
         Assert.Equal(["Launch", "Configure:2", "ConfigureAudio:5", "Start"], obs.Calls);
+        Assert.True(microphone.Configured);
+        Assert.True(monitor.Started);
         Assert.True(Directory.Exists(root));
+    }
+
+    private sealed class InMemoryMicrophoneConfigurationStore : IMicrophoneConfigurationStore
+    {
+        public MicrophoneConfiguration Current { get; private set; } = new();
+
+        public void Save(MicrophoneConfiguration configuration) => Current = configuration;
+    }
+
+    private sealed class RecordingMicrophoneMonitor : IMicrophoneDeviceMonitor
+    {
+        public MicrophoneDeviceStatus CurrentStatus { get; } = new(
+            "default",
+            MicrophoneConnectionState.Connected,
+            DateTimeOffset.UtcNow);
+
+        public bool Started { get; private set; }
+
+        public Task StartAsync(CancellationToken cancellationToken = default)
+        {
+            Started = true;
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken = default)
+        {
+            Started = false;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingMicrophoneController : IObsMicrophoneController
+    {
+        public bool Configured { get; private set; }
+
+        public Task<IReadOnlyList<MicrophoneDevice>> GetDevicesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MicrophoneDevice>>([]);
+
+        public Task<MicrophoneDeviceStatus> GetDeviceStatusAsync(
+            string deviceId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task ConfigureAsync(
+            MicrophoneDevice device,
+            MicrophoneProcessingSettings processingSettings,
+            CancellationToken cancellationToken = default)
+        {
+            Configured = true;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AudioLevelSnapshot>> CaptureLevelsAsync(
+            TimeSpan duration,
+            IProgress<AudioLevelSnapshot>? progress = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task SetProcessingEnabledAsync(bool enabled, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
     }
 
     private sealed class RecordingObsController : IObsController

@@ -2,6 +2,7 @@ namespace Blackbox.Domain;
 
 public sealed record MicrophoneProcessingSettings
 {
+    public double InputGainDb { get; init; }
     public bool NoiseSuppressionEnabled { get; init; } = true;
     public bool ExpanderEnabled { get; init; } = true;
     public double ExpanderThresholdDb { get; init; } = -45;
@@ -13,6 +14,11 @@ public sealed record MicrophoneProcessingSettings
 
     public void Validate()
     {
+        if (InputGainDb is < -30 or > 30)
+        {
+            throw new InvalidOperationException("Input gain must be between -30 dB and 30 dB.");
+        }
+
         if (ExpanderThresholdDb is < -80 or > 0)
         {
             throw new InvalidOperationException("Expander threshold must be between -80 dB and 0 dB.");

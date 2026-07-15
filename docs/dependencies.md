@@ -10,6 +10,7 @@
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
 - OBS Application Audio Capture for isolated per-process audio sources.
+- OBS websocket input-volume events and Windows Audio Capture device properties for calibration and connection monitoring.
 
 ## NuGet
 
@@ -24,5 +25,4 @@
 ## Planned
 
 - Windows process/GPU activity discovery.
-- Audio device monitoring.
 - FFmpeg process execution and progress parsing.

@@ -6,7 +6,10 @@ namespace Blackbox.Recording;
 
 public sealed class RecordingCoordinator(
     IObsController obsController,
+    IObsMicrophoneController microphoneController,
+    IMicrophoneConfigurationStore microphoneConfigurationStore,
     ISegmentRepository segmentRepository,
+    IMicrophoneDeviceMonitor microphoneDeviceMonitor,
     ILogger<RecordingCoordinator> logger)
 {
     public async Task StartAsync(RecordingSettings settings, CancellationToken cancellationToken = default)
@@ -19,17 +22,41 @@ public sealed class RecordingCoordinator(
             settings.RecordingLocation,
             settings.SegmentDurationMinutes,
             cancellationToken);
+        var microphoneConfiguration = microphoneConfigurationStore.Current;
         await obsController.ConfigureAudioAsync(
             AudioRoutingProfile.Default,
-            new MicrophoneProcessingSettings(),
+            microphoneConfiguration.ProcessingSettings,
+            cancellationToken);
+        await microphoneController.ConfigureAsync(
+            new MicrophoneDevice(
+                microphoneConfiguration.DeviceId,
+                microphoneConfiguration.DeviceName),
+            microphoneConfiguration.ProcessingSettings,
             cancellationToken);
         await obsController.StartRecordingAsync(cancellationToken);
+        try
+        {
+            await microphoneDeviceMonitor.StartAsync(cancellationToken);
+        }
+        catch
+        {
+            await obsController.StopRecordingAsync(CancellationToken.None);
+            throw;
+        }
+
         logger.LogInformation("Blackbox recording started with {SegmentDurationMinutes}-minute segments.", settings.SegmentDurationMinutes);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Blackbox recording stop requested.");
-        await obsController.StopRecordingAsync(cancellationToken);
+        try
+        {
+            await microphoneDeviceMonitor.StopAsync(cancellationToken);
+        }
+        finally
+        {
+            await obsController.StopRecordingAsync(cancellationToken);
+        }
     }
 }

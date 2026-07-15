@@ -106,12 +106,10 @@ public sealed class ObsAutoSetupService(
 
             var outputPath = await obsController.StopRecordingAsync(cancellationToken);
             started = false;
-            if (string.IsNullOrWhiteSpace(outputPath) || !File.Exists(outputPath))
-            {
-                throw new InvalidOperationException("OBS did not produce the expected test recording.");
-            }
-
-            return outputPath;
+            return await RecordingOutputFileWaiter.WaitAsync(
+                outputPath,
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
         }
         finally
         {

@@ -17,4 +17,12 @@ public sealed class MicrophoneProcessingSettingsTests
 
         Assert.Throws<InvalidOperationException>(settings.Validate);
     }
+
+    [Fact]
+    public void Validate_rejects_extreme_input_gain()
+    {
+        var settings = new MicrophoneProcessingSettings { InputGainDb = 31 };
+
+        Assert.Throws<InvalidOperationException>(settings.Validate);
+    }
 }

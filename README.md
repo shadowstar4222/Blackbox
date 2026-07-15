@@ -4,13 +4,19 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 3C Status
+## Milestone 4 Status
 
 Implemented:
 
 - Recording coordination, completed-segment discovery, and SQLite metadata from Milestone 1.
 - Quota pruning, missing-file reconciliation, five-minute protection, and the `Ctrl+Shift+F7` hotkey from Milestone 2.
 - Five-track audio routing, processed microphone filters, and microphone level calculations from Milestone 3.
+- One selected Windows microphone routed to separate raw and processed OBS sources.
+- Live three-phase microphone calibration for room noise, normal voice, and loud voice.
+- Persisted input-gain, expander, compressor, and limiter recommendations with clipping and automatic-gain warnings.
+- Before/after comparison recordings with direct open controls.
+- Recording-time device monitoring that preserves source timing during disconnects and restores the selected device after reconnection.
+- Direct `Open Recordings` access from the main window.
 - One-click OBS provisioning that first detects standard and Steam installations, including secondary Steam libraries.
 - A private portable runtime prepared from local OBS files when available, with the official OBS GitHub release used only as a fallback.
 - SHA-256 package verification when the official release publishes a digest.
@@ -20,7 +26,7 @@ Implemented:
 - Persisted connection settings so a running Blackbox OBS instance is reused after an app restart.
 - Idempotent creation of the Blackbox profile, scene collection, scene, sources, filters, and track assignments.
 - OBS response validation with readable per-request failure messages.
-- MKV recording, tracks 1 through 5, 48 kHz audio, and time-based file splitting configuration.
+- MKV recording, tracks 1 through 5, 48 kHz audio, time-based file splitting configuration, and profile reload after output-mode changes.
 - A short first-run recording probe that must produce a real output file before setup succeeds.
 - WPF setup progress and recording controls that remain disabled until OBS passes setup.
 - Startup database initialization and contained UI command failures so feature errors do not terminate the app.
@@ -48,6 +54,8 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 2. Click `Setup OBS`.
 3. Wait while Blackbox finds an existing OBS installation or downloads the official package, then starts its private OBS runtime.
 4. Confirm the status changes to `OBS is installed, configured, and ready.`
-5. Use `Start Recording` and `Stop` for recording tests.
+5. Use `Calibrate Mic` to select and tune the microphone.
+6. Use `Start Recording` and `Stop` for recording tests.
+7. Use `Open Recordings` to view the resulting files.
 
-The complete Milestone 3C manual procedure and troubleshooting steps are in `docs/obs-test-setup.md`.
+The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`.

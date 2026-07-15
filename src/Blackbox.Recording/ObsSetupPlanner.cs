@@ -26,6 +26,10 @@ public sealed class ObsSetupPlanner
             ],
             Filters =
             [
+                new ObsFilterPlan("Blackbox Processed Microphone", "Blackbox Input Gain", "gain_filter", new Dictionary<string, string>
+                {
+                    ["db"] = microphoneSettings.InputGainDb.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }),
                 new ObsFilterPlan("Blackbox Processed Microphone", "Blackbox Noise Suppression", "noise_suppress_filter_v2", new Dictionary<string, string>()),
                 new ObsFilterPlan("Blackbox Processed Microphone", "Blackbox Expander", "expander_filter", new Dictionary<string, string>
                 {

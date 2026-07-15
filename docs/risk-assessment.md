@@ -29,3 +29,5 @@
 - Run quota deletion tests against real files so file-system and database state transitions stay paired.
 - Download OBS only over HTTPS, validate its published SHA-256 digest, extract through a staging directory, and keep the private copy outside Program Files.
 - Validate every OBS websocket response and make setup repeatable without recreating existing resources.
+- Keep raw and processed microphone sources alive across disconnects, emit silence while unavailable, and restore both paths only when the saved device identifier returns.
+- Cap calibration gain against the loud-voice peak, warn on clipping or suspicious gain control, and retain the untouched raw track for recovery.

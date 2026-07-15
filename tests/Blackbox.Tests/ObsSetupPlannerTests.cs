@@ -19,7 +19,7 @@ public sealed class ObsSetupPlannerTests
         Assert.Contains(plan.Sources, static source => source.AudioCategory == AudioCategory.VoiceChat);
         Assert.Contains(plan.Sources, static source => source.AudioCategory == AudioCategory.RawMicrophone);
         Assert.Contains(plan.Sources, static source => source.AudioCategory == AudioCategory.ProcessedMicrophone);
-        Assert.Equal(4, plan.Filters.Count);
+        Assert.Equal(5, plan.Filters.Count);
         Assert.All(plan.Filters, static filter => Assert.Equal("Blackbox Processed Microphone", filter.SourceName));
     }
 }

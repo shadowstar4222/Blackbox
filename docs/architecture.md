@@ -29,7 +29,9 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 13. `ObsWebSocketController` creates or reuses the Blackbox OBS resources and configures MKV splitting, five tracks, and 48 kHz audio.
 14. `ObsWebSocketRpcClient` identifies with obs-websocket v5 and validates every single or batched response.
 15. Setup records a short probe and succeeds only when OBS returns an output path that exists on disk.
-16. Later milestones bind detected games to application-audio inputs, browse the timeline, and export segments.
+16. `MicrophoneCalibrationService` captures live OBS meter events, calculates processing recommendations, and persists one device for both microphone paths.
+17. `MicrophoneDeviceMonitor` watches the selected device only while recording, leaves OBS sources alive during disconnects, and reapplies the saved configuration after reconnection.
+18. Later milestones bind detected games to application-audio inputs, browse the timeline, and export segments.
 
 ## Safety Boundaries
 
@@ -41,6 +43,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Deletion logic validates database state, skips protected footage, and removes a database row only after the file is gone.
 - WPF targets `net8.0-windows` and stays within Windows 10-compatible UI technology.
 - Raw microphone and processed microphone are modeled as separate tracks so the raw path remains non-destructive.
+- Microphone disconnects do not remove either OBS source, preserving silence and timeline alignment until the selected device returns.
 
 ## Database
 

@@ -41,7 +41,8 @@ public partial class App : Application
                 services.AddSingleton(new ObsProvisioningOptions
                 {
                     PortableRootDirectory = Path.Combine(appData, "obs-portable"),
-                    ConnectionSettingsPath = Path.Combine(appData, "obs-connection.json")
+                    ConnectionSettingsPath = Path.Combine(appData, "obs-connection.json"),
+                    MicrophoneSettingsPath = Path.Combine(appData, "microphone.json")
                 });
                 services.AddSingleton(new ObsOnboardingOptions());
                 services.AddSingleton(new HttpClient
@@ -54,10 +55,22 @@ public partial class App : Application
                 services.AddSingleton<ObsConnectionSettingsProvider>();
                 services.AddSingleton<IObsConnectionSettingsProvider>(provider =>
                     provider.GetRequiredService<ObsConnectionSettingsProvider>());
+                services.AddSingleton<MicrophoneConfigurationStore>();
+                services.AddSingleton<IMicrophoneConfigurationStore>(provider =>
+                    provider.GetRequiredService<MicrophoneConfigurationStore>());
                 services.AddSingleton<IObsInstallationLocator, ObsInstallationLocator>();
                 services.AddSingleton<IObsPortableProvisioner, ObsPortableProvisioner>();
-                services.AddSingleton<IObsWebSocketRpcClient, ObsWebSocketRpcClient>();
+                services.AddSingleton<ObsWebSocketRpcClient>();
+                services.AddSingleton<IObsWebSocketRpcClient>(provider =>
+                    provider.GetRequiredService<ObsWebSocketRpcClient>());
+                services.AddSingleton<IObsAudioMeterClient>(provider =>
+                    provider.GetRequiredService<ObsWebSocketRpcClient>());
                 services.AddSingleton<IObsController, ObsWebSocketController>();
+                services.AddSingleton<IObsMicrophoneController, ObsMicrophoneController>();
+                services.AddSingleton(new MicrophoneMonitoringOptions());
+                services.AddSingleton<IMicrophoneDeviceMonitor, MicrophoneDeviceMonitor>();
+                services.AddSingleton<MicrophoneCalibrationAnalyzer>();
+                services.AddSingleton<MicrophoneCalibrationService>();
                 services.AddSingleton<RecordingCoordinator>();
                 services.AddSingleton<AudioConfigurationService>();
                 services.AddSingleton<ObsSetupPlanner>();
@@ -65,6 +78,9 @@ public partial class App : Application
                 services.AddSingleton<ProtectionService>();
                 services.AddSingleton<StorageQuotaEnforcer>();
                 services.AddSingleton<GlobalHotkeyService>();
+                services.AddTransient<MicrophoneCalibrationWindow>();
+                services.AddSingleton<Func<MicrophoneCalibrationWindow>>(provider =>
+                    () => provider.GetRequiredService<MicrophoneCalibrationWindow>());
                 services.AddSingleton<MainWindow>();
             })
             .Build();
