@@ -31,3 +31,6 @@
 - Validate every OBS websocket response and make setup repeatable without recreating existing resources.
 - Keep raw and processed microphone sources alive across disconnects, emit silence while unavailable, and restore both paths only when the saved device identifier returns.
 - Cap calibration gain against the loud-voice peak, warn on clipping or suspicious gain control, and retain the untouched raw track for recovery.
+- Download the FFmpeg toolset only over HTTPS, verify the separately published SHA-256 checksum, and install through a unique staging directory.
+- Reject continuous playback and export when a session has missing media, a timeline gap, or incompatible segment formats.
+- Keep playback and export source segments leased against quota deletion, and publish exports only after atomic partial-file completion.

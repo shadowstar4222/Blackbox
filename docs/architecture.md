@@ -9,7 +9,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - `Blackbox.Infrastructure`: external integrations such as OBS control and future Windows process/device discovery.
 - `Blackbox.Recording`: recording orchestration, segment import, session management, and future hotkey/game-detection workflows.
 - `Blackbox.Storage`: SQLite persistence and future storage quota enforcement.
-- `Blackbox.Export`: FFmpeg export orchestration in later milestones.
+- `Blackbox.Export`: recording-library indexing, FFmpeg provisioning and probing, continuous-session playback, and export orchestration.
 - `Blackbox.Tests`: unit and practical integration tests.
 
 ## Milestone Flow
@@ -33,7 +33,9 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 17. `MicrophoneDeviceMonitor` watches the selected device only while recording, leaves OBS sources alive during disconnects, and reapplies the saved configuration after reconnection.
 18. Milestone 5 groups segments into a virtual continuous session for seamless browsing and playback without replacing the interruption-resistant source files.
 19. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 while preserving synchronized isolated audio tracks.
-20. Later milestones bind detected games to application-audio inputs and add crash recovery.
+20. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
+21. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
+22. Later milestones bind detected games to application-audio inputs and add crash recovery.
 
 ## Safety Boundaries
 
@@ -46,6 +48,8 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - WPF targets `net8.0-windows` and stays within Windows 10-compatible UI technology.
 - Raw microphone and processed microphone are modeled as separate tracks so the raw path remains non-destructive.
 - Microphone disconnects do not remove either OBS source, preserving silence and timeline alignment until the selected device returns.
+- Missing or discontinuous session media is shown as unhealthy and is rejected by continuous playback and export rather than silently skipped.
+- Exports write to a unique partial path and move into place only after FFmpeg exits successfully with a non-empty file.
 
 ## Database
 

@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Http;
 using System.Windows;
 using Blackbox.Domain;
+using Blackbox.Export;
 using Blackbox.Infrastructure;
 using Blackbox.Recording;
 using Blackbox.Storage;
@@ -45,12 +46,25 @@ public partial class App : Application
                     MicrophoneSettingsPath = Path.Combine(appData, "microphone.json")
                 });
                 services.AddSingleton(new ObsOnboardingOptions());
+                services.AddSingleton(new FfmpegOptions
+                {
+                    RootDirectory = Path.Combine(appData, "ffmpeg"),
+                    WorkDirectory = Path.Combine(appData, "ffmpeg-work")
+                });
                 services.AddSingleton(new HttpClient
                 {
                     Timeout = TimeSpan.FromMinutes(20)
                 });
                 services.AddSingleton<IClock, SystemClock>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(Path.Combine(appData, "blackbox.db")));
+                services.AddSingleton<ISegmentUsageRegistry, SegmentUsageRegistry>();
+                services.AddSingleton<IFfmpegProvisioner, FfmpegProvisioner>();
+                services.AddSingleton<IMediaProbe, FfprobeMediaProbe>();
+                services.AddSingleton<RecordingSessionCatalog>();
+                services.AddSingleton<RecordingLibraryService>();
+                services.AddSingleton<IFfmpegCommandRunner, FfmpegCommandRunner>();
+                services.AddSingleton<SessionExportService>();
+                services.AddSingleton<SessionPlaybackService>();
                 services.AddSingleton<ObsSetupRequestBuilder>();
                 services.AddSingleton<ObsConnectionSettingsProvider>();
                 services.AddSingleton<IObsConnectionSettingsProvider>(provider =>
@@ -81,6 +95,9 @@ public partial class App : Application
                 services.AddTransient<MicrophoneCalibrationWindow>();
                 services.AddSingleton<Func<MicrophoneCalibrationWindow>>(provider =>
                     () => provider.GetRequiredService<MicrophoneCalibrationWindow>());
+                services.AddTransient<RecordingLibraryWindow>();
+                services.AddSingleton<Func<RecordingLibraryWindow>>(provider =>
+                    () => provider.GetRequiredService<RecordingLibraryWindow>());
                 services.AddSingleton<MainWindow>();
             })
             .Build();

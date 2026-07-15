@@ -20,7 +20,9 @@ public partial class MainWindow : Window
     private readonly GlobalHotkeyService _hotkeyService;
     private readonly RecordingSettings _settings;
     private readonly Func<MicrophoneCalibrationWindow> _microphoneCalibrationWindowFactory;
+    private readonly Func<RecordingLibraryWindow> _recordingLibraryWindowFactory;
     private readonly ILogger<MainWindow> _logger;
+    private RecordingLibraryWindow? _recordingLibraryWindow;
     private bool _isRecording;
 
     public MainWindow(
@@ -32,6 +34,7 @@ public partial class MainWindow : Window
         GlobalHotkeyService hotkeyService,
         RecordingSettings settings,
         Func<MicrophoneCalibrationWindow> microphoneCalibrationWindowFactory,
+        Func<RecordingLibraryWindow> recordingLibraryWindowFactory,
         ILogger<MainWindow> logger)
     {
         _coordinator = coordinator;
@@ -42,6 +45,7 @@ public partial class MainWindow : Window
         _hotkeyService = hotkeyService;
         _settings = settings;
         _microphoneCalibrationWindowFactory = microphoneCalibrationWindowFactory;
+        _recordingLibraryWindowFactory = recordingLibraryWindowFactory;
         _logger = logger;
         InitializeComponent();
         SegmentLengthText.Text = $"{_settings.SegmentDurationMinutes} minutes";
@@ -132,6 +136,28 @@ public partial class MainWindow : Window
         {
             Directory.CreateDirectory(_settings.RecordingLocation);
             Process.Start(new ProcessStartInfo(_settings.RecordingLocation) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("Open recordings", ex);
+        }
+    }
+
+    private void RecordingLibraryButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_recordingLibraryWindow is not null)
+            {
+                _recordingLibraryWindow.Activate();
+                return;
+            }
+
+            var window = _recordingLibraryWindowFactory();
+            window.Owner = this;
+            window.Closed += (_, _) => _recordingLibraryWindow = null;
+            _recordingLibraryWindow = window;
+            window.Show();
         }
         catch (Exception ex)
         {

@@ -6,7 +6,8 @@ namespace Blackbox.Storage;
 public sealed class StorageQuotaEnforcer(
     ISegmentRepository repository,
     IClock clock,
-    ILogger<StorageQuotaEnforcer> logger)
+    ILogger<StorageQuotaEnforcer> logger,
+    ISegmentUsageRegistry? usageRegistry = null)
 {
     public async Task<StoragePruneResult> EnforceAsync(RecordingSettings settings, CancellationToken cancellationToken = default)
     {
@@ -30,7 +31,7 @@ public sealed class StorageQuotaEnforcer(
                 continue;
             }
 
-            if (segment.IsProtected)
+            if (segment.IsProtected || usageRegistry?.IsInUse(segment.Id) == true)
             {
                 continue;
             }

@@ -55,9 +55,20 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
                 $video_format, $audio_track_layout, $encoder, $width, $height, $frame_rate,
                 $is_hdr, $is_protected, $file_path, $file_size_bytes)
             ON CONFLICT(file_path) DO UPDATE SET
+                session_id = excluded.session_id,
+                start_time = excluded.start_time,
                 end_time = excluded.end_time,
+                game_executable = excluded.game_executable,
+                game_title = excluded.game_title,
+                video_format = excluded.video_format,
+                audio_track_layout = excluded.audio_track_layout,
+                encoder = excluded.encoder,
+                width = excluded.width,
+                height = excluded.height,
+                frame_rate = excluded.frame_rate,
+                is_hdr = excluded.is_hdr,
                 file_size_bytes = excluded.file_size_bytes,
-                is_protected = excluded.is_protected;
+                is_protected = MAX(segments.is_protected, excluded.is_protected);
             """;
         AddSegmentParameters(command, segment);
         await command.ExecuteNonQueryAsync(cancellationToken);

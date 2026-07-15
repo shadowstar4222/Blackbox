@@ -1,4 +1,5 @@
 using Blackbox.Domain;
+using Blackbox.Export;
 using Blackbox.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -75,6 +76,42 @@ public sealed class StorageQuotaEnforcerTests
 
         Assert.Equal(1, result.DeletedSegments);
         Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public async Task EnforceAsync_does_not_delete_a_segment_in_use_by_playback_or_export()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = CreateSegmentFile(root, "leased.mkv");
+        try
+        {
+            var repository = new InMemorySegmentRepository();
+            var segment = TestSegments.Create(path, fileSizeBytes: 1024);
+            await repository.UpsertAsync(segment);
+            var registry = new SegmentUsageRegistry();
+            using var lease = registry.Acquire([segment.Id]);
+            var enforcer = new StorageQuotaEnforcer(
+                repository,
+                new FixedClock(DateTimeOffset.UtcNow),
+                NullLogger<StorageQuotaEnforcer>.Instance,
+                registry);
+            var settings = new RecordingSettings
+            {
+                RecordingLocation = root,
+                MaximumStorageGigabytes = 0.0000001m,
+                MinimumRemainingFreeDiskSpaceGigabytes = 0
+            };
+
+            var result = await enforcer.EnforceAsync(settings);
+
+            Assert.Equal(0, result.DeletedSegments);
+            Assert.True(File.Exists(path));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private static string CreateTempDirectory()

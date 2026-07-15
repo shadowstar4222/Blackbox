@@ -6,7 +6,7 @@
 - .NET 8 Desktop Runtime.
 - OBS Studio with obs-websocket support, provisioned as a private portable runtime by Blackbox on first use.
 - An existing standard or Steam OBS installation, or internet access for first-time download fallback.
-- FFmpeg for clip export in later milestones.
+- FFmpeg, FFprobe, and FFplay, automatically downloaded and checksum-verified on first recordings-library use.
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
 - OBS Application Audio Capture for isolated per-process audio sources.
@@ -25,4 +25,4 @@
 ## Planned
 
 - Windows process/GPU activity discovery.
-- FFmpeg process execution and progress parsing.
+- Asynchronous thumbnail and waveform generation for the integrated timeline.

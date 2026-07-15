@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Blackbox.Domain\Blackbox.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Blackbox.Export\Blackbox.Export.csproj" />
     <ProjectReference Include="..\..\src\Blackbox.Infrastructure\Blackbox.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Blackbox.Recording\Blackbox.Recording.csproj" />
     <ProjectReference Include="..\..\src\Blackbox.Storage\Blackbox.Storage.csproj" />
