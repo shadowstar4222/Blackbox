@@ -70,6 +70,7 @@ public partial class App : Application
             .Build();
 
         await _host.StartAsync();
+        await _host.Services.GetRequiredService<ISegmentRepository>().InitializeAsync();
         _host.Services.GetRequiredService<MainWindow>().Show();
     }
 

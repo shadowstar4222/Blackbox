@@ -23,6 +23,7 @@ Implemented:
 - MKV recording, tracks 1 through 5, 48 kHz audio, and time-based file splitting configuration.
 - A short first-run recording probe that must produce a real output file before setup succeeds.
 - WPF setup progress and recording controls that remain disabled until OBS passes setup.
+- Startup database initialization and contained UI command failures so feature errors do not terminate the app.
 - Automated coverage for provisioning, connection reuse, protocol responses, repeat setup, recording configuration, storage, protection, and audio models.
 
 Game and voice-chat audio sources are created during setup, but selecting their exact executable/window is not automatic yet. That binding will be added with game detection and per-game profiles; the current setup probe validates the backend and recording structure.

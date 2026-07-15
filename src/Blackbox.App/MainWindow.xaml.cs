@@ -4,6 +4,7 @@ using Blackbox.App.Hotkeys;
 using Blackbox.Domain;
 using Blackbox.Recording;
 using Blackbox.Storage;
+using Microsoft.Extensions.Logging;
 
 namespace Blackbox.App;
 
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private readonly StorageQuotaEnforcer _storageQuotaEnforcer;
     private readonly GlobalHotkeyService _hotkeyService;
     private readonly RecordingSettings _settings;
+    private readonly ILogger<MainWindow> _logger;
     private bool _isRecording;
 
     public MainWindow(
@@ -25,7 +27,8 @@ public partial class MainWindow : Window
         ProtectionService protectionService,
         StorageQuotaEnforcer storageQuotaEnforcer,
         GlobalHotkeyService hotkeyService,
-        RecordingSettings settings)
+        RecordingSettings settings,
+        ILogger<MainWindow> logger)
     {
         _coordinator = coordinator;
         _obsAutoSetupService = obsAutoSetupService;
@@ -34,6 +37,7 @@ public partial class MainWindow : Window
         _storageQuotaEnforcer = storageQuotaEnforcer;
         _hotkeyService = hotkeyService;
         _settings = settings;
+        _logger = logger;
         InitializeComponent();
         SegmentLengthText.Text = $"{_settings.SegmentDurationMinutes} minutes";
         LocationText.Text = _settings.RecordingLocation;
@@ -43,27 +47,41 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         _hotkeyService.Attach(new WindowInteropHelper(this));
-        _hotkeyService.Register(
-            new GlobalHotkey(1, HotkeyModifiers.Control | HotkeyModifiers.Shift | HotkeyModifiers.NoRepeat, 0x76),
-            ProtectLastFiveMinutesAsync);
+        try
+        {
+            _hotkeyService.Register(
+                new GlobalHotkey(1, HotkeyModifiers.Control | HotkeyModifiers.Shift | HotkeyModifiers.NoRepeat, 0x76),
+                ProtectLastFiveMinutesAsync);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "The protection hotkey is unavailable.");
+            StatusText.Text = "OBS setup required; protection hotkey unavailable";
+        }
     }
 
     private async void StartButton_Click(object sender, RoutedEventArgs e)
     {
-        await _coordinator.StartAsync(_settings);
-        _isRecording = true;
-        StatusText.Text = "Recording";
-        StartButton.IsEnabled = false;
-        StopButton.IsEnabled = true;
+        await ExecuteCommandAsync("Start recording", async () =>
+        {
+            await _coordinator.StartAsync(_settings);
+            _isRecording = true;
+            StatusText.Text = "Recording";
+            StartButton.IsEnabled = false;
+            StopButton.IsEnabled = true;
+        });
     }
 
     private async void StopButton_Click(object sender, RoutedEventArgs e)
     {
-        await _coordinator.StopAsync();
-        _isRecording = false;
-        StatusText.Text = "Idle";
-        StartButton.IsEnabled = true;
-        StopButton.IsEnabled = false;
+        await ExecuteCommandAsync("Stop recording", async () =>
+        {
+            await _coordinator.StopAsync();
+            _isRecording = false;
+            StatusText.Text = "Idle";
+            StartButton.IsEnabled = true;
+            StopButton.IsEnabled = false;
+        });
     }
 
     private async void ProtectButton_Click(object sender, RoutedEventArgs e)
@@ -73,14 +91,20 @@ public partial class MainWindow : Window
 
     private async void PruneButton_Click(object sender, RoutedEventArgs e)
     {
-        var result = await _storageQuotaEnforcer.EnforceAsync(_settings);
-        StatusText.Text = $"Pruned {result.DeletedSegments} segment(s)";
+        await ExecuteCommandAsync("Apply storage quotas", async () =>
+        {
+            var result = await _storageQuotaEnforcer.EnforceAsync(_settings);
+            StatusText.Text = $"Pruned {result.DeletedSegments} segment(s)";
+        });
     }
 
     private async void AudioButton_Click(object sender, RoutedEventArgs e)
     {
-        await _audioConfigurationService.ApplyAsync(AudioRoutingProfile.Default, new MicrophoneProcessingSettings());
-        StatusText.Text = "Applied audio routing";
+        await ExecuteCommandAsync("Apply audio routing", async () =>
+        {
+            await _audioConfigurationService.ApplyAsync(AudioRoutingProfile.Default, new MicrophoneProcessingSettings());
+            StatusText.Text = "Applied audio routing";
+        });
     }
 
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
@@ -109,6 +133,10 @@ public partial class MainWindow : Window
             AudioButton.IsEnabled = result.IsSuccessful;
             ObsSetupButton.Content = result.IsSuccessful ? "Check OBS" : "Retry OBS Setup";
         }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("OBS setup", ex);
+        }
         finally
         {
             ObsSetupButton.IsEnabled = true;
@@ -118,8 +146,29 @@ public partial class MainWindow : Window
 
     private async Task ProtectLastFiveMinutesAsync()
     {
-        await _protectionService.ProtectPreviousFiveMinutesAsync();
-        StatusText.Text = "Protected previous 5 minutes";
+        await ExecuteCommandAsync("Protect previous 5 minutes", async () =>
+        {
+            await _protectionService.ProtectPreviousFiveMinutesAsync();
+            StatusText.Text = "Protected previous 5 minutes";
+        });
+    }
+
+    private async Task ExecuteCommandAsync(string commandName, Func<Task> command)
+    {
+        try
+        {
+            await command();
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure(commandName, ex);
+        }
+    }
+
+    private void ReportCommandFailure(string commandName, Exception exception)
+    {
+        _logger.LogError(exception, "{CommandName} failed.", commandName);
+        StatusText.Text = $"{commandName} failed: {exception.Message}";
     }
 
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -128,7 +177,14 @@ public partial class MainWindow : Window
 
         if (_isRecording)
         {
-            await _coordinator.StopAsync();
+            try
+            {
+                await _coordinator.StopAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not stop recording while Blackbox was closing.");
+            }
         }
 
         base.OnClosing(e);
