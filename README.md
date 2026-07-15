@@ -25,6 +25,7 @@ Implemented:
 - Microphone processing settings for noise suppression, expander, compressor, and limiter controls.
 - Microphone level meter calculations for peak and RMS dBFS snapshots.
 - OBS audio configuration boundary connected to the recording start pipeline and WPF `Apply Audio` action.
+- Automatic OBS setup milestone foundation with OBS connection settings, setup plan generation, and WPF `Setup OBS` action.
 - Automated unit/integration tests for settings, coordinator sequencing, SQLite persistence, segment scanning, quota pruning, protection, audio routing, microphone filters, and level metering.
 
 The concrete obs-websocket protocol calls are intentionally isolated behind `IObsController`; replacing the placeholder adapter is the next Milestone 1 hardening task before real capture use.
@@ -61,9 +62,10 @@ OBS setup for manual testing is documented in `docs/obs-test-setup.md`.
 12. Press `Protect 5 Min` or `Ctrl+Shift+F7` and confirm overlapping segment rows have `is_protected = 1`.
 13. Press `Apply Quotas` and confirm oldest unprotected files are deleted before newer or protected files.
 14. Manually remove a known segment file, apply quotas, and confirm the missing row is reconciled from SQLite.
-15. Follow `docs/obs-test-setup.md` to create the matching OBS scene/profile manually.
-16. Press `Apply Audio` and confirm the app validates the Blackbox five-track routing profile.
-17. In OBS, confirm track 1 is the full mix, track 2 game audio, track 3 voice chat, track 4 raw microphone, and track 5 processed microphone.
-18. Confirm the raw microphone source has no destructive filters and the processed microphone source has noise suppression, expander, compressor, and limiter.
+15. Follow `docs/obs-test-setup.md` to enable OBS websocket.
+16. Press `Setup OBS` and confirm the app validates the Blackbox setup plan.
+17. Press `Apply Audio` and confirm the app validates the Blackbox five-track routing profile.
+18. In OBS, confirm track 1 is the full mix, track 2 game audio, track 3 voice chat, track 4 raw microphone, and track 5 processed microphone.
+19. Confirm the raw microphone source has no destructive filters and the processed microphone source has noise suppression, expander, compressor, and limiter.
 
 Until the real obs-websocket adapter is completed, this procedure validates application orchestration, state persistence setup, and the OBS control boundary rather than actual media capture.

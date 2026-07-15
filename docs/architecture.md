@@ -23,7 +23,8 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 7. `ProtectionService` marks recent overlapping rows as protected when the user presses a protection command.
 8. `StorageQuotaEnforcer` reconciles missing files, then deletes oldest unprotected rows until quota policy is satisfied.
 9. `AudioConfigurationService` validates isolated app audio assignments and microphone processing before forwarding them to OBS.
-10. Later milestones browse and export segments from database state.
+10. `ObsAutoSetupService` builds a setup plan and sends it to the OBS controller after connection validation.
+11. Later milestones browse and export segments from database state.
 
 ## Safety Boundaries
 

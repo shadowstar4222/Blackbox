@@ -32,6 +32,18 @@ public sealed class RecordingCoordinatorTests
             return Task.CompletedTask;
         }
 
+        public Task<ObsConnectionStatus> TestConnectionAsync(ObsConnectionSettings settings, CancellationToken cancellationToken = default)
+        {
+            Calls.Add("TestConnection");
+            return Task.FromResult(ObsConnectionStatus.Connected());
+        }
+
+        public Task ApplySetupPlanAsync(ObsConnectionSettings settings, ObsSetupPlan plan, CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"ApplySetup:{plan.Sources.Count}");
+            return Task.CompletedTask;
+        }
+
         public Task ConfigureSegmentedRecordingAsync(string recordingDirectory, int segmentMinutes, CancellationToken cancellationToken = default)
         {
             Calls.Add($"Configure:{segmentMinutes}");

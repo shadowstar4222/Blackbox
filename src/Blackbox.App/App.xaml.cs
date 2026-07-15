@@ -41,6 +41,8 @@ public partial class App : Application
                 services.AddSingleton<IObsController, ObsWebSocketController>();
                 services.AddSingleton<RecordingCoordinator>();
                 services.AddSingleton<AudioConfigurationService>();
+                services.AddSingleton<ObsSetupPlanner>();
+                services.AddSingleton<ObsAutoSetupService>();
                 services.AddSingleton<ProtectionService>();
                 services.AddSingleton<StorageQuotaEnforcer>();
                 services.AddSingleton<GlobalHotkeyService>();

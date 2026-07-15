@@ -36,6 +36,7 @@
             <TextBlock Grid.Row="4" Grid.Column="1" Text="Full mix, game, voice chat, raw mic, processed mic" Margin="0,12,0,0" TextWrapping="Wrap" />
         </Grid>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="ObsSetupButton" Content="Setup OBS" Width="100" Height="34" Margin="0,0,8,0" Click="ObsSetupButton_Click" />
             <Button x:Name="AudioButton" Content="Apply Audio" Width="110" Height="34" Margin="0,0,8,0" Click="AudioButton_Click" />
             <Button x:Name="ProtectButton" Content="Protect 5 Min" Width="120" Height="34" Margin="0,0,8,0" Click="ProtectButton_Click" />
             <Button x:Name="PruneButton" Content="Apply Quotas" Width="120" Height="34" Margin="0,0,8,0" Click="PruneButton_Click" />

@@ -10,6 +10,7 @@ namespace Blackbox.App;
 public partial class MainWindow : Window
 {
     private readonly RecordingCoordinator _coordinator;
+    private readonly ObsAutoSetupService _obsAutoSetupService;
     private readonly AudioConfigurationService _audioConfigurationService;
     private readonly ProtectionService _protectionService;
     private readonly StorageQuotaEnforcer _storageQuotaEnforcer;
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
 
     public MainWindow(
         RecordingCoordinator coordinator,
+        ObsAutoSetupService obsAutoSetupService,
         AudioConfigurationService audioConfigurationService,
         ProtectionService protectionService,
         StorageQuotaEnforcer storageQuotaEnforcer,
@@ -26,6 +28,7 @@ public partial class MainWindow : Window
         RecordingSettings settings)
     {
         _coordinator = coordinator;
+        _obsAutoSetupService = obsAutoSetupService;
         _audioConfigurationService = audioConfigurationService;
         _protectionService = protectionService;
         _storageQuotaEnforcer = storageQuotaEnforcer;
@@ -78,6 +81,12 @@ public partial class MainWindow : Window
     {
         await _audioConfigurationService.ApplyAsync(AudioRoutingProfile.Default, new MicrophoneProcessingSettings());
         StatusText.Text = "Applied audio routing";
+    }
+
+    private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
+    {
+        var result = await _obsAutoSetupService.SetupAsync(new ObsConnectionSettings(), _settings);
+        StatusText.Text = result.Message;
     }
 
     private async Task ProtectLastFiveMinutesAsync()

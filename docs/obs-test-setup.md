@@ -1,6 +1,6 @@
 # OBS Test Setup
 
-Use this when you are ready to test Blackbox against OBS manually.
+Use this when you are ready to test Blackbox against OBS.
 
 ## OBS Requirements
 
@@ -46,9 +46,10 @@ Keep the raw microphone source free of destructive gating. Apply filters only to
 
 1. Build with `dotnet build`.
 2. Run with `dotnet run --project src\Blackbox.App\Blackbox.App.csproj`.
-3. Click `Apply Audio` to validate the Blackbox audio profile and send it through the current OBS controller boundary.
-4. Click `Start Recording` to exercise the Blackbox start pipeline.
-5. Use `Protect 5 Min` or `Ctrl+Shift+F7` to mark recent footage in the database.
-6. Use `Apply Quotas` to test pruning behavior.
+3. Click `Setup OBS` to validate the default websocket connection and apply the Blackbox OBS setup plan.
+4. Click `Apply Audio` to validate the Blackbox audio profile and send it through the current OBS controller boundary.
+5. Click `Start Recording` to exercise the Blackbox start pipeline.
+6. Use `Protect 5 Min` or `Ctrl+Shift+F7` to mark recent footage in the database.
+7. Use `Apply Quotas` to test pruning behavior.
 
-The current `ObsWebSocketController` logs intended OBS actions but does not yet perform real websocket RPC calls. The next integration step is to add OBS websocket connection settings and map the audio/recording profile to OBS `SetProfileParameter`, source creation, filter creation, and recording commands.
+The current `ObsWebSocketController` logs intended OBS actions but does not yet perform real websocket RPC calls. The automatic setup milestone creates and validates the full setup plan in code; the next integration step is to map that plan to OBS websocket `SetProfileParameter`, source creation, filter creation, and recording commands.
