@@ -10,6 +10,7 @@
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
 - Windows top-level-window APIs plus the Toolhelp process snapshot API for the non-invasive running-game picker.
+- Windows PDH (`pdh.dll`) GPU Engine performance counters for optional per-process activity corroboration.
 - OBS Application Audio Capture for isolated per-process audio sources.
 - OBS websocket input-volume events and Windows Audio Capture device properties for calibration and connection monitoring.
 
@@ -25,5 +26,4 @@
 
 ## Planned
 
-- Windows GPU activity corroboration and executable-alias discovery.
 - A localhost control surface for the OBS dock edition.

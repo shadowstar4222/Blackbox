@@ -1,6 +1,6 @@
 # Milestone 6 Automatic Capture Test
 
-This procedure verifies remembered-game detection, start-time OBS source setup, automatic recording ownership, and delayed stop behavior.
+This procedure verifies remembered profiles, per-game preferences, aliases, launcher handoff, GPU corroboration, OBS rebinding, recording ownership, and delayed stop behavior.
 
 ## Prerequisites
 
@@ -10,47 +10,58 @@ This procedure verifies remembered-game detection, start-time OBS source setup, 
 ## Remember A Game
 
 1. Start the game and leave its main window running.
-2. In Blackbox, click `Games` and then `Refresh`.
-3. Select the game under `Running applications` and click `Remember selected game`.
-4. Confirm it appears under `Remembered games` with automatic recording checked.
-5. Close and reopen Blackbox, then confirm the remembered entry is still present.
+2. In Blackbox, open `Games` and click `Refresh`.
+3. Confirm the running row shows its executable, live client size, and GPU percentage or `GPU unavailable`.
+4. Select the game and click `Remember as game`.
+5. Select the remembered profile and confirm its settings show automatic recording, game audio, launcher handoff, and GPU preference.
+6. Close and reopen Blackbox, then confirm the profile and settings remain present.
 
-## Automatic Start
+## Profile Preferences
 
-1. Click `Check OBS` or `Setup OBS` until setup succeeds.
-2. Click `Enable Auto`. Confirm the status says it is watching for a remembered game.
-3. Start the remembered game if it is not already running.
-4. Within about five seconds, confirm Blackbox changes from confirming to binding and then recording.
-5. In private OBS, confirm the `Blackbox Recording` preview shows the game at the correct aspect ratio.
-6. Confirm `Blackbox Game Capture` and `Blackbox Game Audio` both target the live game window.
-7. Play for longer than one segment boundary and confirm MKV segments continue to appear.
+1. Clear `Capture game audio`, enable automatic capture, and start the game.
+2. Confirm OBS captures video while `Blackbox Game Audio` is muted and disabled.
+3. Stop automatic capture, restore `Capture game audio`, and enable `Prefer GPU-active window`.
+4. Start automatic capture again and confirm Diagnostics or the log reports `GpuActivity` when the game is using at least 1% GPU.
+5. If the GPU counter is unavailable, confirm executable detection still starts recording normally.
 
-## Selection And Stop Behavior
+## Executable Aliases
 
-1. Run an unremembered game or desktop application and confirm it does not trigger recording.
-2. Briefly Alt-Tab away from the remembered game and confirm recording continues.
-3. Exit the game and keep it closed. Confirm Blackbox shows the stop countdown and stops after about 15 seconds.
-4. Open `Recordings` and confirm the completed footage is indexed and playable.
+1. Run the remembered game and a second executable that belongs to the same game.
+2. Select the remembered profile, select the second running application, and click `Add as alias`.
+3. Confirm the full alias path appears under `Executable aliases`.
+4. Close the primary executable and confirm the alias can trigger the same profile.
+5. Select the alias and click `Remove alias`, then confirm it no longer triggers the profile by itself.
+
+## Launcher Handoff
+
+1. Enable `Follow launcher handoffs` for a profile whose primary path is a launcher.
+2. Start the launcher and let it open the final game process.
+3. Confirm Blackbox sees the same child executable in two consecutive scans before adding it as an alias.
+4. Confirm automatic capture rebinds OBS to the final game window and preserves the profile display name and audio preference.
+5. Reopen `Games` and confirm the learned child path is visible and removable.
+6. Repeat with launcher handoff disabled and confirm no child alias is learned.
+
+## Automatic Start And Stop
+
+1. Click `Enable Auto` and start an enabled remembered game.
+2. Within about five seconds, confirm Blackbox changes from confirming to binding and then recording.
+3. In private OBS, confirm the preview shows the game at the correct aspect ratio.
+4. Confirm `Blackbox Game Capture` and, when enabled, `Blackbox Game Audio` target the live game window.
+5. Briefly Alt-Tab away and confirm recording continues.
+6. Exit the game and keep it closed. Confirm Blackbox stops after the 15-second grace period.
+7. Open `Recordings` and confirm the completed footage is indexed and playable.
 
 ## Manual Ownership
 
 1. Disable automatic capture and click `Start Recording`.
 2. Enable automatic capture while a remembered game is running.
-3. Confirm Blackbox asks for the manual recording to stop instead of reconfiguring or stopping it.
-4. Click `Disable Auto`, confirm the manual recording continues, then click `Stop`.
+3. Confirm Blackbox does not reconfigure or stop the manual recording.
+4. Disable automatic capture, confirm the manual recording continues, then click `Stop`.
 
-## Profile Controls
+## Recovery And Failure Checks
 
-1. Clear the checkbox beside a remembered game and confirm it no longer triggers automatic recording.
-2. Check it again and confirm detection resumes.
-3. Use `Remove`, confirm the prompt, and verify that game no longer triggers recording.
-
-## Failure Checks
-
-- A detection or OBS binding failure must be shown in the status and logged without terminating Blackbox.
+- Follow `docs/milestone-6c-recovery-diagnostics-test.md` for crash recovery and surviving OBS-session adoption.
+- An OBS binding, GPU-counter, or detection failure must be logged without terminating Blackbox.
 - Automatic capture must not request administrator privileges or inject into the game.
 - Selecting `Stop` while automatic capture owns the recording must disable automatic capture before stopping OBS.
-
-## Current Boundary
-
-Milestone 6B remembers exact executable paths selected from active windows. Executable aliases, launcher handoff, GPU corroboration, crash recovery, and the diagnostics workspace remain planned.
+- An unremembered application without verified launcher ancestry must never trigger recording.

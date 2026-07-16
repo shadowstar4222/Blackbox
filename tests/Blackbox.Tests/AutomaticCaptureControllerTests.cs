@@ -120,6 +120,47 @@ public sealed class AutomaticCaptureControllerTests
     }
 
     [Fact]
+    public async Task ProcessDetectionAsync_rebinds_when_same_executable_replaces_its_capture_window()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            var controller = CreateController(root, obs, coordinator, clock);
+            var launcherWindow = CreateTarget() with
+            {
+                Title = "Example Launcher",
+                ObsWindowIdentifier = "Example Launcher:LauncherWindow:Example.exe"
+            };
+            var gameWindow = launcherWindow with
+            {
+                Title = "Example Game",
+                ObsWindowIdentifier = "Example Game:GameWindow:Example.exe"
+            };
+
+            controller.Enable();
+            await controller.ProcessDetectionAsync(launcherWindow);
+            await controller.ProcessDetectionAsync(launcherWindow);
+            var callCountBeforeHandoff = obs.Calls.Count;
+
+            await controller.ProcessDetectionAsync(gameWindow);
+            await controller.ProcessDetectionAsync(gameWindow);
+
+            Assert.Equal(
+                ["Stop", "ConfigureGame:Example.exe", "Launch", "ConfigureSegments", "ConfigureAudio", "Start"],
+                obs.Calls.Skip(callCountBeforeHandoff).ToArray());
+            Assert.Equal("Example Game", controller.Status.Target?.Title);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task AdoptRecordingOwnership_stops_surviving_recording_when_no_game_returns()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));

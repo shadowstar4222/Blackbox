@@ -4,7 +4,7 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 6C Status
+## Milestone 6 Status
 
 Implemented:
 
@@ -53,8 +53,13 @@ Implemented:
 - Surviving OBS-session adoption after a Blackbox crash, including restoration of the working Stop control without interrupting recording.
 - Persisted automatic-capture intent so an interrupted automatic session can resume after Blackbox restarts.
 - An in-app diagnostics window with recording state, automatic-capture state, indexed-media health, storage use, recovery results, and categorized recent logs.
+- Migration-safe per-game aliases plus audio, launcher-handoff, and GPU-preference settings.
+- Automatic launcher-child discovery that requires two consecutive detections before remembering the final executable as an alias.
+- Same-process window replacement detection so OBS re-hooks when a launcher changes its capture window without changing executables.
+- Optional Windows GPU activity corroboration that ranks likely game windows without requiring administrator access or process injection.
+- Live GPU utilization in the running-applications picker and removable executable aliases in each remembered profile.
 
-Automatic capture now binds game video and game audio only after a remembered game starts. Voice-chat selection, executable aliases, launcher handoff, GPU corroboration, and additional per-game capture preferences remain as Milestone 6 refinements.
+Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 6 is complete.
 
 ## Build
 
@@ -84,8 +89,8 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 10. Use `Open Folder` when you need direct access to the underlying safe segments.
 11. Open `Diagnostics` to inspect recovery results, media health, storage use, and recent recording or detection events.
 
-The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`.
+The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The complete automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`.
 
 ## Current Milestone
 
-Milestone 6C crash recovery and diagnostics are complete. Additional capture preferences, launcher handoff, and GPU corroboration remain as Milestone 6 refinements. Hardening/optimization and an OBS dock edition are planned as Milestones 7 and 8. See `docs/roadmap.md` for the acceptance criteria.
+Milestone 6 automatic detection, profiles, handoff, GPU corroboration, crash recovery, and diagnostics are complete. Hardening/optimization and an OBS dock edition are planned as Milestones 7 and 8. See `docs/roadmap.md` for the acceptance criteria.

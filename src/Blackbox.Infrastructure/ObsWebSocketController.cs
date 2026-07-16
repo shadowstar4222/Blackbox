@@ -106,11 +106,12 @@ public sealed class ObsWebSocketController(
             requestBuilder.BuildGameCaptureActivationRequests(target, videoSceneItemId, audioSceneItemId),
             cancellationToken);
         logger.LogInformation(
-            "OBS scene bound to {GameTitle} ({GameExecutable}) at {Width}x{Height}. DetectionSources={DetectionSources}.",
+            "OBS scene bound to {GameTitle} ({GameExecutable}) at {Width}x{Height}. GameAudio={CaptureGameAudio}, DetectionSources={DetectionSources}.",
             target.Title,
             target.ExecutableName,
             target.WindowWidth,
             target.WindowHeight,
+            target.CaptureGameAudio,
             target.DetectionSources);
     }
 

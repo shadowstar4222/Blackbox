@@ -11,6 +11,7 @@ public sealed record RunningApplication(
     bool IsForeground,
     GameDetectionSource DetectionSources)
 {
+    public IReadOnlyList<string> AncestorExecutableNames { get; init; } = [];
     public string Identity => Path.GetFullPath(ExecutablePath).ToUpperInvariant();
 
     public GameCaptureTarget ToCaptureTarget(GameDetectionSource additionalSources = GameDetectionSource.None) => new(

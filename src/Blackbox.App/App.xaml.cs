@@ -95,6 +95,8 @@ public partial class App : Application
                 services.AddSingleton<IObsAudioMeterClient>(provider =>
                     provider.GetRequiredService<ObsWebSocketRpcClient>());
                 services.AddSingleton<IObsController, ObsWebSocketController>();
+                services.AddSingleton(new GpuActivityOptions());
+                services.AddSingleton<IGpuActivityProbe, WindowsGpuActivityProbe>();
                 services.AddSingleton<IRunningApplicationCatalog, WindowsRunningApplicationCatalog>();
                 services.AddSingleton<IGameProcessDetector, WindowsGameProcessDetector>();
                 services.AddSingleton<IObsMicrophoneController, ObsMicrophoneController>();

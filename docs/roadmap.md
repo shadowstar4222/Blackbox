@@ -50,8 +50,6 @@ The segmented MKV files remain the safe recording format on disk, but the applic
 
 Milestone 5 is complete only when a multi-segment test session can be viewed as one recording and exported as one playable file with matching duration and synchronized audio.
 
-## In Progress
-
 ### Milestone 6: Automatic Capture And Recovery
 
 #### Milestone 6A: Detection And Automatic Recording
@@ -60,14 +58,14 @@ Milestone 5 is complete only when a multi-segment test session can be viewed as 
 - [x] Bind OBS game video, isolated game audio, canvas size, and scene fit when the game starts.
 - [x] Debounce game launches and delay automatic stop across short exits or focus transitions.
 - [x] Keep automatic capture opt-in and preserve manual recording ownership.
-- [ ] Add optional GPU-activity corroboration for difficult launcher and window cases.
+- [x] Add optional GPU-activity corroboration for difficult launcher and window cases.
 
 #### Milestone 6B: Per-Game Profiles
 
 - [x] Persist remembered executables and per-game automatic-recording enablement.
 - [x] Add a running-application picker with profile enable, disable, and remove controls.
-- [ ] Add additional capture preferences and executable aliases per game.
-- [ ] Rebind capture when a launcher hands off to the final game process.
+- [x] Add additional capture preferences and executable aliases per game.
+- [x] Rebind capture when a launcher hands off to the final game process.
 
 #### Milestone 6C: Recovery And Diagnostics
 
@@ -76,6 +74,8 @@ Milestone 5 is complete only when a multi-segment test session can be viewed as 
 - [x] Add recording, detection, and export diagnostics.
 
 Milestone 6C was validated by force-closing Blackbox during a real OBS recording. OBS continued writing, startup skipped the active file, Blackbox adopted the surviving recording, and the recovered session stopped cleanly from the app.
+
+Milestone 6 is complete. The final live pass measured a running Steam game through Windows GPU counters, persisted its GPU preference, bound OBS with `GpuActivity` corroboration, recorded isolated game audio, and stopped cleanly through automatic capture.
 
 ## Planned
 

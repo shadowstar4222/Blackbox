@@ -93,6 +93,34 @@ public sealed class ObsSetupRequestBuilderTests
         Assert.Equal(1152, request.RequestData?["baseHeight"]?.GetValue<int>());
     }
 
+    [Fact]
+    public void BuildGameCaptureRequests_disables_isolated_game_audio_for_the_profile()
+    {
+        var target = new GameCaptureTarget(
+            42,
+            "C:\\Games\\Example.exe",
+            "Example.exe",
+            "Example Game",
+            "Example Game:ExampleWindow:Example.exe",
+            GameDetectionSource.ConfiguredExecutable,
+            CaptureGameAudio: false);
+        var builder = new ObsSetupRequestBuilder();
+
+        var requests = builder.BuildGameCaptureRequests(target);
+        var activation = builder.BuildGameCaptureActivationRequests(target, 10, 20);
+
+        Assert.DoesNotContain(requests, request =>
+            request.RequestType == "SetInputSettings" &&
+            request.RequestData?["inputName"]?.GetValue<string>() == "Blackbox Game Audio");
+        Assert.Contains(requests, request =>
+            request.RequestType == "SetInputMute" &&
+            request.RequestData?["inputMuted"]?.GetValue<bool>() == true);
+        Assert.Contains(activation, request =>
+            request.RequestType == "SetSceneItemEnabled" &&
+            request.RequestData?["sceneItemId"]?.GetValue<int>() == 20 &&
+            request.RequestData?["sceneItemEnabled"]?.GetValue<bool>() == false);
+    }
+
     private static bool HasProfileValue(ObsRequest request, string name, string value) =>
         request.RequestType == "SetProfileParameter" &&
         request.RequestData?["parameterName"]?.GetValue<string>() == name &&

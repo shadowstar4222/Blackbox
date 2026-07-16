@@ -50,7 +50,7 @@ public sealed class ObsSetupRequestBuilder
     {
         target.Validate();
         var (width, height) = GetCanvasSize(target);
-        return
+        List<ObsRequest> requests =
         [
             new ObsRequest("SetVideoSettings", new JsonObject
             {
@@ -64,17 +64,22 @@ public sealed class ObsSetupRequestBuilder
                 ["capture_mode"] = "window",
                 ["window"] = target.ObsWindowIdentifier,
                 ["priority"] = 1
-            }),
-            InputSettings("Blackbox Game Audio", new JsonObject
-            {
-                ["window"] = target.ObsWindowIdentifier
-            }),
-            new ObsRequest("SetInputMute", new JsonObject
-            {
-                ["inputName"] = "Blackbox Game Audio",
-                ["inputMuted"] = false
             })
         ];
+        if (target.CaptureGameAudio)
+        {
+            requests.Add(InputSettings("Blackbox Game Audio", new JsonObject
+            {
+                ["window"] = target.ObsWindowIdentifier
+            }));
+        }
+
+        requests.Add(new ObsRequest("SetInputMute", new JsonObject
+        {
+            ["inputName"] = "Blackbox Game Audio",
+            ["inputMuted"] = !target.CaptureGameAudio
+        }));
+        return requests;
     }
 
     public IReadOnlyList<ObsRequest> BuildGameCaptureDeactivationRequests(
@@ -113,7 +118,7 @@ public sealed class ObsSetupRequestBuilder
                 }
             }),
             SceneItemEnabled(videoSceneItemId, true),
-            SceneItemEnabled(audioSceneItemId, true)
+            SceneItemEnabled(audioSceneItemId, target.CaptureGameAudio)
         ];
     }
 

@@ -89,7 +89,7 @@ public sealed class AutomaticCaptureController(
 
             target.Validate();
             _lastDetectedAt = clock.UtcNow;
-            if (_activeTarget?.Identity == target.Identity)
+            if (_activeTarget?.CaptureBindingIdentity == target.CaptureBindingIdentity)
             {
                 Publish(new AutomaticCaptureStatus(
                     AutomaticCaptureState.Recording,

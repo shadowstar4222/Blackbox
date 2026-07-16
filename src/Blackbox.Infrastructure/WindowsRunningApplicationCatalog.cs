@@ -103,7 +103,10 @@ public sealed class WindowsRunningApplicationCatalog(
                 width,
                 height,
                 isForeground,
-                GameCandidateSelector.Classify((int)processId, executablePath, isForeground, processTree)));
+                GameCandidateSelector.Classify((int)processId, executablePath, isForeground, processTree))
+            {
+                AncestorExecutableNames = GetAncestorExecutableNames((int)processId, processTree)
+            });
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
         {
@@ -189,6 +192,34 @@ public sealed class WindowsRunningApplicationCatalog(
         {
             NativeMethods.CloseHandle(snapshot);
         }
+    }
+
+    private static IReadOnlyList<string> GetAncestorExecutableNames(
+        int processId,
+        IReadOnlyDictionary<int, ProcessTreeEntry> processTree)
+    {
+        var ancestors = new List<string>();
+        var visited = new HashSet<int> { processId };
+        var currentId = processId;
+        for (var depth = 0; depth < 16; depth++)
+        {
+            if (!processTree.TryGetValue(currentId, out var current) ||
+                current.ParentProcessId <= 0 ||
+                !visited.Add(current.ParentProcessId) ||
+                !processTree.TryGetValue(current.ParentProcessId, out var parent))
+            {
+                break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(parent.ExecutableName))
+            {
+                ancestors.Add(parent.ExecutableName);
+            }
+
+            currentId = parent.ProcessId;
+        }
+
+        return ancestors;
     }
 
     private static string ReadWindowText(IntPtr window)

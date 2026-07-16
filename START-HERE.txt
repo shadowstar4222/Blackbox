@@ -1,4 +1,4 @@
-BLACKBOX MILESTONE 6B TEST BUILD
+BLACKBOX MILESTONE 6 COMPLETE TEST BUILD
 
 1. Extract the entire ZIP to a normal folder.
 2. Double-click Blackbox.App.exe.
@@ -13,8 +13,10 @@ After setup succeeds:
 
 1. Start a game and leave its main window running.
 2. Click Games, select the game under Running applications, and click
-   Remember selected game.
-3. Close the Games window and click Enable Auto.
+   Remember as game.
+3. Select the remembered profile to control automatic recording, game audio,
+   launcher handoff, GPU preference, and executable aliases.
+4. Close the Games window and click Enable Auto.
 
 Blackbox remembers that executable for future runs. When the game starts, it
 detects the live window and size, configures OBS game video and process audio,
@@ -26,7 +28,8 @@ Videos\Blackbox folder. Click Recordings to play a continuous session or export
 it as one MKV or MP4.
 
 The private OBS runtime is separate from your normal or Steam OBS profile. Game
-sources remain dormant until an enabled remembered game is running. Voice-chat
-process selection, launcher aliases, and GPU corroboration are still planned.
+sources remain dormant until an enabled remembered game is running. Blackbox
+can learn a launcher's final game executable after two matching scans, and the
+Games window lets you review or remove every learned alias.
 
 Logs: %LOCALAPPDATA%\Blackbox\logs

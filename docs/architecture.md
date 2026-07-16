@@ -38,15 +38,16 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 22. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
 23. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
 24. `WindowsRunningApplicationCatalog` enumerates visible top-level windows, executable paths, live client sizes, and OBS window identifiers without injecting into another process.
-25. `WindowsGameProcessDetector` matches that catalog only against enabled executable profiles stored by the user.
-26. `AutomaticCaptureService` confirms stable remembered candidates, resets and fits the OBS game sources, then starts or stops through the shared `RecordingCoordinator`.
-27. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
-28. `RecordingRecoveryService` probes stable recording files during startup, attempts a lossless FFmpeg remux for unreadable media, verifies the repair, and atomically replaces the source while preserving the original in the recovery-backups folder.
-29. Startup recovery skips files whose size or write time is still changing, then refreshes the recording library to reconcile SQLite rows and retain clear damage labels.
-30. `RecordingCoordinator` queries OBS recording status and adopts a surviving recording after a Blackbox restart without issuing another start request.
-31. `AutomaticCapturePreferenceStore` atomically persists automatic-capture intent so startup can resume an interrupted automatic session after OBS is ready.
-32. `DiagnosticLogReader` reads rolling Serilog files with shared access and classifies recent system, recording, detection, export, and recovery events for the diagnostics window.
-33. Later Milestone 6 refinements add aliases, GPU corroboration, and launcher handoff.
+25. `WindowsRunningApplicationCatalog` includes bounded process ancestry for visible windows without opening invasive handles or injecting into another process.
+26. `WindowsGpuActivityProbe` batches Windows PDH GPU-engine samples for candidate process IDs and returns an optional ranking signal.
+27. `WindowsGameProcessDetector` matches primary paths and aliases, ranks foreground and GPU-active windows, and learns a launcher child only after two consecutive matches.
+28. `AutomaticCaptureService` confirms stable remembered candidates, resets and fits the OBS game sources, then starts or stops through the shared `RecordingCoordinator`.
+29. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
+30. `RecordingRecoveryService` probes stable recording files during startup, attempts a lossless FFmpeg remux for unreadable media, verifies the repair, and atomically replaces the source while preserving the original in the recovery-backups folder.
+31. Startup recovery skips files whose size or write time is still changing, then refreshes the recording library to reconcile SQLite rows and retain clear damage labels.
+32. `RecordingCoordinator` queries OBS recording status and adopts a surviving recording after a Blackbox restart without issuing another start request.
+33. `AutomaticCapturePreferenceStore` atomically persists automatic-capture intent so startup can resume an interrupted automatic session after OBS is ready.
+34. `DiagnosticLogReader` reads rolling Serilog files with shared access and classifies recent system, recording, detection, export, and recovery events for the diagnostics window.
 
 ## Safety Boundaries
 
@@ -66,6 +67,9 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Automatic capture is disabled until the user enables it after a successful OBS check.
 - Automatic detection requires an enabled profile explicitly remembered from the running-applications picker; unapproved applications are ignored.
 - Launch confirmation and a stop grace period prevent brief process or focus transitions from repeatedly starting and stopping OBS.
+- Launcher-child aliases require two consecutive detections before they are persisted and remain visible and removable in the Games window.
+- GPU activity is a ranking signal, not a hard recording dependency; executable and foreground matching continue when counters are unavailable.
+- Game-audio capture can be disabled per profile, in which case Blackbox mutes and deactivates the isolated OBS game-audio source.
 - Recovery operates only on stable files and leaves a changing OBS output untouched.
 - Repaired media replaces its source only after FFprobe validates a non-empty staged output; the original is retained as a recovery backup.
 - A failed remux leaves the source byte-for-byte unchanged and preserves any non-empty diagnostic output separately.
@@ -73,7 +77,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 
 ## Database
 
-The `segments` table stores one row per completed segment, including session, time range, game identity, video format, audio track layout, encoder, resolution, frame rate, HDR flag, protection and damage state, path, and size. The `game_profiles` table stores remembered executable paths, display names, automatic-recording enablement, and timestamps.
+The `segments` table stores one row per completed segment, including session, time range, game identity, video format, audio track layout, encoder, resolution, frame rate, HDR flag, protection and damage state, path, and size. The `game_profiles` table stores remembered executable paths, JSON aliases, display names, automatic-recording enablement, game-audio preference, launcher-handoff preference, GPU-ranking preference, and timestamps.
 
 The `timeline_markers` and `protected_ranges` tables store durable user annotations against session wall-clock time. Existing databases are migrated in place when new damage columns or timeline tables are introduced.
 
@@ -82,6 +86,5 @@ Future tables:
 - sessions
 - clips
 - devices
-- game_profiles
 - export_jobs
 - diagnostics

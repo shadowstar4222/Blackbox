@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Games - Blackbox"
-        Height="620"
-        Width="920"
-        MinHeight="520"
-        MinWidth="760"
+        Height="720"
+        Width="1060"
+        MinHeight="620"
+        MinWidth="880"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="18">
         <Grid.RowDefinitions>
@@ -21,7 +21,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Games" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock Text="Choose a running game once. Blackbox will remember its executable."
+                <TextBlock Text="Running applications and remembered capture profiles"
                            Margin="0,4,0,0"
                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
             </StackPanel>
@@ -35,9 +35,9 @@
 
         <Grid Grid.Row="1" Margin="0,18,0,16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="0.9*" />
                 <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="1.1*" />
             </Grid.ColumnDefinitions>
 
             <Grid>
@@ -66,18 +66,32 @@
                                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
                                 <TextBlock Grid.Row="2"
                                            Margin="0,3,0,0"
-                                           Text="{Binding WindowSize}"
+                                           Text="{Binding ActivitySummary}"
                                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-                <Button x:Name="RememberButton"
-                        Grid.Row="2"
-                        Content="Remember selected game"
-                        Height="34"
-                        IsEnabled="False"
-                        Click="RememberButton_Click" />
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="RememberButton"
+                            Content="Remember as game"
+                            Height="34"
+                            Margin="0,0,5,0"
+                            IsEnabled="False"
+                            Click="RememberButton_Click" />
+                    <Button x:Name="AddAliasButton"
+                            Grid.Column="1"
+                            Content="Add as alias"
+                            Height="34"
+                            Margin="5,0,0,0"
+                            IsEnabled="False"
+                            ToolTip="Associate this running executable with the selected remembered game"
+                            Click="AddAliasButton_Click" />
+                </Grid>
             </Grid>
 
             <Separator Grid.Column="1" Margin="11,0" />
@@ -86,33 +100,35 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Text="Remembered games" FontSize="16" FontWeight="SemiBold" />
                 <ListBox x:Name="RememberedGamesList"
                          Grid.Row="1"
-                         Margin="0,10,0,0"
+                         Margin="0,10,0,10"
+                         MinHeight="155"
                          HorizontalContentAlignment="Stretch">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="8,6">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <CheckBox IsChecked="{Binding AutomaticRecordingEnabled, Mode=TwoWay}"
-                                          VerticalAlignment="Center"
-                                          ToolTip="Record automatically while this game is running"
-                                          Click="AutomaticRecordingCheckBox_Click" />
-                                <StackPanel Grid.Column="1" Margin="9,0,8,0">
+                                <StackPanel Margin="0,0,8,0">
                                     <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Margin="0,3,0,0"
                                                Text="{Binding ExecutablePath}"
                                                TextTrimming="CharacterEllipsis"
                                                ToolTip="{Binding ExecutablePath}"
                                                Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                    <TextBlock Margin="0,3,0,0"
+                                               Text="{Binding PreferenceSummary}"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
                                 </StackPanel>
-                                <Button Grid.Column="2"
+                                <Button Grid.Column="1"
                                         Content="Remove"
                                         Padding="10,4"
                                         VerticalAlignment="Center"
@@ -121,6 +137,55 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <Separator Grid.Row="2" Margin="0,2,0,12" />
+
+                <Grid x:Name="SelectedProfilePanel" Grid.Row="3" IsEnabled="False">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="SelectedGameText" Text="Selected game settings" FontWeight="SemiBold" />
+                    <UniformGrid Grid.Row="1" Rows="2" Columns="2" Margin="0,8,0,10">
+                        <CheckBox x:Name="AutomaticRecordingCheckBox"
+                                  Content="Record automatically"
+                                  Margin="0,0,10,7"
+                                  Click="ProfilePreferenceCheckBox_Click" />
+                        <CheckBox x:Name="CaptureGameAudioCheckBox"
+                                  Content="Capture game audio"
+                                  Margin="0,0,0,7"
+                                  Click="ProfilePreferenceCheckBox_Click" />
+                        <CheckBox x:Name="FollowLauncherHandoffCheckBox"
+                                  Content="Follow launcher handoffs"
+                                  Margin="0,0,10,0"
+                                  Click="ProfilePreferenceCheckBox_Click" />
+                        <CheckBox x:Name="PreferGpuActivityCheckBox"
+                                  Content="Prefer GPU-active window"
+                                  Click="ProfilePreferenceCheckBox_Click" />
+                    </UniformGrid>
+                    <TextBlock Grid.Row="2" Text="Executable aliases" FontWeight="SemiBold" />
+                    <Grid Grid.Row="3" Margin="0,7,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ListBox x:Name="AliasesList"
+                                 MinHeight="58"
+                                 MaxHeight="88"
+                                 ItemsSource="{Binding}" />
+                        <Button x:Name="RemoveAliasButton"
+                                Grid.Column="1"
+                                Content="Remove alias"
+                                MinWidth="95"
+                                Height="32"
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Top"
+                                IsEnabled="False"
+                                Click="RemoveAliasButton_Click" />
+                    </Grid>
+                </Grid>
             </Grid>
         </Grid>
 

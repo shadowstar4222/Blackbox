@@ -8,5 +8,7 @@ public enum GameDetectionSource
     SteamProcessTree = 2,
     SteamLibrary = 4,
     ConfiguredExecutable = 8,
-    GpuActivity = 16
+    GpuActivity = 16,
+    ExecutableAlias = 32,
+    LauncherHandoff = 64
 }
