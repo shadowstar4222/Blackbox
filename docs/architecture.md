@@ -37,7 +37,10 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 21. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 with the chosen track mix and optional separate 24-bit PCM WAV files.
 22. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
 23. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
-24. Later milestones bind detected games to application-audio inputs and add crash recovery.
+24. `WindowsGameProcessDetector` inspects the foreground window, executable path, and Toolhelp process ancestry without injecting into the game.
+25. `AutomaticCaptureService` confirms stable Steam candidates, binds OBS game video and isolated game audio, then starts or stops through the shared `RecordingCoordinator`.
+26. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
+27. Later Milestone 6 slices add GPU/configured signals, persistent profiles, and crash recovery.
 
 ## Safety Boundaries
 
@@ -54,6 +57,9 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Damaged files remain visible in the library with their probe failure instead of disappearing from recording history.
 - Timeline assets are generated in a staging directory and moved into a keyed local cache only after successful completion.
 - Exports write video and WAV outputs to unique partial paths and publish them only after FFmpeg exits successfully with non-empty files.
+- Automatic capture is disabled until the user enables it after a successful OBS check.
+- Foreground detection requires Steam library or process-tree evidence; ordinary desktop applications are ignored.
+- Launch confirmation and a stop grace period prevent brief process or focus transitions from repeatedly starting and stopping OBS.
 
 ## Database
 

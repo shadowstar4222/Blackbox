@@ -76,6 +76,22 @@ public sealed class ObsWebSocketController(
         return SendBatchWithoutResultAsync(connectionSettingsProvider.Current, requests, cancellationToken);
     }
 
+    public async Task ConfigureGameCaptureAsync(
+        GameCaptureTarget target,
+        CancellationToken cancellationToken = default)
+    {
+        target.Validate();
+        await SendBatchWithoutResultAsync(
+            connectionSettingsProvider.Current,
+            requestBuilder.BuildGameCaptureRequests(target),
+            cancellationToken);
+        logger.LogInformation(
+            "OBS game capture bound to {GameTitle} ({GameExecutable}). DetectionSources={DetectionSources}.",
+            target.Title,
+            target.ExecutableName,
+            target.DetectionSources);
+    }
+
     public async Task StartRecordingAsync(CancellationToken cancellationToken = default)
     {
         await rpcClient.SendRequestAsync(

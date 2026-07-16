@@ -32,6 +32,38 @@ public sealed class RecordingCoordinatorTests
         Assert.True(Directory.Exists(root));
     }
 
+    [Fact]
+    public async Task TryStartAndStopAsync_are_idempotent()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        var obs = new RecordingObsController();
+        var coordinator = new RecordingCoordinator(
+            obs,
+            new RecordingMicrophoneController(),
+            new InMemoryMicrophoneConfigurationStore(),
+            new InMemorySegmentRepository(),
+            new RecordingMicrophoneMonitor(),
+            NullLogger<RecordingCoordinator>.Instance);
+
+        try
+        {
+            Assert.True(await coordinator.TryStartAsync(new RecordingSettings { RecordingLocation = root }));
+            Assert.False(await coordinator.TryStartAsync(new RecordingSettings { RecordingLocation = root }));
+            Assert.True(await coordinator.TryStopAsync());
+            Assert.False(await coordinator.TryStopAsync());
+
+            Assert.Equal(1, obs.Calls.Count(static call => call == "Start"));
+            Assert.Equal(1, obs.Calls.Count(static call => call == "Stop"));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
     private sealed class InMemoryMicrophoneConfigurationStore : IMicrophoneConfigurationStore
     {
         public MicrophoneConfiguration Current { get; private set; } = new();
@@ -126,6 +158,14 @@ public sealed class RecordingCoordinatorTests
         public Task ConfigureAudioAsync(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings, CancellationToken cancellationToken = default)
         {
             Calls.Add($"ConfigureAudio:{profile.Tracks.Count}");
+            return Task.CompletedTask;
+        }
+
+        public Task ConfigureGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"ConfigureGame:{target.ExecutableName}");
             return Task.CompletedTask;
         }
 

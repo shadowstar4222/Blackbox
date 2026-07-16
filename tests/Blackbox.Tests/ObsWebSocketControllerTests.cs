@@ -58,6 +58,24 @@ public sealed class ObsWebSocketControllerTests
         Assert.Equal("StartRecord", rpc.AllRequests.Single().RequestType);
     }
 
+    [Fact]
+    public async Task ConfigureGameCaptureAsync_updates_video_and_audio_inputs()
+    {
+        var rpc = new RecordingRpcClient(resourcesExist: true);
+        var controller = CreateController(rpc);
+        var target = new GameCaptureTarget(
+            42,
+            "C:\\Steam\\steamapps\\common\\Example\\Example.exe",
+            "Example.exe",
+            "Example Game",
+            "Example Game:ExampleWindow:Example.exe",
+            GameDetectionSource.ForegroundWindow | GameDetectionSource.SteamLibrary);
+
+        await controller.ConfigureGameCaptureAsync(target);
+
+        Assert.Equal(2, rpc.AllRequests.Count(static request => request.RequestType == "SetInputSettings"));
+    }
+
     private static ObsWebSocketController CreateController(IObsWebSocketRpcClient rpc) =>
         new(
             rpc,

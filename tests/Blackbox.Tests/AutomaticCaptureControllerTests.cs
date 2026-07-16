@@ -1,0 +1,224 @@
+using Blackbox.Domain;
+using Blackbox.Infrastructure;
+using Blackbox.Recording;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Blackbox.Tests;
+
+public sealed class AutomaticCaptureControllerTests
+{
+    [Fact]
+    public async Task ProcessDetectionAsync_starts_after_confirmation_and_stops_after_grace_period()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            var controller = CreateController(root, obs, coordinator, clock);
+            var target = CreateTarget();
+
+            controller.Enable();
+            await controller.ProcessDetectionAsync(target);
+
+            Assert.Equal(AutomaticCaptureState.Confirming, controller.Status.State);
+            Assert.False(coordinator.IsRecording);
+
+            await controller.ProcessDetectionAsync(target);
+
+            Assert.Equal(AutomaticCaptureState.Recording, controller.Status.State);
+            Assert.True(coordinator.IsRecording);
+            Assert.Contains("ConfigureGame:Example.exe", obs.Calls);
+            Assert.Contains("Start", obs.Calls);
+
+            await controller.ProcessDetectionAsync(null);
+            Assert.True(coordinator.IsRecording);
+
+            clock.Advance(TimeSpan.FromSeconds(11));
+            await controller.ProcessDetectionAsync(null);
+
+            Assert.False(coordinator.IsRecording);
+            Assert.Equal(AutomaticCaptureState.Watching, controller.Status.State);
+            Assert.Contains("Stop", obs.Calls);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task DisableAsync_does_not_stop_a_manual_recording()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            await coordinator.StartAsync(new RecordingSettings { RecordingLocation = root });
+            var controller = CreateController(root, obs, coordinator, clock);
+
+            controller.Enable();
+            await controller.ProcessDetectionAsync(CreateTarget());
+            await controller.ProcessDetectionAsync(CreateTarget());
+            await controller.DisableAsync();
+
+            Assert.True(coordinator.IsRecording);
+            Assert.DoesNotContain("Stop", obs.Calls);
+            await coordinator.StopAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    private static AutomaticCaptureController CreateController(
+        string recordingPath,
+        IObsController obs,
+        RecordingCoordinator coordinator,
+        IClock clock) =>
+        new(
+            obs,
+            coordinator,
+            new RecordingSettings { RecordingLocation = recordingPath },
+            clock,
+            new AutomaticCaptureOptions
+            {
+                PollInterval = TimeSpan.FromHours(1),
+                RequiredPositiveDetections = 2,
+                StopGracePeriod = TimeSpan.FromSeconds(10)
+            },
+            NullLogger<AutomaticCaptureController>.Instance);
+
+    private static RecordingCoordinator CreateCoordinator(IObsController obs) =>
+        new(
+            obs,
+            new AutomaticCaptureMicrophoneController(),
+            new AutomaticCaptureMicrophoneStore(),
+            new InMemorySegmentRepository(),
+            new AutomaticCaptureMicrophoneMonitor(),
+            NullLogger<RecordingCoordinator>.Instance);
+
+    private static GameCaptureTarget CreateTarget() => new(
+        42,
+        "C:\\Steam\\steamapps\\common\\Example\\Example.exe",
+        "Example.exe",
+        "Example Game",
+        "Example Game:ExampleWindow:Example.exe",
+        GameDetectionSource.ForegroundWindow | GameDetectionSource.SteamLibrary);
+
+    private sealed class MutableClock(DateTimeOffset utcNow) : IClock
+    {
+        public DateTimeOffset UtcNow { get; private set; } = utcNow;
+
+        public void Advance(TimeSpan duration) => UtcNow += duration;
+    }
+
+    private sealed class AutomaticCaptureMicrophoneStore : IMicrophoneConfigurationStore
+    {
+        public MicrophoneConfiguration Current { get; private set; } = new();
+
+        public void Save(MicrophoneConfiguration configuration) => Current = configuration;
+    }
+
+    private sealed class AutomaticCaptureMicrophoneMonitor : IMicrophoneDeviceMonitor
+    {
+        public MicrophoneDeviceStatus CurrentStatus { get; } = new(
+            "default",
+            MicrophoneConnectionState.Connected,
+            DateTimeOffset.UtcNow);
+
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class AutomaticCaptureMicrophoneController : IObsMicrophoneController
+    {
+        public Task<IReadOnlyList<MicrophoneDevice>> GetDevicesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MicrophoneDevice>>([]);
+
+        public Task<MicrophoneDeviceStatus> GetDeviceStatusAsync(
+            string deviceId,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task ConfigureAsync(
+            MicrophoneDevice device,
+            MicrophoneProcessingSettings processingSettings,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<AudioLevelSnapshot>> CaptureLevelsAsync(
+            TimeSpan duration,
+            IProgress<AudioLevelSnapshot>? progress = null,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task SetProcessingEnabledAsync(bool enabled, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+    }
+
+    private sealed class AutomaticCaptureObsController : IObsController
+    {
+        public List<string> Calls { get; } = [];
+
+        public Task LaunchAsync(CancellationToken cancellationToken = default)
+        {
+            Calls.Add("Launch");
+            return Task.CompletedTask;
+        }
+
+        public Task<ObsConnectionStatus> TestConnectionAsync(
+            ObsConnectionSettings settings,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(ObsConnectionStatus.Connected());
+
+        public Task ApplySetupPlanAsync(
+            ObsConnectionSettings settings,
+            ObsSetupPlan plan,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task ConfigureSegmentedRecordingAsync(
+            string recordingDirectory,
+            int segmentMinutes,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add("ConfigureSegments");
+            return Task.CompletedTask;
+        }
+
+        public Task ConfigureAudioAsync(
+            AudioRoutingProfile profile,
+            MicrophoneProcessingSettings microphoneSettings,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add("ConfigureAudio");
+            return Task.CompletedTask;
+        }
+
+        public Task ConfigureGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"ConfigureGame:{target.ExecutableName}");
+            return Task.CompletedTask;
+        }
+
+        public Task StartRecordingAsync(CancellationToken cancellationToken = default)
+        {
+            Calls.Add("Start");
+            return Task.CompletedTask;
+        }
+
+        public Task<string?> StopRecordingAsync(CancellationToken cancellationToken = default)
+        {
+            Calls.Add("Stop");
+            return Task.FromResult<string?>(null);
+        }
+    }
+}

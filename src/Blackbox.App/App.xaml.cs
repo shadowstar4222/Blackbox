@@ -82,12 +82,16 @@ public partial class App : Application
                 services.AddSingleton<IObsAudioMeterClient>(provider =>
                     provider.GetRequiredService<ObsWebSocketRpcClient>());
                 services.AddSingleton<IObsController, ObsWebSocketController>();
+                services.AddSingleton<IGameProcessDetector, WindowsGameProcessDetector>();
                 services.AddSingleton<IObsMicrophoneController, ObsMicrophoneController>();
                 services.AddSingleton(new MicrophoneMonitoringOptions());
                 services.AddSingleton<IMicrophoneDeviceMonitor, MicrophoneDeviceMonitor>();
                 services.AddSingleton<MicrophoneCalibrationAnalyzer>();
                 services.AddSingleton<MicrophoneCalibrationService>();
                 services.AddSingleton<RecordingCoordinator>();
+                services.AddSingleton(new AutomaticCaptureOptions());
+                services.AddSingleton<AutomaticCaptureController>();
+                services.AddSingleton<AutomaticCaptureService>();
                 services.AddSingleton<AudioConfigurationService>();
                 services.AddSingleton<ObsSetupPlanner>();
                 services.AddSingleton<ObsAutoSetupService>();

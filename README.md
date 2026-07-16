@@ -4,7 +4,7 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 5 Status
+## Milestone 6A Status
 
 Implemented:
 
@@ -39,8 +39,12 @@ Implemented:
 - Per-track mute, solo, volume, WAV-selection controls, and common export presets.
 - Optional 24-bit PCM WAV export for selected isolated audio tracks.
 - Export progress, cancellation, atomic completion, and source-segment locks that prevent quota deletion during playback and export.
+- Opt-in automatic capture for foreground Steam games detected from their library path or Steam process ancestry.
+- Exact OBS game-video and isolated game-audio rebinding to the detected window.
+- Two-sample launch confirmation and a 15-second stop grace period to avoid capture churn during startup and brief focus changes.
+- Recording ownership that prevents automatic capture from stopping a manually started recording.
 
-Game and voice-chat audio sources are created during setup, but selecting their exact executable/window is not automatic yet. That binding will be added with game detection and per-game profiles; the current setup probe validates the backend and recording structure.
+Automatic capture now binds the game video and game-audio sources for foreground Steam games. Voice-chat selection, non-Steam executable profiles, GPU corroboration, and per-game overrides remain in Milestone 6B.
 
 ## Build
 
@@ -65,10 +69,11 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 5. Use `Calibrate Mic` to select and tune the microphone.
 6. Use `Start Recording` and `Stop` for recording tests.
 7. Use `Recordings` to browse the visual timeline, play from any cursor position, select a range, mix tracks, and export one continuous video.
-8. Use `Open Folder` when you need direct access to the underlying safe segments.
+8. Click `Enable Auto`, switch to a running Steam game, and let Blackbox start and stop recording with the game.
+9. Use `Open Folder` when you need direct access to the underlying safe segments.
 
-The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`.
+The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`.
 
-## Next Milestone
+## Current Milestone
 
-Milestone 5 is complete. Milestone 6 adds automatic game detection, per-game capture profiles, crash recovery, and recording/export diagnostics. See `docs/roadmap.md` for the acceptance criteria.
+Milestone 6A now provides the first automatic Steam-game capture path. Milestone 6B adds configured executable and GPU signals plus persistent per-game profiles; Milestone 6C adds crash recovery and diagnostics. Hardening/optimization and an OBS dock edition are planned as Milestones 7 and 8. See `docs/roadmap.md` for the acceptance criteria.

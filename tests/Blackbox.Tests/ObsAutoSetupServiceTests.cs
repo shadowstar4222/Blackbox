@@ -172,6 +172,10 @@ public sealed class ObsAutoSetupServiceTests
             MicrophoneProcessingSettings microphoneSettings,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task ConfigureGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task StartRecordingAsync(CancellationToken cancellationToken = default)
         {
             Calls.Add("Start");

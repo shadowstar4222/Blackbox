@@ -38,6 +38,31 @@ public sealed class ObsSetupRequestBuilderTests
         Assert.Contains(requests, request => HasProfileValue(request, "SampleRate", "48000"));
     }
 
+    [Fact]
+    public void BuildGameCaptureRequests_binds_video_and_isolated_audio_to_the_same_window()
+    {
+        var target = new GameCaptureTarget(
+            42,
+            "C:\\Steam\\steamapps\\common\\Example\\Example.exe",
+            "Example.exe",
+            "Example Game",
+            "Example Game:ExampleWindow:Example.exe",
+            GameDetectionSource.ForegroundWindow | GameDetectionSource.SteamLibrary);
+
+        var requests = new ObsSetupRequestBuilder().BuildGameCaptureRequests(target);
+
+        Assert.Equal(2, requests.Count);
+        Assert.All(requests, static request => Assert.Equal("SetInputSettings", request.RequestType));
+        Assert.Equal(
+            target.ObsWindowIdentifier,
+            requests.Single(request => request.RequestData?["inputName"]?.GetValue<string>() == "Blackbox Game Capture")
+                .RequestData?["inputSettings"]?["window"]?.GetValue<string>());
+        Assert.Equal(
+            target.ObsWindowIdentifier,
+            requests.Single(request => request.RequestData?["inputName"]?.GetValue<string>() == "Blackbox Game Audio")
+                .RequestData?["inputSettings"]?["window"]?.GetValue<string>());
+    }
+
     private static bool HasProfileValue(ObsRequest request, string name, string value) =>
         request.RequestType == "SetProfileParameter" &&
         request.RequestData?["parameterName"]?.GetValue<string>() == name &&

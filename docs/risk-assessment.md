@@ -12,6 +12,7 @@
 
 - Global hotkeys can conflict with games or overlays.
 - Game detection from foreground process and GPU activity can misclassify launchers.
+- Protected or elevated games can restrict process metadata available to a normal user process.
 - Long-running thumbnail/waveform generation can contend with recording IO or leave stale cache data.
 - Crash recovery may preserve damaged files that require clear UI labeling and repeatable probing.
 - MP4 export compatibility can conflict with multi-track workflows.
@@ -37,3 +38,6 @@
 - Limit generated thumbnails and waveform buckets, key the cache to source size and modification time, and stage new assets atomically.
 - Re-probe stable media during library refresh and keep damaged rows visible with a diagnostic message.
 - Stream-copy video whenever trimming is unnecessary, and transcode only audio when track mixing or volume changes require it.
+- Require Steam path or ancestry evidence for the first automatic detector, ignore known desktop processes, and keep automatic capture opt-in.
+- Confirm the same candidate across multiple polls and wait through a stop grace period before ending an automatic recording.
+- Use limited-information process queries as a fallback without requesting administrator privileges.

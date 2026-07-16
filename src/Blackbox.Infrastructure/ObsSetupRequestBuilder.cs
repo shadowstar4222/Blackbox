@@ -46,6 +46,24 @@ public sealed class ObsSetupRequestBuilder
             .ToArray();
     }
 
+    public IReadOnlyList<ObsRequest> BuildGameCaptureRequests(GameCaptureTarget target)
+    {
+        target.Validate();
+        return
+        [
+            InputSettings("Blackbox Game Capture", new JsonObject
+            {
+                ["capture_mode"] = "window",
+                ["window"] = target.ObsWindowIdentifier,
+                ["priority"] = 1
+            }),
+            InputSettings("Blackbox Game Audio", new JsonObject
+            {
+                ["window"] = target.ObsWindowIdentifier
+            })
+        ];
+    }
+
     private static JsonObject BuildTrackMap(AudioRoutingProfile profile, AudioCategory category)
     {
         var tracks = new JsonObject();
@@ -76,5 +94,13 @@ public sealed class ObsSetupRequestBuilder
             ["parameterCategory"] = category,
             ["parameterName"] = name,
             ["parameterValue"] = value
+        });
+
+    private static ObsRequest InputSettings(string inputName, JsonObject inputSettings) =>
+        new("SetInputSettings", new JsonObject
+        {
+            ["inputName"] = inputName,
+            ["inputSettings"] = inputSettings,
+            ["overlay"] = true
         });
 }

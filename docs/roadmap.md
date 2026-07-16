@@ -50,11 +50,43 @@ The segmented MKV files remain the safe recording format on disk, but the applic
 
 Milestone 5 is complete only when a multi-segment test session can be viewed as one recording and exported as one playable file with matching duration and synchronized audio.
 
-## Next
+## In Progress
 
 ### Milestone 6: Automatic Capture And Recovery
 
-- Detect games from foreground, GPU-active, configured, and Steam process information.
-- Add per-game recording profiles.
-- Recover incomplete media and reconcile state after crashes.
-- Add recording and export diagnostics.
+#### Milestone 6A: Detection And Automatic Recording
+
+- [x] Detect a foreground Steam game from its executable path or Steam process ancestry.
+- [x] Bind OBS game video and isolated game audio to the detected window.
+- [x] Debounce game launches and delay automatic stop across short exits or focus transitions.
+- [x] Keep automatic capture opt-in and preserve manual recording ownership.
+- [ ] Add configured executable and GPU-activity detection signals.
+
+#### Milestone 6B: Per-Game Profiles
+
+- [ ] Persist automatic-recording enablement, capture preferences, and executable aliases per game.
+- [ ] Add profile management and manual executable selection.
+- [ ] Rebind capture when a launcher hands off to the final game process.
+
+#### Milestone 6C: Recovery And Diagnostics
+
+- [ ] Recover incomplete media and reconcile state after crashes.
+- [ ] Preserve recoverable footage and label unrecoverable files clearly.
+- [ ] Add recording, detection, and export diagnostics.
+
+## Planned
+
+### Milestone 7: Debugging, Hardening, And Optimization
+
+- Add an in-app diagnostics workspace with support-bundle export and privacy review.
+- Profile startup, recording, timeline generation, memory, disk IO, and export performance.
+- Bound caches and background work, reduce unnecessary media probes, and add stress tests.
+- Add long-running reliability, low-disk, device-loss, and failure-injection test passes.
+- Resolve accessibility, usability, and Windows 10 compatibility findings before release.
+
+### Milestone 8: OBS Dock Edition
+
+- Build an OBS custom browser dock that exposes Blackbox recording status and common controls.
+- Reuse the same localhost service and authenticated control contracts as the desktop app.
+- Provide timeline launch, protection, marker, microphone, and automatic-capture controls in OBS.
+- Package one-click dock registration without modifying the user's normal OBS scenes or profiles.

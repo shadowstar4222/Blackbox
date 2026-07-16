@@ -9,6 +9,7 @@
 - FFmpeg, FFprobe, and FFplay, automatically downloaded and checksum-verified on first recordings-library use.
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
+- Windows foreground-window APIs plus the Toolhelp process snapshot API for non-invasive Steam game detection.
 - OBS Application Audio Capture for isolated per-process audio sources.
 - OBS websocket input-volume events and Windows Audio Capture device properties for calibration and connection monitoring.
 
@@ -24,4 +25,5 @@
 
 ## Planned
 
-- Windows process/GPU activity discovery.
+- Windows GPU activity discovery and configured executable profiles.
+- A localhost control surface for the OBS dock edition.

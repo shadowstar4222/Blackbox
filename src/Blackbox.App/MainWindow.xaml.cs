@@ -13,6 +13,7 @@ namespace Blackbox.App;
 public partial class MainWindow : Window
 {
     private readonly RecordingCoordinator _coordinator;
+    private readonly AutomaticCaptureService _automaticCaptureService;
     private readonly ObsAutoSetupService _obsAutoSetupService;
     private readonly AudioConfigurationService _audioConfigurationService;
     private readonly ProtectionService _protectionService;
@@ -23,10 +24,12 @@ public partial class MainWindow : Window
     private readonly Func<RecordingLibraryWindow> _recordingLibraryWindowFactory;
     private readonly ILogger<MainWindow> _logger;
     private RecordingLibraryWindow? _recordingLibraryWindow;
-    private bool _isRecording;
+    private bool _obsReady;
+    private bool _isSetupBusy;
 
     public MainWindow(
         RecordingCoordinator coordinator,
+        AutomaticCaptureService automaticCaptureService,
         ObsAutoSetupService obsAutoSetupService,
         AudioConfigurationService audioConfigurationService,
         ProtectionService protectionService,
@@ -38,6 +41,7 @@ public partial class MainWindow : Window
         ILogger<MainWindow> logger)
     {
         _coordinator = coordinator;
+        _automaticCaptureService = automaticCaptureService;
         _obsAutoSetupService = obsAutoSetupService;
         _audioConfigurationService = audioConfigurationService;
         _protectionService = protectionService;
@@ -48,6 +52,7 @@ public partial class MainWindow : Window
         _recordingLibraryWindowFactory = recordingLibraryWindowFactory;
         _logger = logger;
         InitializeComponent();
+        _automaticCaptureService.StatusChanged += AutomaticCaptureService_StatusChanged;
         SegmentLengthText.Text = $"{_settings.SegmentDurationMinutes} minutes";
         LocationText.Text = _settings.RecordingLocation;
     }
@@ -74,10 +79,8 @@ public partial class MainWindow : Window
         await ExecuteCommandAsync("Start recording", async () =>
         {
             await _coordinator.StartAsync(_settings);
-            _isRecording = true;
             StatusText.Text = "Recording";
-            StartButton.IsEnabled = false;
-            StopButton.IsEnabled = true;
+            UpdateRecordingControls();
         });
     }
 
@@ -85,11 +88,23 @@ public partial class MainWindow : Window
     {
         await ExecuteCommandAsync("Stop recording", async () =>
         {
+            if (_automaticCaptureService.IsEnabled)
+            {
+                await _automaticCaptureService.SetEnabledAsync(false);
+            }
+
             await _coordinator.StopAsync();
-            _isRecording = false;
             StatusText.Text = "Idle";
-            StartButton.IsEnabled = true;
-            StopButton.IsEnabled = false;
+            UpdateRecordingControls();
+        });
+    }
+
+    private async void AutoCaptureButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteCommandAsync("Toggle automatic capture", async () =>
+        {
+            await _automaticCaptureService.SetEnabledAsync(!_automaticCaptureService.IsEnabled);
+            UpdateRecordingControls();
         });
     }
 
@@ -167,8 +182,10 @@ public partial class MainWindow : Window
 
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
     {
+        _isSetupBusy = true;
         ObsSetupButton.IsEnabled = false;
         StartButton.IsEnabled = false;
+        AutoCaptureButton.IsEnabled = false;
         AudioButton.IsEnabled = false;
         SetupProgressBar.Visibility = Visibility.Visible;
         SetupProgressBar.IsIndeterminate = true;
@@ -186,11 +203,13 @@ public partial class MainWindow : Window
         try
         {
             var result = await _obsAutoSetupService.SetupAsync(_settings, progress);
+            _obsReady = result.IsSuccessful;
             StatusText.Text = result.Message;
-            StartButton.IsEnabled = result.IsSuccessful;
             AudioButton.IsEnabled = result.IsSuccessful;
             CalibrateButton.IsEnabled = result.IsSuccessful;
+            AutoCaptureButton.IsEnabled = result.IsSuccessful;
             ObsSetupButton.Content = result.IsSuccessful ? "Check OBS" : "Retry OBS Setup";
+            UpdateRecordingControls();
         }
         catch (Exception ex)
         {
@@ -198,8 +217,9 @@ public partial class MainWindow : Window
         }
         finally
         {
-            ObsSetupButton.IsEnabled = true;
+            _isSetupBusy = false;
             SetupProgressBar.Visibility = Visibility.Collapsed;
+            UpdateRecordingControls();
         }
     }
 
@@ -230,11 +250,50 @@ public partial class MainWindow : Window
         StatusText.Text = $"{commandName} failed: {exception.Message}";
     }
 
+    private void AutomaticCaptureService_StatusChanged(AutomaticCaptureStatus status)
+    {
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            AutomaticCaptureStatusText.Text = status.Message;
+            CurrentGameText.Text = status.Target?.Title ?? "None detected";
+            if (_automaticCaptureService.IsEnabled || status.State == AutomaticCaptureState.Faulted)
+            {
+                StatusText.Text = status.Message;
+            }
+
+            UpdateRecordingControls();
+        });
+    }
+
+    private void UpdateRecordingControls()
+    {
+        var automatic = _automaticCaptureService.IsEnabled;
+        var recording = _coordinator.IsRecording;
+        AutoCaptureButton.Content = automatic ? "Disable Auto" : "Enable Auto";
+        ObsSetupButton.IsEnabled = !_isSetupBusy && !automatic && !recording;
+        AutoCaptureButton.IsEnabled = _obsReady && !_isSetupBusy;
+        StartButton.IsEnabled = _obsReady && !_isSetupBusy && !automatic && !recording;
+        StopButton.IsEnabled = recording;
+    }
+
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         _hotkeyService.Dispose();
+        _automaticCaptureService.StatusChanged -= AutomaticCaptureService_StatusChanged;
 
-        if (_isRecording)
+        if (_automaticCaptureService.IsEnabled)
+        {
+            try
+            {
+                await _automaticCaptureService.SetEnabledAsync(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not stop automatic capture while Blackbox was closing.");
+            }
+        }
+
+        if (_coordinator.IsRecording)
         {
             try
             {

@@ -1,7 +1,7 @@
 <Window x:Class="Blackbox.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Blackbox" Height="510" Width="720" MinHeight="480" MinWidth="640">
+        Title="Blackbox" Height="590" Width="720" MinHeight="560" MinWidth="640">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -24,6 +24,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <TextBlock Text="Status" FontWeight="SemiBold" />
             <TextBlock x:Name="StatusText" Grid.Column="1" Text="OBS setup required" TextWrapping="Wrap" />
@@ -35,6 +37,10 @@
             <TextBlock x:Name="LocationText" Grid.Row="3" Grid.Column="1" Margin="0,12,0,0" TextWrapping="Wrap" />
             <TextBlock Grid.Row="4" Text="Audio tracks" FontWeight="SemiBold" Margin="0,12,0,0" />
             <TextBlock Grid.Row="4" Grid.Column="1" Text="Full mix, game, voice chat, raw mic, processed mic" Margin="0,12,0,0" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="5" Text="Automatic capture" FontWeight="SemiBold" Margin="0,12,0,0" />
+            <TextBlock x:Name="AutomaticCaptureStatusText" Grid.Row="5" Grid.Column="1" Text="Off" Margin="0,12,0,0" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="6" Text="Current game" FontWeight="SemiBold" Margin="0,12,0,0" />
+            <TextBlock x:Name="CurrentGameText" Grid.Row="6" Grid.Column="1" Text="None detected" Margin="0,12,0,0" TextWrapping="Wrap" />
         </Grid>
         <ProgressBar x:Name="SetupProgressBar"
                      Grid.Row="2"
@@ -43,7 +49,7 @@
                      Minimum="0"
                      Maximum="100"
                      Visibility="Collapsed" />
-        <UniformGrid Grid.Row="3" Rows="3" Columns="3">
+        <UniformGrid Grid.Row="3" Rows="4" Columns="3">
             <Button x:Name="ObsSetupButton" Content="Setup OBS" Height="36" Margin="0,0,8,8" Click="ObsSetupButton_Click" />
             <Button x:Name="AudioButton" Content="Apply Audio" Height="36" Margin="0,0,8,8" IsEnabled="False" Click="AudioButton_Click" />
             <Button x:Name="CalibrateButton" Content="Calibrate Mic" Height="36" Margin="0,0,0,8" IsEnabled="False" Click="CalibrateButton_Click" />
@@ -51,8 +57,9 @@
             <Button x:Name="OpenRecordingsButton" Content="Open Folder" Height="36" Margin="0,0,8,8" Click="OpenRecordingsButton_Click" />
             <Button x:Name="ProtectButton" Content="Protect 5 Min" Height="36" Margin="0,0,0,8" Click="ProtectButton_Click" />
             <Button x:Name="PruneButton" Content="Apply Quotas" Height="36" Margin="0,0,8,0" Click="PruneButton_Click" />
+            <Button x:Name="AutoCaptureButton" Content="Enable Auto" Height="36" Margin="0,0,8,0" IsEnabled="False" Click="AutoCaptureButton_Click" />
             <Button x:Name="StartButton" Content="Start Recording" Height="36" Margin="0,0,8,0" IsEnabled="False" Click="StartButton_Click" />
-            <Button x:Name="StopButton" Content="Stop" Height="36" IsEnabled="False" Click="StopButton_Click" />
+            <Button x:Name="StopButton" Content="Stop" Height="36" Margin="0,8,8,0" IsEnabled="False" Click="StopButton_Click" />
         </UniformGrid>
     </Grid>
 </Window>
