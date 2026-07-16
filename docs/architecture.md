@@ -41,7 +41,12 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 25. `WindowsGameProcessDetector` matches that catalog only against enabled executable profiles stored by the user.
 26. `AutomaticCaptureService` confirms stable remembered candidates, resets and fits the OBS game sources, then starts or stops through the shared `RecordingCoordinator`.
 27. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
-28. Later Milestone 6 slices add aliases, GPU corroboration, launcher handoff, and crash recovery.
+28. `RecordingRecoveryService` probes stable recording files during startup, attempts a lossless FFmpeg remux for unreadable media, verifies the repair, and atomically replaces the source while preserving the original in the recovery-backups folder.
+29. Startup recovery skips files whose size or write time is still changing, then refreshes the recording library to reconcile SQLite rows and retain clear damage labels.
+30. `RecordingCoordinator` queries OBS recording status and adopts a surviving recording after a Blackbox restart without issuing another start request.
+31. `AutomaticCapturePreferenceStore` atomically persists automatic-capture intent so startup can resume an interrupted automatic session after OBS is ready.
+32. `DiagnosticLogReader` reads rolling Serilog files with shared access and classifies recent system, recording, detection, export, and recovery events for the diagnostics window.
+33. Later Milestone 6 refinements add aliases, GPU corroboration, and launcher handoff.
 
 ## Safety Boundaries
 
@@ -61,6 +66,10 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Automatic capture is disabled until the user enables it after a successful OBS check.
 - Automatic detection requires an enabled profile explicitly remembered from the running-applications picker; unapproved applications are ignored.
 - Launch confirmation and a stop grace period prevent brief process or focus transitions from repeatedly starting and stopping OBS.
+- Recovery operates only on stable files and leaves a changing OBS output untouched.
+- Repaired media replaces its source only after FFprobe validates a non-empty staged output; the original is retained as a recovery backup.
+- A failed remux leaves the source byte-for-byte unchanged and preserves any non-empty diagnostic output separately.
+- Automatic-capture preference writes use temporary files and atomic moves so a process interruption cannot leave partial JSON state.
 
 ## Database
 

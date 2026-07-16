@@ -71,9 +71,11 @@ Milestone 5 is complete only when a multi-segment test session can be viewed as 
 
 #### Milestone 6C: Recovery And Diagnostics
 
-- [ ] Recover incomplete media and reconcile state after crashes.
-- [ ] Preserve recoverable footage and label unrecoverable files clearly.
-- [ ] Add recording, detection, and export diagnostics.
+- [x] Recover incomplete media and reconcile state after crashes.
+- [x] Preserve recoverable footage and label unrecoverable files clearly.
+- [x] Add recording, detection, and export diagnostics.
+
+Milestone 6C was validated by force-closing Blackbox during a real OBS recording. OBS continued writing, startup skipped the active file, Blackbox adopted the surviving recording, and the recovered session stopped cleanly from the app.
 
 ## Planned
 

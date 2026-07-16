@@ -44,7 +44,8 @@ public partial class App : Application
                 {
                     PortableRootDirectory = Path.Combine(appData, "obs-portable"),
                     ConnectionSettingsPath = Path.Combine(appData, "obs-connection.json"),
-                    MicrophoneSettingsPath = Path.Combine(appData, "microphone.json")
+                    MicrophoneSettingsPath = Path.Combine(appData, "microphone.json"),
+                    AutomaticCaptureSettingsPath = Path.Combine(appData, "automatic-capture.json")
                 });
                 services.AddSingleton(new ObsOnboardingOptions());
                 services.AddSingleton(new FfmpegOptions
@@ -53,11 +54,17 @@ public partial class App : Application
                     WorkDirectory = Path.Combine(appData, "ffmpeg-work"),
                     TimelineCacheDirectory = Path.Combine(appData, "timeline-cache")
                 });
+                services.AddSingleton(new RecordingRecoveryOptions());
+                services.AddSingleton(new DiagnosticLogOptions
+                {
+                    LogDirectory = Path.Combine(appData, "logs")
+                });
                 services.AddSingleton(new HttpClient
                 {
                     Timeout = TimeSpan.FromMinutes(20)
                 });
                 services.AddSingleton<IClock, SystemClock>();
+                services.AddSingleton<IDiagnosticLogReader, DiagnosticLogReader>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(databasePath));
                 services.AddSingleton<IGameProfileRepository>(_ => new SqliteGameProfileRepository(databasePath));
                 services.AddSingleton<ISegmentUsageRegistry, SegmentUsageRegistry>();
@@ -69,6 +76,7 @@ public partial class App : Application
                 services.AddSingleton<SessionExportService>();
                 services.AddSingleton<SessionPlaybackService>();
                 services.AddSingleton<TimelineAssetService>();
+                services.AddSingleton<RecordingRecoveryService>();
                 services.AddSingleton<ObsSetupRequestBuilder>();
                 services.AddSingleton<ObsConnectionSettingsProvider>();
                 services.AddSingleton<IObsConnectionSettingsProvider>(provider =>
@@ -76,6 +84,9 @@ public partial class App : Application
                 services.AddSingleton<MicrophoneConfigurationStore>();
                 services.AddSingleton<IMicrophoneConfigurationStore>(provider =>
                     provider.GetRequiredService<MicrophoneConfigurationStore>());
+                services.AddSingleton<AutomaticCapturePreferenceStore>();
+                services.AddSingleton<IAutomaticCapturePreferenceStore>(provider =>
+                    provider.GetRequiredService<AutomaticCapturePreferenceStore>());
                 services.AddSingleton<IObsInstallationLocator, ObsInstallationLocator>();
                 services.AddSingleton<IObsPortableProvisioner, ObsPortableProvisioner>();
                 services.AddSingleton<ObsWebSocketRpcClient>();
@@ -98,6 +109,9 @@ public partial class App : Application
                 services.AddSingleton<AudioConfigurationService>();
                 services.AddSingleton<ObsSetupPlanner>();
                 services.AddSingleton<ObsAutoSetupService>();
+                services.AddSingleton<StartupRecoveryState>();
+                services.AddSingleton<StartupRecoveryCoordinator>();
+                services.AddSingleton<DiagnosticsService>();
                 services.AddSingleton<ProtectionService>();
                 services.AddSingleton<StorageQuotaEnforcer>();
                 services.AddSingleton<GlobalHotkeyService>();
@@ -110,6 +124,9 @@ public partial class App : Application
                 services.AddTransient<GameProfilesWindow>();
                 services.AddSingleton<Func<GameProfilesWindow>>(provider =>
                     () => provider.GetRequiredService<GameProfilesWindow>());
+                services.AddTransient<DiagnosticsWindow>();
+                services.AddSingleton<Func<DiagnosticsWindow>>(provider =>
+                    () => provider.GetRequiredService<DiagnosticsWindow>());
                 services.AddSingleton<MainWindow>();
             })
             .Build();

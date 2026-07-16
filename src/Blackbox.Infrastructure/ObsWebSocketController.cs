@@ -123,6 +123,20 @@ public sealed class ObsWebSocketController(
         logger.LogInformation("OBS confirmed recording start.");
     }
 
+    public async Task<ObsRecordingStatus> GetRecordingStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await rpcClient.SendRequestAsync(
+            connectionSettingsProvider.Current,
+            new ObsRequest("GetRecordStatus"),
+            cancellationToken);
+        var data = response.ResponseData;
+        return new ObsRecordingStatus(
+            data?["outputActive"]?.GetValue<bool>() ?? false,
+            data?["outputPaused"]?.GetValue<bool>() ?? false,
+            TimeSpan.FromMilliseconds(GetInt64(data?["outputDuration"])),
+            GetInt64(data?["outputBytes"]));
+    }
+
     public async Task<string?> StopRecordingAsync(CancellationToken cancellationToken = default)
     {
         var response = await rpcClient.SendRequestAsync(
@@ -355,6 +369,26 @@ public sealed class ObsWebSocketController(
     private static int GetSceneItemId(ObsResponse response, string sourceName) =>
         response.ResponseData?["sceneItemId"]?.GetValue<int>()
         ?? throw new InvalidOperationException($"OBS scene is missing {sourceName}. Run Setup OBS again.");
+
+    private static long GetInt64(JsonNode? value)
+    {
+        if (value is not JsonValue jsonValue)
+        {
+            return 0;
+        }
+
+        if (jsonValue.TryGetValue<long>(out var longValue))
+        {
+            return longValue;
+        }
+
+        if (jsonValue.TryGetValue<int>(out var intValue))
+        {
+            return intValue;
+        }
+
+        return jsonValue.TryGetValue<double>(out var doubleValue) ? (long)doubleValue : 0;
+    }
 
     private static HashSet<string> GetStringSet(ObsResponse response, string fieldName) =>
         response.ResponseData?[fieldName]?.AsArray()

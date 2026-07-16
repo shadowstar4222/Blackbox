@@ -6,6 +6,7 @@ namespace Blackbox.Recording;
 public sealed class AutomaticCaptureService(
     IGameProcessDetector gameProcessDetector,
     AutomaticCaptureController controller,
+    IAutomaticCapturePreferenceStore preferenceStore,
     AutomaticCaptureOptions options,
     ILogger<AutomaticCaptureService> logger)
 {
@@ -20,6 +21,7 @@ public sealed class AutomaticCaptureService(
     }
 
     public bool IsEnabled => controller.IsEnabled;
+    public bool WasInterrupted => preferenceStore.WasEnabled && !IsEnabled;
     public AutomaticCaptureStatus Status => controller.Status;
 
     public async Task SetEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
@@ -35,6 +37,7 @@ public sealed class AutomaticCaptureService(
             if (enabled)
             {
                 options.Validate();
+                preferenceStore.Save(true);
                 controller.Enable();
                 _loopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _loopTask = RunAsync(_loopCancellation.Token);
@@ -57,6 +60,36 @@ public sealed class AutomaticCaptureService(
             _loopCancellation = null;
             _loopTask = null;
             await controller.DisableAsync(cancellationToken);
+            preferenceStore.Save(false);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    public async Task<bool> ResumeAfterCrashAsync(
+        bool ownsExistingRecording,
+        CancellationToken cancellationToken = default)
+    {
+        await _lifecycleGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!preferenceStore.WasEnabled || IsEnabled)
+            {
+                return false;
+            }
+
+            options.Validate();
+            controller.Enable();
+            if (ownsExistingRecording)
+            {
+                controller.AdoptRecordingOwnership();
+            }
+
+            _loopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _loopTask = RunAsync(_loopCancellation.Token);
+            return true;
         }
         finally
         {

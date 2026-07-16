@@ -77,6 +77,44 @@ public sealed class RecordingCoordinator(
         await TryStopAsync(cancellationToken);
     }
 
+    public async Task<bool> TryAdoptExistingRecordingAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (IsRecording)
+            {
+                return true;
+            }
+
+            var status = await obsController.GetRecordingStatusAsync(cancellationToken);
+            if (!status.IsActive)
+            {
+                return false;
+            }
+
+            try
+            {
+                await microphoneDeviceMonitor.StartAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Microphone monitoring could not resume for the surviving OBS recording.");
+            }
+
+            Volatile.Write(ref _isRecording, 1);
+            logger.LogWarning(
+                "Adopted a surviving OBS recording after restart. Duration={Duration}, BytesWritten={BytesWritten}.",
+                status.Duration,
+                status.BytesWritten);
+            return true;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<bool> TryStopAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);

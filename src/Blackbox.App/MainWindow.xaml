@@ -55,12 +55,13 @@
             <Button x:Name="CalibrateButton" Content="Calibrate Mic" Height="36" Margin="0,0,0,8" IsEnabled="False" Click="CalibrateButton_Click" />
             <Button x:Name="RecordingLibraryButton" Content="Recordings" Height="36" Margin="0,0,8,8" Click="RecordingLibraryButton_Click" />
             <Button x:Name="GamesButton" Content="Games" Height="36" Margin="0,0,8,8" Click="GamesButton_Click" />
-            <Button x:Name="OpenRecordingsButton" Content="Open Folder" Height="36" Margin="0,0,0,8" Click="OpenRecordingsButton_Click" />
+            <Button x:Name="DiagnosticsButton" Content="Diagnostics" Height="36" Margin="0,0,0,8" Click="DiagnosticsButton_Click" />
+            <Button x:Name="OpenRecordingsButton" Content="Open Folder" Height="36" Margin="0,0,8,8" Click="OpenRecordingsButton_Click" />
             <Button x:Name="ProtectButton" Content="Protect 5 Min" Height="36" Margin="0,0,8,8" Click="ProtectButton_Click" />
-            <Button x:Name="PruneButton" Content="Apply Quotas" Height="36" Margin="0,0,8,8" Click="PruneButton_Click" />
-            <Button x:Name="AutoCaptureButton" Content="Enable Auto" Height="36" Margin="0,0,0,8" IsEnabled="False" Click="AutoCaptureButton_Click" />
+            <Button x:Name="PruneButton" Content="Apply Quotas" Height="36" Margin="0,0,0,8" Click="PruneButton_Click" />
+            <Button x:Name="AutoCaptureButton" Content="Enable Auto" Height="36" Margin="0,0,8,0" IsEnabled="False" Click="AutoCaptureButton_Click" />
             <Button x:Name="StartButton" Content="Start Recording" Height="36" Margin="0,0,8,0" IsEnabled="False" Click="StartButton_Click" />
-            <Button x:Name="StopButton" Content="Stop" Height="36" Margin="0,8,8,0" IsEnabled="False" Click="StopButton_Click" />
+            <Button x:Name="StopButton" Content="Stop" Height="36" IsEnabled="False" Click="StopButton_Click" />
         </UniformGrid>
     </Grid>
 </Window>

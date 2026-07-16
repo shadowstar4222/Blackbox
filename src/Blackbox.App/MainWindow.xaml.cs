@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     private readonly RecordingCoordinator _coordinator;
     private readonly AutomaticCaptureService _automaticCaptureService;
     private readonly ObsAutoSetupService _obsAutoSetupService;
+    private readonly StartupRecoveryCoordinator _startupRecoveryCoordinator;
     private readonly AudioConfigurationService _audioConfigurationService;
     private readonly ProtectionService _protectionService;
     private readonly StorageQuotaEnforcer _storageQuotaEnforcer;
@@ -23,16 +24,21 @@ public partial class MainWindow : Window
     private readonly Func<MicrophoneCalibrationWindow> _microphoneCalibrationWindowFactory;
     private readonly Func<RecordingLibraryWindow> _recordingLibraryWindowFactory;
     private readonly Func<GameProfilesWindow> _gameProfilesWindowFactory;
+    private readonly Func<DiagnosticsWindow> _diagnosticsWindowFactory;
     private readonly ILogger<MainWindow> _logger;
     private RecordingLibraryWindow? _recordingLibraryWindow;
     private GameProfilesWindow? _gameProfilesWindow;
+    private DiagnosticsWindow? _diagnosticsWindow;
+    private readonly CancellationTokenSource _startupRecoveryCancellation = new();
     private bool _obsReady;
     private bool _isSetupBusy;
+    private bool _isRecoveryBusy = true;
 
     public MainWindow(
         RecordingCoordinator coordinator,
         AutomaticCaptureService automaticCaptureService,
         ObsAutoSetupService obsAutoSetupService,
+        StartupRecoveryCoordinator startupRecoveryCoordinator,
         AudioConfigurationService audioConfigurationService,
         ProtectionService protectionService,
         StorageQuotaEnforcer storageQuotaEnforcer,
@@ -41,11 +47,13 @@ public partial class MainWindow : Window
         Func<MicrophoneCalibrationWindow> microphoneCalibrationWindowFactory,
         Func<RecordingLibraryWindow> recordingLibraryWindowFactory,
         Func<GameProfilesWindow> gameProfilesWindowFactory,
+        Func<DiagnosticsWindow> diagnosticsWindowFactory,
         ILogger<MainWindow> logger)
     {
         _coordinator = coordinator;
         _automaticCaptureService = automaticCaptureService;
         _obsAutoSetupService = obsAutoSetupService;
+        _startupRecoveryCoordinator = startupRecoveryCoordinator;
         _audioConfigurationService = audioConfigurationService;
         _protectionService = protectionService;
         _storageQuotaEnforcer = storageQuotaEnforcer;
@@ -54,11 +62,45 @@ public partial class MainWindow : Window
         _microphoneCalibrationWindowFactory = microphoneCalibrationWindowFactory;
         _recordingLibraryWindowFactory = recordingLibraryWindowFactory;
         _gameProfilesWindowFactory = gameProfilesWindowFactory;
+        _diagnosticsWindowFactory = diagnosticsWindowFactory;
         _logger = logger;
         InitializeComponent();
         _automaticCaptureService.StatusChanged += AutomaticCaptureService_StatusChanged;
         SegmentLengthText.Text = $"{_settings.SegmentDurationMinutes} minutes";
         LocationText.Text = _settings.RecordingLocation;
+        Loaded += MainWindow_Loaded;
+        UpdateRecordingControls();
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        SetupProgressBar.Visibility = Visibility.Visible;
+        SetupProgressBar.IsIndeterminate = true;
+        var progress = new Progress<string>(message => StatusText.Text = message);
+        try
+        {
+            var outcome = await _startupRecoveryCoordinator.RunAsync(
+                progress,
+                _startupRecoveryCancellation.Token);
+            _obsReady = outcome.ObsReady;
+            StatusText.Text = outcome.Message;
+            AudioButton.IsEnabled = outcome.ObsReady;
+            CalibrateButton.IsEnabled = outcome.ObsReady;
+            ObsSetupButton.Content = outcome.ObsReady ? "Check OBS" : "Setup OBS";
+        }
+        catch (OperationCanceledException) when (_startupRecoveryCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("Startup recovery", ex);
+        }
+        finally
+        {
+            _isRecoveryBusy = false;
+            SetupProgressBar.Visibility = Visibility.Collapsed;
+            UpdateRecordingControls();
+        }
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -206,6 +248,28 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DiagnosticsButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_diagnosticsWindow is not null)
+            {
+                _diagnosticsWindow.Activate();
+                return;
+            }
+
+            var window = _diagnosticsWindowFactory();
+            window.Owner = this;
+            window.Closed += (_, _) => _diagnosticsWindow = null;
+            _diagnosticsWindow = window;
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("Open diagnostics", ex);
+        }
+    }
+
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
     {
         _isSetupBusy = true;
@@ -299,15 +363,18 @@ public partial class MainWindow : Window
     {
         var automatic = _automaticCaptureService.IsEnabled;
         var recording = _coordinator.IsRecording;
+        var busy = _isSetupBusy || _isRecoveryBusy;
         AutoCaptureButton.Content = automatic ? "Disable Auto" : "Enable Auto";
-        ObsSetupButton.IsEnabled = !_isSetupBusy && !automatic && !recording;
-        AutoCaptureButton.IsEnabled = _obsReady && !_isSetupBusy;
-        StartButton.IsEnabled = _obsReady && !_isSetupBusy && !automatic && !recording;
+        ObsSetupButton.IsEnabled = !busy && !automatic && !recording;
+        AutoCaptureButton.IsEnabled = _obsReady && !busy;
+        StartButton.IsEnabled = _obsReady && !busy && !automatic && !recording;
         StopButton.IsEnabled = recording;
+        DiagnosticsButton.IsEnabled = !_isRecoveryBusy;
     }
 
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        _startupRecoveryCancellation.Cancel();
         _hotkeyService.Dispose();
         _automaticCaptureService.StatusChanged -= AutomaticCaptureService_StatusChanged;
 
@@ -336,5 +403,6 @@ public partial class MainWindow : Window
         }
 
         base.OnClosing(e);
+        _startupRecoveryCancellation.Dispose();
     }
 }

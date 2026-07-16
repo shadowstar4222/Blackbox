@@ -119,6 +119,37 @@ public sealed class AutomaticCaptureControllerTests
         }
     }
 
+    [Fact]
+    public async Task AdoptRecordingOwnership_stops_surviving_recording_when_no_game_returns()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            await coordinator.StartAsync(new RecordingSettings { RecordingLocation = root });
+            var controller = CreateController(root, obs, coordinator, clock);
+            controller.Enable();
+            controller.AdoptRecordingOwnership();
+
+            await controller.ProcessDetectionAsync(null);
+            Assert.True(coordinator.IsRecording);
+
+            clock.Advance(TimeSpan.FromSeconds(11));
+            await controller.ProcessDetectionAsync(null);
+
+            Assert.False(coordinator.IsRecording);
+            Assert.Contains("Stop", obs.Calls);
+            Assert.Contains("no remembered game", controller.Status.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static AutomaticCaptureController CreateController(
         string recordingPath,
         IObsController obs,
@@ -251,6 +282,9 @@ public sealed class AutomaticCaptureControllerTests
             Calls.Add($"ConfigureGame:{target.ExecutableName}");
             return Task.CompletedTask;
         }
+
+        public Task<ObsRecordingStatus> GetRecordingStatusAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ObsRecordingStatus(false, false, TimeSpan.Zero, 0));
 
         public Task StartRecordingAsync(CancellationToken cancellationToken = default)
         {

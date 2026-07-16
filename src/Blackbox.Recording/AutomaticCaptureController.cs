@@ -16,6 +16,7 @@ public sealed class AutomaticCaptureController(
     private GameCaptureTarget? _pendingTarget;
     private GameCaptureTarget? _activeTarget;
     private DateTimeOffset? _lastDetectedAt;
+    private DateTimeOffset? _adoptedRecordingAt;
     private int _positiveDetections;
     private bool _ownsRecording;
     private bool _isEnabled;
@@ -44,6 +45,22 @@ public sealed class AutomaticCaptureController(
             "Watching for a remembered game.",
             null,
             recordingCoordinator.IsRecording));
+    }
+
+    public void AdoptRecordingOwnership()
+    {
+        if (!IsEnabled || !recordingCoordinator.IsRecording)
+        {
+            throw new InvalidOperationException("Automatic capture can only adopt an active recording after it is enabled.");
+        }
+
+        _ownsRecording = true;
+        _adoptedRecordingAt = clock.UtcNow;
+        Publish(new AutomaticCaptureStatus(
+            AutomaticCaptureState.Watching,
+            "Recovering the interrupted automatic recording...",
+            null,
+            true));
     }
 
     public async Task ProcessDetectionAsync(
@@ -200,6 +217,33 @@ public sealed class AutomaticCaptureController(
     {
         _pendingTarget = null;
         _positiveDetections = 0;
+        if (_activeTarget is null &&
+            _ownsRecording &&
+            recordingCoordinator.IsRecording &&
+            _adoptedRecordingAt is not null)
+        {
+            var recoveryRemaining = options.StopGracePeriod - (clock.UtcNow - _adoptedRecordingAt.Value);
+            if (recoveryRemaining > TimeSpan.Zero)
+            {
+                Publish(new AutomaticCaptureStatus(
+                    AutomaticCaptureState.Watching,
+                    $"Waiting for the remembered game after recovery; stopping in {Math.Ceiling(recoveryRemaining.TotalSeconds):0} seconds.",
+                    null,
+                    true));
+                return;
+            }
+
+            await recordingCoordinator.TryStopAsync(cancellationToken);
+            _ownsRecording = false;
+            ResetDetection();
+            Publish(new AutomaticCaptureStatus(
+                AutomaticCaptureState.Watching,
+                "The interrupted automatic recording stopped because no remembered game is running.",
+                null,
+                false));
+            return;
+        }
+
         if (_activeTarget is null || _lastDetectedAt is null)
         {
             Publish(new AutomaticCaptureStatus(
@@ -246,6 +290,7 @@ public sealed class AutomaticCaptureController(
         _pendingTarget = null;
         _activeTarget = null;
         _lastDetectedAt = null;
+        _adoptedRecordingAt = null;
         _positiveDetections = 0;
     }
 

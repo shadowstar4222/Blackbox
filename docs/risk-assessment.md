@@ -41,3 +41,7 @@
 - Require an executable to be explicitly remembered from the running-applications picker, ignore known desktop processes, and keep automatic capture opt-in.
 - Confirm the same candidate across multiple polls and wait through a stop grace period before ending an automatic recording.
 - Use limited-information process queries as a fallback without requesting administrator privileges.
+- Probe only stable media during startup and skip files that are recent or still changing.
+- Stage recovery remuxes beside the source, verify the staged file, atomically replace only after success, and preserve the original in a dedicated backup folder.
+- Adopt a surviving OBS recording after restart instead of issuing a duplicate recording command or interrupting the active output.
+- Expose categorized current-session logs and indexed-media health in the diagnostics window so recovery and capture failures remain inspectable.

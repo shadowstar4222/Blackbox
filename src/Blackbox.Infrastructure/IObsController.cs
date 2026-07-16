@@ -10,6 +10,7 @@ public interface IObsController
     Task ConfigureSegmentedRecordingAsync(string recordingDirectory, int segmentMinutes, CancellationToken cancellationToken = default);
     Task ConfigureAudioAsync(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings, CancellationToken cancellationToken = default);
     Task ConfigureGameCaptureAsync(GameCaptureTarget target, CancellationToken cancellationToken = default);
+    Task<ObsRecordingStatus> GetRecordingStatusAsync(CancellationToken cancellationToken = default);
     Task StartRecordingAsync(CancellationToken cancellationToken = default);
     Task<string?> StopRecordingAsync(CancellationToken cancellationToken = default);
 }

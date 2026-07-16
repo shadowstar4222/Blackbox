@@ -4,7 +4,7 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 6B Status
+## Milestone 6C Status
 
 Implemented:
 
@@ -46,8 +46,15 @@ Implemented:
 - A forced source re-hook and short settle delay before recording begins, preventing stale blank captures.
 - Two-sample launch confirmation and a 15-second stop grace period to avoid capture churn during startup and brief focus changes.
 - Recording ownership that prevents automatic capture from stopping a manually started recording.
+- Startup media recovery that probes stable MKV and MP4 files, attempts a lossless FFmpeg remux when needed, and never replaces the original unless the repaired file passes verification.
+- Recovery backups that preserve the original damaged file and any useful failed repair output for manual inspection.
+- Startup reconciliation that imports surviving recordings, marks damaged media clearly, and repairs missing-file database state.
+- Active-file protection that detects changing OBS output and skips it during recovery.
+- Surviving OBS-session adoption after a Blackbox crash, including restoration of the working Stop control without interrupting recording.
+- Persisted automatic-capture intent so an interrupted automatic session can resume after Blackbox restarts.
+- An in-app diagnostics window with recording state, automatic-capture state, indexed-media health, storage use, recovery results, and categorized recent logs.
 
-Automatic capture now binds game video and game audio only after a remembered game starts. Voice-chat selection, executable aliases, launcher handoff, GPU corroboration, and additional per-game capture preferences remain in Milestone 6B.
+Automatic capture now binds game video and game audio only after a remembered game starts. Voice-chat selection, executable aliases, launcher handoff, GPU corroboration, and additional per-game capture preferences remain as Milestone 6 refinements.
 
 ## Build
 
@@ -75,9 +82,10 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 8. Start a game, open `Games`, select it under running applications, and click `Remember selected game`.
 9. Click `Enable Auto` and let Blackbox configure OBS and start or stop recording with that remembered game.
 10. Use `Open Folder` when you need direct access to the underlying safe segments.
+11. Open `Diagnostics` to inspect recovery results, media health, storage use, and recent recording or detection events.
 
-The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`.
+The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`.
 
 ## Current Milestone
 
-Milestone 6B now provides remembered executable profiles and live start-time OBS binding. Additional capture preferences, launcher handoff, and GPU corroboration remain before Milestone 6C recovery work. Hardening/optimization and an OBS dock edition are planned as Milestones 7 and 8. See `docs/roadmap.md` for the acceptance criteria.
+Milestone 6C crash recovery and diagnostics are complete. Additional capture preferences, launcher handoff, and GPU corroboration remain as Milestone 6 refinements. Hardening/optimization and an OBS dock edition are planned as Milestones 7 and 8. See `docs/roadmap.md` for the acceptance criteria.

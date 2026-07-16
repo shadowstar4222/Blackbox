@@ -59,6 +59,20 @@ public sealed class ObsWebSocketControllerTests
     }
 
     [Fact]
+    public async Task GetRecordingStatusAsync_reads_active_output_metrics()
+    {
+        var rpc = new RecordingRpcClient(resourcesExist: true);
+        var controller = CreateController(rpc);
+
+        var status = await controller.GetRecordingStatusAsync();
+
+        Assert.True(status.IsActive);
+        Assert.False(status.IsPaused);
+        Assert.Equal(TimeSpan.FromSeconds(12), status.Duration);
+        Assert.Equal(3456, status.BytesWritten);
+    }
+
+    [Fact]
     public async Task ConfigureGameCaptureAsync_updates_video_and_audio_inputs()
     {
         var rpc = new RecordingRpcClient(resourcesExist: true);
@@ -190,6 +204,13 @@ public sealed class ObsWebSocketControllerTests
                     ["sceneItemId"] = request.RequestData?["sourceName"]?.GetValue<string>() == "Blackbox Game Capture"
                         ? 100
                         : 101
+                }),
+                "GetRecordStatus" => ObsResponse.Successful(request.RequestType, new JsonObject
+                {
+                    ["outputActive"] = true,
+                    ["outputPaused"] = false,
+                    ["outputDuration"] = 12000,
+                    ["outputBytes"] = 3456
                 }),
                 "StopRecord" => ObsResponse.Successful(request.RequestType, new JsonObject
                 {

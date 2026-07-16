@@ -176,6 +176,9 @@ public sealed class ObsAutoSetupServiceTests
             GameCaptureTarget target,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task<ObsRecordingStatus> GetRecordingStatusAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ObsRecordingStatus(false, false, TimeSpan.Zero, 0));
+
         public Task StartRecordingAsync(CancellationToken cancellationToken = default)
         {
             Calls.Add("Start");

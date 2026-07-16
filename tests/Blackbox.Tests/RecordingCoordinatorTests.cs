@@ -64,6 +64,26 @@ public sealed class RecordingCoordinatorTests
         }
     }
 
+    [Fact]
+    public async Task TryAdoptExistingRecordingAsync_resumes_state_without_starting_obs_again()
+    {
+        var obs = new RecordingObsController { OutputActive = true };
+        var monitor = new RecordingMicrophoneMonitor();
+        var coordinator = new RecordingCoordinator(
+            obs,
+            new RecordingMicrophoneController(),
+            new InMemoryMicrophoneConfigurationStore(),
+            new InMemorySegmentRepository(),
+            monitor,
+            NullLogger<RecordingCoordinator>.Instance);
+
+        Assert.True(await coordinator.TryAdoptExistingRecordingAsync());
+
+        Assert.True(coordinator.IsRecording);
+        Assert.True(monitor.Started);
+        Assert.Equal(["GetRecordStatus"], obs.Calls);
+    }
+
     private sealed class InMemoryMicrophoneConfigurationStore : IMicrophoneConfigurationStore
     {
         public MicrophoneConfiguration Current { get; private set; } = new();
@@ -130,6 +150,7 @@ public sealed class RecordingCoordinatorTests
     private sealed class RecordingObsController : IObsController
     {
         public List<string> Calls { get; } = [];
+        public bool OutputActive { get; init; }
 
         public Task LaunchAsync(CancellationToken cancellationToken = default)
         {
@@ -167,6 +188,12 @@ public sealed class RecordingCoordinatorTests
         {
             Calls.Add($"ConfigureGame:{target.ExecutableName}");
             return Task.CompletedTask;
+        }
+
+        public Task<ObsRecordingStatus> GetRecordingStatusAsync(CancellationToken cancellationToken = default)
+        {
+            Calls.Add("GetRecordStatus");
+            return Task.FromResult(new ObsRecordingStatus(OutputActive, false, TimeSpan.FromMinutes(1), 1024));
         }
 
         public Task StartRecordingAsync(CancellationToken cancellationToken = default)
