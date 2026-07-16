@@ -34,6 +34,10 @@ The segmented MKV files remain the safe recording format on disk, but the applic
 - [x] Group related segments into recording sessions and display each session as one continuous video.
 - [x] Provide a recordings library that selects the latest session by default.
 - [x] Play continuously across segment boundaries.
+- [x] Replace external playback with an embedded Blackbox player that keeps the complete session in one review surface.
+- [x] Add play, pause, start/end, 10-second jumps, segment jumps, frame stepping, speed, loop, volume, mute, audio-track, and fullscreen controls.
+- [x] Draw numbered segment bands and durable marker pins directly on the playback scrub bar.
+- [x] Add quick tags, manual event labels, marker navigation, and marker removal at the live playback position.
 - [x] Show duration, recording time, segment count, and missing media or timeline gaps without silently skipping them.
 - [x] Add integrated seeking and scrubbing with thumbnail previews.
 - [x] Show markers, protected ranges, and damaged-media details on the visual timeline.
@@ -49,6 +53,8 @@ The segmented MKV files remain the safe recording format on disk, but the applic
 - [x] Lock source segments against quota deletion while playback or export is using them.
 
 Milestone 5 is complete only when a multi-segment test session can be viewed as one recording and exported as one playable file with matching duration and synchronized audio.
+
+The advanced player pass was validated against a real three-segment Blackbox session. LibVLC opened the MKV media, decoded 30 fps video, exposed six audio choices, accepted seeking and playback-rate changes, and the WPF player opened, played, and closed without leaking its segment lease.
 
 ### Milestone 6: Automatic Capture And Recovery
 

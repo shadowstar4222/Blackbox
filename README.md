@@ -34,7 +34,9 @@ Implemented:
 - A recordings library that backfills completed MKV and MP4 files into SQLite and groups compatible adjacent segments into continuous sessions.
 - An integrated timeline with cached thumbnails, a full-mix waveform, continuous seeking, and playback from the cursor.
 - Durable markers and protected ranges plus clear damaged-media and timeline-gap reporting.
-- Continuous playback through an automatically provisioned local FFmpeg toolset.
+- An embedded Blackbox video player backed by bundled LibVLC codecs.
+- Play/pause, 10-second jumps, segment jumps, frame stepping, speed, loop, volume, mute, audio-track, and fullscreen controls.
+- Numbered segment bands, live scrubbing, quick tags, manual event markers, marker navigation, and marker removal.
 - Full-session stream-copy export and accurate selected-range export to one MKV or MP4 while preserving readable isolated audio tracks.
 - Per-track mute, solo, volume, WAV-selection controls, and common export presets.
 - Optional 24-bit PCM WAV export for selected isolated audio tracks.
@@ -83,7 +85,7 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 4. Confirm the status changes to `OBS is installed, configured, and ready.`
 5. Use `Calibrate Mic` to select and tune the microphone.
 6. Use `Start Recording` and `Stop` for recording tests.
-7. Use `Recordings` to browse the visual timeline, play from any cursor position, select a range, mix tracks, and export one continuous video.
+7. Use `Recordings` to browse the visual timeline, open the full Blackbox player from any cursor position, tag moments, select a range, mix tracks, and export one continuous video.
 8. Start a game, open `Games`, select it under running applications, and click `Remember selected game`.
 9. Click `Enable Auto` and let Blackbox configure OBS and start or stop recording with that remembered game.
 10. Use `Open Folder` when you need direct access to the underlying safe segments.

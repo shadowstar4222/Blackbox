@@ -1,0 +1,305 @@
+<Window x:Class="Blackbox.App.PlaybackWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Blackbox.App"
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        Title="Player - Blackbox"
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="620"
+        WindowStartupLocation="CenterOwner"
+        Background="#101214"
+        Foreground="#F4F6F7"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Closing="Window_Closing"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <Style x:Key="IconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Foreground" Value="#F4F6F7" />
+            <Setter Property="Background" Value="#2A2F33" />
+            <Setter Property="BorderBrush" Value="#454C51" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                CornerRadius="3"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#3A4247" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#737D83" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#202427" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TagButtonStyle" TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+            <Setter Property="Width" Value="118" />
+            <Setter Property="Height" Value="31" />
+            <Setter Property="Margin" Value="0,0,7,7" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Foreground" Value="#F4F6F7" />
+            <Setter Property="Background" Value="#171A1D" />
+            <Setter Property="BorderBrush" Value="#4B5358" />
+            <Setter Property="CaretBrush" Value="White" />
+            <Setter Property="Padding" Value="8,5" />
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#111315" />
+            <Setter Property="Background" Value="#E8EBEC" />
+            <Setter Property="Height" Value="30" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="158" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Background="#191D20" Margin="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Margin="16,0" VerticalAlignment="Center">
+                <TextBlock x:Name="SessionTitleText" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="PlaybackStatusText" Margin="0,2,0,0" FontSize="11" Foreground="#AAB1B5" />
+            </StackPanel>
+            <TextBlock x:Name="SegmentStatusText"
+                       Grid.Column="1"
+                       Margin="18,0"
+                       VerticalAlignment="Center"
+                       Foreground="#C9CED1"
+                       FontWeight="SemiBold" />
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+
+            <Border Background="Black">
+                <vlc:VideoView x:Name="VideoView" />
+            </Border>
+
+            <Grid Grid.Column="1" Background="#171A1D">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Margin="16,14,16,8">
+                    <TextBlock Text="Moments" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock x:Name="MarkerStatusText"
+                               Margin="0,3,0,0"
+                               Foreground="#AAB1B5"
+                               FontSize="11"
+                               Text="Tag the current frame." />
+                </StackPanel>
+
+                <WrapPanel Grid.Row="1" Margin="16,4,9,6">
+                    <Button Content="Highlight" Tag="Highlight" Style="{StaticResource TagButtonStyle}" Click="QuickTagButton_Click" />
+                    <Button Content="Action" Tag="Action" Style="{StaticResource TagButtonStyle}" Click="QuickTagButton_Click" />
+                    <Button Content="Funny" Tag="Funny" Style="{StaticResource TagButtonStyle}" Click="QuickTagButton_Click" />
+                    <Button Content="Review" Tag="Review" Style="{StaticResource TagButtonStyle}" Click="QuickTagButton_Click" />
+                </WrapPanel>
+
+                <Grid Grid.Row="2" Margin="16,4,16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="38" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="MarkerLabelTextBox"
+                             Height="31"
+                             VerticalContentAlignment="Center"
+                             ToolTip="Moment label"
+                             KeyDown="MarkerLabelTextBox_KeyDown" />
+                    <Button Grid.Column="1"
+                            Width="34"
+                            Height="31"
+                            Margin="4,0,0,0"
+                            Content="+"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Add a manual event marker"
+                            Click="AddManualMarkerButton_Click" />
+                </Grid>
+
+                <ListBox x:Name="MarkerListBox"
+                         Grid.Row="3"
+                         Margin="8,0"
+                         Background="Transparent"
+                         Foreground="#F4F6F7"
+                         BorderThickness="0"
+                         MouseDoubleClick="MarkerListBox_MouseDoubleClick"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Width="260" Margin="6,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="68" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Time}" Foreground="#F4C95D" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Grid Grid.Row="4" Margin="13,10,13,13">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Content="&#xE76B;"
+                            FontFamily="Segoe MDL2 Assets"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Previous marker"
+                            Click="PreviousMarkerButton_Click" />
+                    <Button Grid.Column="1"
+                            Content="&#xE76C;"
+                            FontFamily="Segoe MDL2 Assets"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Next marker"
+                            Click="NextMarkerButton_Click" />
+                    <Button Grid.Column="3"
+                            Content="&#xE74D;"
+                            FontFamily="Segoe MDL2 Assets"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Remove selected marker"
+                            Click="DeleteMarkerButton_Click" />
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="2" Background="#1B1F22" Margin="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="68" />
+                <RowDefinition Height="24" />
+                <RowDefinition Height="58" />
+            </Grid.RowDefinitions>
+
+            <local:TimelineWaveformControl x:Name="PlaybackTimeline"
+                                           Height="56"
+                                           Margin="16,10,16,2"
+                                           ShowSegmentBands="True"
+                                           ToolTip="Seek through the recording" />
+
+            <Grid Grid.Row="1" Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="120" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="CurrentTimeText" Text="0:00.000" Foreground="#E9ECEE" />
+                <TextBlock x:Name="CurrentMarkerText"
+                           Grid.Column="1"
+                           TextAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="#F4C95D" />
+                <TextBlock x:Name="DurationText" Grid.Column="2" Text="0:00.000" TextAlignment="Right" Foreground="#AAB1B5" />
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="12,8,12,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="|&lt;" Style="{StaticResource IconButtonStyle}" ToolTip="Start of recording" Click="StartButton_Click" />
+                    <Button Content="|&#x25C0;" Style="{StaticResource IconButtonStyle}" ToolTip="Previous segment" Click="PreviousSegmentButton_Click" />
+                    <Button Content="&lt;|" Style="{StaticResource IconButtonStyle}" ToolTip="Previous frame" Click="PreviousFrameButton_Click" />
+                    <Button Style="{StaticResource IconButtonStyle}" ToolTip="Back 10 seconds" Click="BackTenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72B;" Margin="0,0,2,0" />
+                            <TextBlock Text="10" FontSize="11" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="PlayPauseButton" Width="48" Style="{StaticResource IconButtonStyle}" ToolTip="Play or pause" Click="PlayPauseButton_Click">
+                        <TextBlock x:Name="PlayPauseGlyph" FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="17" />
+                    </Button>
+                    <Button Style="{StaticResource IconButtonStyle}" ToolTip="Forward 10 seconds" Click="ForwardTenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="10" FontSize="11" Margin="0,0,2,0" />
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72A;" />
+                        </StackPanel>
+                    </Button>
+                    <Button Content="|&gt;" Style="{StaticResource IconButtonStyle}" ToolTip="Next frame" Click="NextFrameButton_Click" />
+                    <Button Content="&#x25B6;|" Style="{StaticResource IconButtonStyle}" ToolTip="Next segment" Click="NextSegmentButton_Click" />
+                    <Button Content="&gt;|" Style="{StaticResource IconButtonStyle}" ToolTip="End of recording" Click="EndButton_Click" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ComboBox x:Name="AudioTrackComboBox"
+                              Width="105"
+                              Margin="4,0,0,0"
+                              ToolTip="Playback audio track"
+                              SelectionChanged="AudioTrackComboBox_SelectionChanged" />
+                    <ComboBox x:Name="PlaybackRateComboBox"
+                              Width="66"
+                              Margin="5,0"
+                              SelectionChanged="PlaybackRateComboBox_SelectionChanged" />
+                    <CheckBox x:Name="LoopCheckBox"
+                              Margin="3,0,5,0"
+                              VerticalAlignment="Center"
+                              Content="Loop"
+                              Foreground="#E9ECEE" />
+                    <Button x:Name="MuteButton"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Mute or unmute"
+                            Click="MuteButton_Click">
+                        <TextBlock x:Name="MuteGlyph" FontFamily="Segoe MDL2 Assets" Text="&#xE767;" FontSize="16" />
+                    </Button>
+                    <Slider x:Name="VolumeSlider"
+                            Width="85"
+                            Height="28"
+                            Margin="2,0,4,0"
+                            Minimum="0"
+                            Maximum="125"
+                            Value="100"
+                            ToolTip="Volume"
+                            ValueChanged="VolumeSlider_ValueChanged" />
+                    <Button Content="&#xE740;"
+                            FontFamily="Segoe MDL2 Assets"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Toggle fullscreen"
+                            Click="FullscreenButton_Click" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

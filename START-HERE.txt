@@ -25,7 +25,9 @@ pause or remove remembered games from the Games window.
 
 Recordings and the short setup test recording are stored in your
 Videos\Blackbox folder. Click Recordings to play a continuous session or export
-it as one MKV or MP4.
+it as one MKV or MP4. The Blackbox player includes segment-marked scrubbing,
+10-second and segment jumps, frame stepping, speed, loop, audio-track, volume,
+fullscreen, quick tags, and manual event markers.
 
 The private OBS runtime is separate from your normal or Steam OBS profile. Game
 sources remain dormant until an enabled remembered game is running. Blackbox

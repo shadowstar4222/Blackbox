@@ -1,0 +1,16 @@
+Blackbox third-party notices
+
+This distribution includes LibVLCSharp.WPF 3.10.0 and
+VideoLAN.LibVLC.Windows 3.0.23.1. Both packages are licensed under
+LGPL-2.1-or-later.
+
+LibVLCSharp source:
+https://code.videolan.org/videolan/LibVLCSharp
+
+LibVLC Windows package source:
+https://code.videolan.org/videolan/libvlc-nuget
+
+License text:
+https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
+Blackbox does not modify these libraries.

@@ -28,9 +28,10 @@ public partial class RecordingLibraryWindow : Window
 
     private readonly RecordingLibraryService _libraryService;
     private readonly TimelineAssetService _timelineAssetService;
-    private readonly SessionPlaybackService _playbackService;
     private readonly SessionExportService _exportService;
+    private readonly ISegmentUsageRegistry _segmentUsageRegistry;
     private readonly RecordingSettings _recordingSettings;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<RecordingLibraryWindow> _logger;
     private readonly CancellationTokenSource _windowCancellation = new();
     private CancellationTokenSource? _timelineAssetCancellation;
@@ -45,16 +46,18 @@ public partial class RecordingLibraryWindow : Window
     public RecordingLibraryWindow(
         RecordingLibraryService libraryService,
         TimelineAssetService timelineAssetService,
-        SessionPlaybackService playbackService,
         SessionExportService exportService,
+        ISegmentUsageRegistry segmentUsageRegistry,
         RecordingSettings recordingSettings,
+        ILoggerFactory loggerFactory,
         ILogger<RecordingLibraryWindow> logger)
     {
         _libraryService = libraryService;
         _timelineAssetService = timelineAssetService;
-        _playbackService = playbackService;
         _exportService = exportService;
+        _segmentUsageRegistry = segmentUsageRegistry;
         _recordingSettings = recordingSettings;
+        _loggerFactory = loggerFactory;
         _logger = logger;
         InitializeComponent();
         ExportPresetComboBox.ItemsSource = ExportPresets;
@@ -318,22 +321,40 @@ public partial class RecordingLibraryWindow : Window
         UpdateSelectionText();
     }
 
-    private async void PlayButton_Click(object sender, RoutedEventArgs e)
+    private void PlayButton_Click(object sender, RoutedEventArgs e)
     {
-        await ExecuteAsync("Play recording", async () =>
+        try
         {
-            var session = SelectedSession
+            var item = SelectedSessionItem
                 ?? throw new InvalidOperationException("Select a recording first.");
+            var session = item.Session;
             var start = TimeSpan.FromSeconds(Math.Min(
                 PlayheadSlider.Value,
                 Math.Max(0, session.Duration.TotalSeconds - 0.001)));
-            await _playbackService.PlayAsync(
+            var player = new PlaybackWindow(
                 session,
                 start,
-                new Progress<RecordingLibraryProgress>(UpdateProgress),
-                _windowCancellation.Token);
-            StatusText.Text = $"Continuous playback opened at {FormatDuration(start)}.";
-        });
+                _libraryService,
+                _segmentUsageRegistry,
+                _loggerFactory.CreateLogger<PlaybackWindow>())
+            {
+                Owner = this
+            };
+            player.MarkersChanged += (_, _) =>
+            {
+                item.Session = item.Session with { Markers = player.Session.Markers };
+                if (SelectedSession?.Id == item.Session.Id)
+                {
+                    UpdateTimelineMetadata(item.Session);
+                }
+            };
+            player.Show();
+            StatusText.Text = $"Blackbox player opened at {FormatDuration(start)}.";
+        }
+        catch (Exception ex)
+        {
+            ReportFailure("Play recording", ex);
+        }
     }
 
     private async void AddMarkerButton_Click(object sender, RoutedEventArgs e)

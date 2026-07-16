@@ -4,7 +4,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 
 ## Projects
 
-- `Blackbox.App`: WPF desktop shell, dependency injection, logging setup, system-tray and full UI entry point.
+- `Blackbox.App`: WPF desktop shell, embedded LibVLC player, dependency injection, logging setup, system-tray and full UI entry point.
 - `Blackbox.Domain`: shared entities, settings, and repository abstractions.
 - `Blackbox.Infrastructure`: external integrations such as OBS control and future Windows process/device discovery.
 - `Blackbox.Recording`: recording orchestration, segment import, session management, and future hotkey/game-detection workflows.
@@ -32,22 +32,23 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 16. `MicrophoneCalibrationService` captures live OBS meter events, calculates processing recommendations, and persists one device for both microphone paths.
 17. `MicrophoneDeviceMonitor` watches the selected device only while recording, leaves OBS sources alive during disconnects, and reapplies the saved configuration after reconnection.
 18. Milestone 5 groups segments into a virtual continuous session for seamless browsing and playback without replacing the interruption-resistant source files.
-19. `TimelineAssetService` generates and caches codec-safe thumbnails plus a full-mix waveform while holding source-segment leases.
-20. Timeline markers and protected ranges are stored in SQLite; protected selections also mark overlapping segments against quota deletion.
-21. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 with the chosen track mix and optional separate 24-bit PCM WAV files.
-22. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
-23. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
-24. `WindowsRunningApplicationCatalog` enumerates visible top-level windows, executable paths, live client sizes, and OBS window identifiers without injecting into another process.
-25. `WindowsRunningApplicationCatalog` includes bounded process ancestry for visible windows without opening invasive handles or injecting into another process.
-26. `WindowsGpuActivityProbe` batches Windows PDH GPU-engine samples for candidate process IDs and returns an optional ranking signal.
-27. `WindowsGameProcessDetector` matches primary paths and aliases, ranks foreground and GPU-active windows, and learns a launcher child only after two consecutive matches.
-28. `AutomaticCaptureService` confirms stable remembered candidates, resets and fits the OBS game sources, then starts or stops through the shared `RecordingCoordinator`.
-29. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
-30. `RecordingRecoveryService` probes stable recording files during startup, attempts a lossless FFmpeg remux for unreadable media, verifies the repair, and atomically replaces the source while preserving the original in the recovery-backups folder.
-31. Startup recovery skips files whose size or write time is still changing, then refreshes the recording library to reconcile SQLite rows and retain clear damage labels.
-32. `RecordingCoordinator` queries OBS recording status and adopts a surviving recording after a Blackbox restart without issuing another start request.
-33. `AutomaticCapturePreferenceStore` atomically persists automatic-capture intent so startup can resume an interrupted automatic session after OBS is ready.
-34. `DiagnosticLogReader` reads rolling Serilog files with shared access and classifies recent system, recording, detection, export, and recovery events for the diagnostics window.
+19. `PlaybackWindow` maps one global playhead across the physical segments, switches media at boundaries, and provides frame, seek, speed, audio, marker, and fullscreen controls through bundled LibVLC.
+20. `TimelineAssetService` generates and caches codec-safe thumbnails plus a full-mix waveform while holding source-segment leases.
+21. Timeline markers and protected ranges are stored in SQLite; protected selections also mark overlapping segments against quota deletion.
+22. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 with the chosen track mix and optional separate 24-bit PCM WAV files.
+23. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
+24. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
+25. `WindowsRunningApplicationCatalog` enumerates visible top-level windows, executable paths, live client sizes, and OBS window identifiers without injecting into another process.
+26. `WindowsRunningApplicationCatalog` includes bounded process ancestry for visible windows without opening invasive handles or injecting into another process.
+27. `WindowsGpuActivityProbe` batches Windows PDH GPU-engine samples for candidate process IDs and returns an optional ranking signal.
+28. `WindowsGameProcessDetector` matches primary paths and aliases, ranks foreground and GPU-active windows, and learns a launcher child only after two consecutive matches.
+29. `AutomaticCaptureService` confirms stable remembered candidates, resets and fits the OBS game sources, then starts or stops through the shared `RecordingCoordinator`.
+30. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
+31. `RecordingRecoveryService` probes stable recording files during startup, attempts a lossless FFmpeg remux for unreadable media, verifies the repair, and atomically replaces the source while preserving the original in the recovery-backups folder.
+32. Startup recovery skips files whose size or write time is still changing, then refreshes the recording library to reconcile SQLite rows and retain clear damage labels.
+33. `RecordingCoordinator` queries OBS recording status and adopts a surviving recording after a Blackbox restart without issuing another start request.
+34. `AutomaticCapturePreferenceStore` atomically persists automatic-capture intent so startup can resume an interrupted automatic session after OBS is ready.
+35. `DiagnosticLogReader` reads rolling Serilog files with shared access and classifies recent system, recording, detection, export, and recovery events for the diagnostics window.
 
 ## Safety Boundaries
 
@@ -58,6 +59,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Segment files are imported only after they are stable and non-empty.
 - Deletion logic validates database state, skips protected footage, and removes a database row only after the file is gone.
 - WPF targets `net8.0-windows` and stays within Windows 10-compatible UI technology.
+- The embedded player uses the official LibVLCSharp wrapper and bundled VideoLAN Windows runtime; package versions and LGPL notices ship with the app.
 - Raw microphone and processed microphone are modeled as separate tracks so the raw path remains non-destructive.
 - Microphone disconnects do not remove either OBS source, preserving silence and timeline alignment until the selected device returns.
 - Missing or discontinuous session media is shown as unhealthy and is rejected by continuous playback and export rather than silently skipped.
