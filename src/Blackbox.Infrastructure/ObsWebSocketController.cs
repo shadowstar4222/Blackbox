@@ -43,11 +43,6 @@ public sealed class ObsWebSocketController(
         await EnsureSceneAsync(settings, plan.SceneName, cancellationToken);
         await ValidateKindsAsync(settings, plan, cancellationToken);
         await EnsureInputsAsync(settings, plan, cancellationToken);
-        var (videoSceneItemId, audioSceneItemId) = await GetGameSceneItemIdsAsync(settings, cancellationToken);
-        await SendBatchWithoutResultAsync(
-            settings,
-            requestBuilder.BuildGameCaptureDeactivationRequests(videoSceneItemId, audioSceneItemId),
-            cancellationToken);
         await EnsureFiltersAsync(settings, plan, cancellationToken);
         await rpcClient.SendRequestAsync(
             settings,
@@ -297,7 +292,8 @@ public sealed class ObsWebSocketController(
                     ["inputName"] = source.Name,
                     ["inputKind"] = source.Kind,
                     ["inputSettings"] = ToJsonObject(source.Settings),
-                    ["sceneItemEnabled"] = true
+                    ["sceneItemEnabled"] = source.Name != "Blackbox Game Capture" &&
+                                           source.Name != "Blackbox Game Audio"
                 }));
             }
 

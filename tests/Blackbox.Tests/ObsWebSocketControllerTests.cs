@@ -25,6 +25,10 @@ public sealed class ObsWebSocketControllerTests
         Assert.Equal(5, requests.Count(static request => request.RequestType == "CreateSourceFilter"));
         Assert.Contains(requests, static request => request.RequestType == "SetProfileParameter");
         Assert.Equal(2, requests.Count(static request => request.RequestType == "SetCurrentProfile"));
+        Assert.DoesNotContain(requests, static request => request.RequestType == "SetSceneItemEnabled");
+        Assert.False(GetCreatedInputEnabled(requests, "Blackbox Game Capture"));
+        Assert.False(GetCreatedInputEnabled(requests, "Blackbox Game Audio"));
+        Assert.True(GetCreatedInputEnabled(requests, "Blackbox Processed Microphone"));
     }
 
     [Fact]
@@ -45,6 +49,7 @@ public sealed class ObsWebSocketControllerTests
         Assert.DoesNotContain(requests, static request => request.RequestType == "CreateScene");
         Assert.DoesNotContain(requests, static request => request.RequestType == "CreateInput");
         Assert.DoesNotContain(requests, static request => request.RequestType == "CreateSourceFilter");
+        Assert.DoesNotContain(requests, static request => request.RequestType == "SetSceneItemEnabled");
     }
 
     [Fact]
@@ -102,6 +107,13 @@ public sealed class ObsWebSocketControllerTests
             new ObsConnectionSettingsProvider(),
             new ObsSetupRequestBuilder(),
             NullLogger<ObsWebSocketController>.Instance);
+
+    private static bool GetCreatedInputEnabled(IEnumerable<ObsRequest> requests, string inputName) =>
+        requests.Single(request =>
+                request.RequestType == "CreateInput" &&
+                request.RequestData?["inputName"]?.GetValue<string>() == inputName)
+            .RequestData?["sceneItemEnabled"]?.GetValue<bool>()
+        ?? throw new InvalidOperationException($"Missing scene item enabled state for {inputName}.");
 
     private sealed class RecordingRpcClient(bool resourcesExist) : IObsWebSocketRpcClient
     {
