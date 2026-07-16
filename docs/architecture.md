@@ -37,10 +37,11 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 21. Full-session and selected-range exports use FFmpeg to produce one MKV or MP4 with the chosen track mix and optional separate 24-bit PCM WAV files.
 22. Playback and export acquire in-memory segment leases so quota enforcement cannot remove source media in use.
 23. FFmpeg, FFprobe, and FFplay are downloaded over HTTPS on first library use, checksum-verified, and staged under Blackbox application data.
-24. `WindowsGameProcessDetector` inspects the foreground window, executable path, and Toolhelp process ancestry without injecting into the game.
-25. `AutomaticCaptureService` confirms stable Steam candidates, binds OBS game video and isolated game audio, then starts or stops through the shared `RecordingCoordinator`.
-26. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
-27. Later Milestone 6 slices add GPU/configured signals, persistent profiles, and crash recovery.
+24. `WindowsRunningApplicationCatalog` enumerates visible top-level windows, executable paths, live client sizes, and OBS window identifiers without injecting into another process.
+25. `WindowsGameProcessDetector` matches that catalog only against enabled executable profiles stored by the user.
+26. `AutomaticCaptureService` confirms stable remembered candidates, resets and fits the OBS game sources, then starts or stops through the shared `RecordingCoordinator`.
+27. The coordinator serializes manual and automatic lifecycle requests so automatic capture never stops a recording it did not start.
+28. Later Milestone 6 slices add aliases, GPU corroboration, launcher handoff, and crash recovery.
 
 ## Safety Boundaries
 
@@ -58,12 +59,12 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Timeline assets are generated in a staging directory and moved into a keyed local cache only after successful completion.
 - Exports write video and WAV outputs to unique partial paths and publish them only after FFmpeg exits successfully with non-empty files.
 - Automatic capture is disabled until the user enables it after a successful OBS check.
-- Foreground detection requires Steam library or process-tree evidence; ordinary desktop applications are ignored.
+- Automatic detection requires an enabled profile explicitly remembered from the running-applications picker; unapproved applications are ignored.
 - Launch confirmation and a stop grace period prevent brief process or focus transitions from repeatedly starting and stopping OBS.
 
 ## Database
 
-The `segments` table stores one row per completed segment, including session, time range, game identity, video format, audio track layout, encoder, resolution, frame rate, HDR flag, protection and damage state, path, and size.
+The `segments` table stores one row per completed segment, including session, time range, game identity, video format, audio track layout, encoder, resolution, frame rate, HDR flag, protection and damage state, path, and size. The `game_profiles` table stores remembered executable paths, display names, automatic-recording enablement, and timestamps.
 
 The `timeline_markers` and `protected_ranges` tables store durable user annotations against session wall-clock time. Existing databases are migrated in place when new damage columns or timeline tables are introduced.
 

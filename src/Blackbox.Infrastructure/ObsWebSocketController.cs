@@ -43,6 +43,11 @@ public sealed class ObsWebSocketController(
         await EnsureSceneAsync(settings, plan.SceneName, cancellationToken);
         await ValidateKindsAsync(settings, plan, cancellationToken);
         await EnsureInputsAsync(settings, plan, cancellationToken);
+        var (videoSceneItemId, audioSceneItemId) = await GetGameSceneItemIdsAsync(settings, cancellationToken);
+        await SendBatchWithoutResultAsync(
+            settings,
+            requestBuilder.BuildGameCaptureDeactivationRequests(videoSceneItemId, audioSceneItemId),
+            cancellationToken);
         await EnsureFiltersAsync(settings, plan, cancellationToken);
         await rpcClient.SendRequestAsync(
             settings,
@@ -81,14 +86,31 @@ public sealed class ObsWebSocketController(
         CancellationToken cancellationToken = default)
     {
         target.Validate();
+        var settings = connectionSettingsProvider.Current;
+        await rpcClient.SendRequestAsync(
+            settings,
+            new ObsRequest("SetCurrentProgramScene", new JsonObject { ["sceneName"] = "Blackbox Recording" }),
+            cancellationToken);
+        var (videoSceneItemId, audioSceneItemId) = await GetGameSceneItemIdsAsync(settings, cancellationToken);
+
         await SendBatchWithoutResultAsync(
-            connectionSettingsProvider.Current,
+            settings,
+            requestBuilder.BuildGameCaptureDeactivationRequests(videoSceneItemId, audioSceneItemId),
+            cancellationToken);
+        await SendBatchWithoutResultAsync(
+            settings,
             requestBuilder.BuildGameCaptureRequests(target),
             cancellationToken);
+        await SendBatchWithoutResultAsync(
+            settings,
+            requestBuilder.BuildGameCaptureActivationRequests(target, videoSceneItemId, audioSceneItemId),
+            cancellationToken);
         logger.LogInformation(
-            "OBS game capture bound to {GameTitle} ({GameExecutable}). DetectionSources={DetectionSources}.",
+            "OBS scene bound to {GameTitle} ({GameExecutable}) at {Width}x{Height}. DetectionSources={DetectionSources}.",
             target.Title,
             target.ExecutableName,
+            target.WindowWidth,
+            target.WindowHeight,
             target.DetectionSources);
     }
 
@@ -306,6 +328,33 @@ public sealed class ObsWebSocketController(
     {
         await rpcClient.SendBatchAsync(settings, requests, cancellationToken);
     }
+
+    private static ObsRequest SceneItemIdRequest(string sourceName) =>
+        new("GetSceneItemId", new JsonObject
+        {
+            ["sceneName"] = "Blackbox Recording",
+            ["sourceName"] = sourceName
+        });
+
+    private async Task<(int VideoSceneItemId, int AudioSceneItemId)> GetGameSceneItemIdsAsync(
+        ObsConnectionSettings settings,
+        CancellationToken cancellationToken)
+    {
+        var responses = await rpcClient.SendBatchAsync(
+            settings,
+            [
+                SceneItemIdRequest("Blackbox Game Capture"),
+                SceneItemIdRequest("Blackbox Game Audio")
+            ],
+            cancellationToken);
+        return (
+            GetSceneItemId(responses[0], "Blackbox Game Capture"),
+            GetSceneItemId(responses[1], "Blackbox Game Audio"));
+    }
+
+    private static int GetSceneItemId(ObsResponse response, string sourceName) =>
+        response.ResponseData?["sceneItemId"]?.GetValue<int>()
+        ?? throw new InvalidOperationException($"OBS scene is missing {sourceName}. Run Setup OBS again.");
 
     private static HashSet<string> GetStringSet(ObsResponse response, string fieldName) =>
         response.ResponseData?[fieldName]?.AsArray()

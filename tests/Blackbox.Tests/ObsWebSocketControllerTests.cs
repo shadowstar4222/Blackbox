@@ -74,6 +74,12 @@ public sealed class ObsWebSocketControllerTests
         await controller.ConfigureGameCaptureAsync(target);
 
         Assert.Equal(2, rpc.AllRequests.Count(static request => request.RequestType == "SetInputSettings"));
+        Assert.Contains(rpc.AllRequests, static request => request.RequestType == "SetVideoSettings");
+        Assert.Contains(rpc.AllRequests, static request => request.RequestType == "SetSceneItemTransform");
+        Assert.Equal(4, rpc.AllRequests.Count(static request => request.RequestType == "SetSceneItemEnabled"));
+        Assert.Contains(rpc.AllRequests, static request =>
+            request.RequestType == "SetCurrentProgramScene" &&
+            request.RequestData?["sceneName"]?.GetValue<string>() == "Blackbox Recording");
     }
 
     private static ObsWebSocketController CreateController(IObsWebSocketRpcClient rpc) =>
@@ -178,6 +184,12 @@ public sealed class ObsWebSocketControllerTests
                 "GetSourceFilterKindList" => ObsResponse.Successful(request.RequestType, new JsonObject
                 {
                     ["sourceFilterKinds"] = StringArray(FilterKinds)
+                }),
+                "GetSceneItemId" => ObsResponse.Successful(request.RequestType, new JsonObject
+                {
+                    ["sceneItemId"] = request.RequestData?["sourceName"]?.GetValue<string>() == "Blackbox Game Capture"
+                        ? 100
+                        : 101
                 }),
                 "StopRecord" => ObsResponse.Successful(request.RequestType, new JsonObject
                 {

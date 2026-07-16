@@ -6,7 +6,9 @@ public sealed record GameCaptureTarget(
     string ExecutableName,
     string Title,
     string ObsWindowIdentifier,
-    GameDetectionSource DetectionSources)
+    GameDetectionSource DetectionSources,
+    int WindowWidth = 1920,
+    int WindowHeight = 1080)
 {
     public string Identity => Path.GetFullPath(ExecutablePath).ToUpperInvariant();
 
@@ -16,14 +18,17 @@ public sealed record GameCaptureTarget(
             string.IsNullOrWhiteSpace(ExecutablePath) ||
             string.IsNullOrWhiteSpace(ExecutableName) ||
             string.IsNullOrWhiteSpace(Title) ||
-            string.IsNullOrWhiteSpace(ObsWindowIdentifier))
+            string.IsNullOrWhiteSpace(ObsWindowIdentifier) ||
+            WindowWidth <= 0 ||
+            WindowHeight <= 0)
         {
             throw new InvalidOperationException("A detected game requires a process, executable, title, and capture window.");
         }
 
-        if (!DetectionSources.HasFlag(GameDetectionSource.ForegroundWindow))
+        if (!DetectionSources.HasFlag(GameDetectionSource.ForegroundWindow) &&
+            !DetectionSources.HasFlag(GameDetectionSource.ConfiguredExecutable))
         {
-            throw new InvalidOperationException("Automatic game capture currently requires a foreground window.");
+            throw new InvalidOperationException("Automatic game capture requires a foreground or remembered executable window.");
         }
     }
 }

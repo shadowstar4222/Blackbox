@@ -34,6 +34,7 @@ public partial class App : Application
             .UseSerilog()
             .ConfigureServices(services =>
             {
+                var databasePath = Path.Combine(appData, "blackbox.db");
                 var recordingPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
                     "Blackbox");
@@ -57,7 +58,8 @@ public partial class App : Application
                     Timeout = TimeSpan.FromMinutes(20)
                 });
                 services.AddSingleton<IClock, SystemClock>();
-                services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(Path.Combine(appData, "blackbox.db")));
+                services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(databasePath));
+                services.AddSingleton<IGameProfileRepository>(_ => new SqliteGameProfileRepository(databasePath));
                 services.AddSingleton<ISegmentUsageRegistry, SegmentUsageRegistry>();
                 services.AddSingleton<IFfmpegProvisioner, FfmpegProvisioner>();
                 services.AddSingleton<IMediaProbe, FfprobeMediaProbe>();
@@ -82,6 +84,7 @@ public partial class App : Application
                 services.AddSingleton<IObsAudioMeterClient>(provider =>
                     provider.GetRequiredService<ObsWebSocketRpcClient>());
                 services.AddSingleton<IObsController, ObsWebSocketController>();
+                services.AddSingleton<IRunningApplicationCatalog, WindowsRunningApplicationCatalog>();
                 services.AddSingleton<IGameProcessDetector, WindowsGameProcessDetector>();
                 services.AddSingleton<IObsMicrophoneController, ObsMicrophoneController>();
                 services.AddSingleton(new MicrophoneMonitoringOptions());
@@ -104,12 +107,16 @@ public partial class App : Application
                 services.AddTransient<RecordingLibraryWindow>();
                 services.AddSingleton<Func<RecordingLibraryWindow>>(provider =>
                     () => provider.GetRequiredService<RecordingLibraryWindow>());
+                services.AddTransient<GameProfilesWindow>();
+                services.AddSingleton<Func<GameProfilesWindow>>(provider =>
+                    () => provider.GetRequiredService<GameProfilesWindow>());
                 services.AddSingleton<MainWindow>();
             })
             .Build();
 
         await _host.StartAsync();
         await _host.Services.GetRequiredService<ISegmentRepository>().InitializeAsync();
+        await _host.Services.GetRequiredService<IGameProfileRepository>().InitializeAsync();
         _host.Services.GetRequiredService<MainWindow>().Show();
     }
 

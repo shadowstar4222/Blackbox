@@ -1,4 +1,4 @@
-BLACKBOX MILESTONE 3C TEST BUILD
+BLACKBOX MILESTONE 6B TEST BUILD
 
 1. Extract the entire ZIP to a normal folder.
 2. Double-click Blackbox.App.exe.
@@ -9,14 +9,24 @@ installed, Blackbox prepares its private runtime from those local files without 
 download. Otherwise, it downloads and verifies the official OBS Studio package.
 Administrator access is not required.
 
-After setup succeeds, use Start Recording and Stop. Recordings and the short setup
-test recording are stored in your Videos\Blackbox folder.
+After setup succeeds:
 
-CURRENT LIMITATION
+1. Start a game and leave its main window running.
+2. Click Games, select the game under Running applications, and click
+   Remember selected game.
+3. Close the Games window and click Enable Auto.
 
-Blackbox creates the isolated game and voice-chat audio sources, but does not yet
-choose their executable automatically. That is part of the upcoming game-profile
-work. The setup check currently validates OBS launch, recording, file output,
-sources, filters, and audio-track layout.
+Blackbox remembers that executable for future runs. When the game starts, it
+detects the live window and size, configures OBS game video and process audio,
+then begins recording. Disable Auto to stop the automatic recording. You can
+pause or remove remembered games from the Games window.
+
+Recordings and the short setup test recording are stored in your
+Videos\Blackbox folder. Click Recordings to play a continuous session or export
+it as one MKV or MP4.
+
+The private OBS runtime is separate from your normal or Steam OBS profile. Game
+sources remain dormant until an enabled remembered game is running. Voice-chat
+process selection, launcher aliases, and GPU corroboration are still planned.
 
 Logs: %LOCALAPPDATA%\Blackbox\logs

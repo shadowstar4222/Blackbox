@@ -8,7 +8,9 @@ internal static class GameCandidateSelector
     {
         "ApplicationFrameHost.exe",
         "Blackbox.App.exe",
+        "ChatGPT.exe",
         "chrome.exe",
+        "codex-computer-use.exe",
         "Discord.exe",
         "dwm.exe",
         "explorer.exe",
@@ -30,23 +32,18 @@ internal static class GameCandidateSelector
         ForegroundProcessSnapshot foreground,
         IReadOnlyDictionary<int, ProcessTreeEntry> processTree)
     {
-        if (IgnoredExecutables.Contains(foreground.ExecutableName) ||
+        if (IsIgnoredExecutable(foreground.ExecutableName) ||
             string.IsNullOrWhiteSpace(foreground.WindowTitle) ||
             string.IsNullOrWhiteSpace(foreground.WindowClassName))
         {
             return null;
         }
 
-        var sources = GameDetectionSource.ForegroundWindow;
-        if (IsInSteamLibrary(foreground.ExecutablePath))
-        {
-            sources |= GameDetectionSource.SteamLibrary;
-        }
-
-        if (HasSteamAncestor(foreground.ProcessId, processTree))
-        {
-            sources |= GameDetectionSource.SteamProcessTree;
-        }
+        var sources = Classify(
+            foreground.ProcessId,
+            foreground.ExecutablePath,
+            isForeground: true,
+            processTree);
 
         if ((sources & (GameDetectionSource.SteamLibrary | GameDetectionSource.SteamProcessTree)) == 0)
         {
@@ -62,6 +59,29 @@ internal static class GameCandidateSelector
             sources);
         target.Validate();
         return target;
+    }
+
+    public static bool IsIgnoredExecutable(string executableName) =>
+        IgnoredExecutables.Contains(executableName);
+
+    public static GameDetectionSource Classify(
+        int processId,
+        string executablePath,
+        bool isForeground,
+        IReadOnlyDictionary<int, ProcessTreeEntry> processTree)
+    {
+        var sources = isForeground ? GameDetectionSource.ForegroundWindow : GameDetectionSource.None;
+        if (IsInSteamLibrary(executablePath))
+        {
+            sources |= GameDetectionSource.SteamLibrary;
+        }
+
+        if (HasSteamAncestor(processId, processTree))
+        {
+            sources |= GameDetectionSource.SteamProcessTree;
+        }
+
+        return sources;
     }
 
     private static bool IsInSteamLibrary(string executablePath) =>

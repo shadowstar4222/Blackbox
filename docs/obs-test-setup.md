@@ -34,7 +34,7 @@ This procedure tests one-click OBS onboarding with both existing-installation de
 
 ## Expected Limitation
 
-The isolated game and voice-chat sources do not yet select a process automatically. Their exact executable/window binding will be supplied by game detection and per-game profiles. Until then, the recording probe proves OBS startup, encoding, file output, source creation, filters, and track layout; it does not prove isolated game or Discord audio content.
+The initial setup leaves game video and game audio dormant. After a running game is remembered from Blackbox's `Games` window, automatic capture applies that game's live window, process audio, canvas size, and scene fit immediately before recording starts. Voice-chat selection remains manual. The setup probe proves OBS startup, encoding, file output, source creation, filters, and track layout; use the automatic-capture procedure to prove real game video and isolated game audio.
 
 ## Troubleshooting
 

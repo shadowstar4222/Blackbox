@@ -41,7 +41,7 @@ public sealed class AutomaticCaptureController(
         Volatile.Write(ref _isEnabled, true);
         Publish(new AutomaticCaptureStatus(
             AutomaticCaptureState.Watching,
-            "Watching for a foreground Steam game.",
+            "Watching for a remembered game.",
             null,
             recordingCoordinator.IsRecording));
     }
@@ -109,7 +109,29 @@ public sealed class AutomaticCaptureController(
                 $"Binding OBS to {target.Title}...",
                 target,
                 recordingCoordinator.IsRecording));
+
+            if (recordingCoordinator.IsRecording)
+            {
+                if (!_ownsRecording)
+                {
+                    Publish(new AutomaticCaptureStatus(
+                        AutomaticCaptureState.Watching,
+                        $"{target.Title} is running. Stop the manual recording to activate automatic capture.",
+                        target,
+                        true));
+                    return;
+                }
+
+                await recordingCoordinator.TryStopAsync(cancellationToken);
+                _ownsRecording = false;
+            }
+
             await obsController.ConfigureGameCaptureAsync(target, cancellationToken);
+            if (options.CaptureSettleDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(options.CaptureSettleDelay, cancellationToken);
+            }
+
             if (!recordingCoordinator.IsRecording)
             {
                 _ownsRecording = await recordingCoordinator.TryStartAsync(recordingSettings, cancellationToken);
@@ -182,7 +204,7 @@ public sealed class AutomaticCaptureController(
         {
             Publish(new AutomaticCaptureStatus(
                 AutomaticCaptureState.Watching,
-                "Watching for a foreground Steam game.",
+                "Watching for a remembered game.",
                 null,
                 recordingCoordinator.IsRecording));
             return;
@@ -214,7 +236,7 @@ public sealed class AutomaticCaptureController(
         ResetDetection();
         Publish(new AutomaticCaptureStatus(
             AutomaticCaptureState.Watching,
-            "Watching for a foreground Steam game.",
+            "Watching for a remembered game.",
             null,
             recordingCoordinator.IsRecording));
     }

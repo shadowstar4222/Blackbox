@@ -56,16 +56,17 @@ Milestone 5 is complete only when a multi-segment test session can be viewed as 
 
 #### Milestone 6A: Detection And Automatic Recording
 
-- [x] Detect a foreground Steam game from its executable path or Steam process ancestry.
-- [x] Bind OBS game video and isolated game audio to the detected window.
+- [x] Enumerate useful running game windows without process injection.
+- [x] Bind OBS game video, isolated game audio, canvas size, and scene fit when the game starts.
 - [x] Debounce game launches and delay automatic stop across short exits or focus transitions.
 - [x] Keep automatic capture opt-in and preserve manual recording ownership.
-- [ ] Add configured executable and GPU-activity detection signals.
+- [ ] Add optional GPU-activity corroboration for difficult launcher and window cases.
 
 #### Milestone 6B: Per-Game Profiles
 
-- [ ] Persist automatic-recording enablement, capture preferences, and executable aliases per game.
-- [ ] Add profile management and manual executable selection.
+- [x] Persist remembered executables and per-game automatic-recording enablement.
+- [x] Add a running-application picker with profile enable, disable, and remove controls.
+- [ ] Add additional capture preferences and executable aliases per game.
 - [ ] Rebind capture when a launcher hands off to the final game process.
 
 #### Milestone 6C: Recovery And Diagnostics

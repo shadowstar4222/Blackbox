@@ -49,8 +49,16 @@ public sealed class ObsSetupRequestBuilder
     public IReadOnlyList<ObsRequest> BuildGameCaptureRequests(GameCaptureTarget target)
     {
         target.Validate();
+        var (width, height) = GetCanvasSize(target);
         return
         [
+            new ObsRequest("SetVideoSettings", new JsonObject
+            {
+                ["baseWidth"] = width,
+                ["baseHeight"] = height,
+                ["outputWidth"] = width,
+                ["outputHeight"] = height
+            }),
             InputSettings("Blackbox Game Capture", new JsonObject
             {
                 ["capture_mode"] = "window",
@@ -60,7 +68,52 @@ public sealed class ObsSetupRequestBuilder
             InputSettings("Blackbox Game Audio", new JsonObject
             {
                 ["window"] = target.ObsWindowIdentifier
+            }),
+            new ObsRequest("SetInputMute", new JsonObject
+            {
+                ["inputName"] = "Blackbox Game Audio",
+                ["inputMuted"] = false
             })
+        ];
+    }
+
+    public IReadOnlyList<ObsRequest> BuildGameCaptureDeactivationRequests(
+        int videoSceneItemId,
+        int audioSceneItemId) =>
+        [
+            SceneItemEnabled(videoSceneItemId, false),
+            SceneItemEnabled(audioSceneItemId, false)
+        ];
+
+    public IReadOnlyList<ObsRequest> BuildGameCaptureActivationRequests(
+        GameCaptureTarget target,
+        int videoSceneItemId,
+        int audioSceneItemId)
+    {
+        target.Validate();
+        var (width, height) = GetCanvasSize(target);
+        return
+        [
+            new ObsRequest("SetSceneItemTransform", new JsonObject
+            {
+                ["sceneName"] = "Blackbox Recording",
+                ["sceneItemId"] = videoSceneItemId,
+                ["sceneItemTransform"] = new JsonObject
+                {
+                    ["positionX"] = 0,
+                    ["positionY"] = 0,
+                    ["rotation"] = 0,
+                    ["scaleX"] = 1,
+                    ["scaleY"] = 1,
+                    ["alignment"] = 5,
+                    ["boundsType"] = "OBS_BOUNDS_SCALE_INNER",
+                    ["boundsAlignment"] = 5,
+                    ["boundsWidth"] = width,
+                    ["boundsHeight"] = height
+                }
+            }),
+            SceneItemEnabled(videoSceneItemId, true),
+            SceneItemEnabled(audioSceneItemId, true)
         ];
     }
 
@@ -101,6 +154,27 @@ public sealed class ObsSetupRequestBuilder
         {
             ["inputName"] = inputName,
             ["inputSettings"] = inputSettings,
-            ["overlay"] = true
+            ["overlay"] = false
         });
+
+    private static ObsRequest SceneItemEnabled(int sceneItemId, bool enabled) =>
+        new("SetSceneItemEnabled", new JsonObject
+        {
+            ["sceneName"] = "Blackbox Recording",
+            ["sceneItemId"] = sceneItemId,
+            ["sceneItemEnabled"] = enabled
+        });
+
+    private static (int Width, int Height) GetCanvasSize(GameCaptureTarget target)
+    {
+        const int maximumDimension = 4096;
+        var scale = Math.Min(
+            1d,
+            Math.Min(
+                maximumDimension / (double)target.WindowWidth,
+                maximumDimension / (double)target.WindowHeight));
+        var width = Math.Max(2, (int)Math.Floor(target.WindowWidth * scale));
+        var height = Math.Max(2, (int)Math.Floor(target.WindowHeight * scale));
+        return (width - width % 2, height - height % 2);
+    }
 }

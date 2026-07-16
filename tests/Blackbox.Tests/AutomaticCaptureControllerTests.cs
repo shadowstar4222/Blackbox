@@ -77,6 +77,48 @@ public sealed class AutomaticCaptureControllerTests
         }
     }
 
+    [Fact]
+    public async Task ProcessDetectionAsync_restarts_after_rebinding_when_the_active_game_changes()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            var controller = CreateController(root, obs, coordinator, clock);
+            var first = CreateTarget();
+            var second = CreateTarget() with
+            {
+                ProcessId = 84,
+                ExecutablePath = "C:\\Games\\Second.exe",
+                ExecutableName = "Second.exe",
+                Title = "Second Game",
+                ObsWindowIdentifier = "Second Game:WindowClass:Second.exe"
+            };
+
+            controller.Enable();
+            await controller.ProcessDetectionAsync(first);
+            await controller.ProcessDetectionAsync(first);
+            var callCountBeforeSwitch = obs.Calls.Count;
+
+            await controller.ProcessDetectionAsync(second);
+            await controller.ProcessDetectionAsync(second);
+
+            var switchCalls = obs.Calls.Skip(callCountBeforeSwitch).ToArray();
+            Assert.Equal(
+                ["Stop", "ConfigureGame:Second.exe", "Launch", "ConfigureSegments", "ConfigureAudio", "Start"],
+                switchCalls);
+            Assert.True(coordinator.IsRecording);
+            Assert.Equal("Second Game", controller.Status.Target?.Title);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static AutomaticCaptureController CreateController(
         string recordingPath,
         IObsController obs,
@@ -91,6 +133,7 @@ public sealed class AutomaticCaptureControllerTests
             {
                 PollInterval = TimeSpan.FromHours(1),
                 RequiredPositiveDetections = 2,
+                CaptureSettleDelay = TimeSpan.Zero,
                 StopGracePeriod = TimeSpan.FromSeconds(10)
             },
             NullLogger<AutomaticCaptureController>.Instance);

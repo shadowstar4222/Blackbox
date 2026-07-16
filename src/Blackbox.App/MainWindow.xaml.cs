@@ -22,8 +22,10 @@ public partial class MainWindow : Window
     private readonly RecordingSettings _settings;
     private readonly Func<MicrophoneCalibrationWindow> _microphoneCalibrationWindowFactory;
     private readonly Func<RecordingLibraryWindow> _recordingLibraryWindowFactory;
+    private readonly Func<GameProfilesWindow> _gameProfilesWindowFactory;
     private readonly ILogger<MainWindow> _logger;
     private RecordingLibraryWindow? _recordingLibraryWindow;
+    private GameProfilesWindow? _gameProfilesWindow;
     private bool _obsReady;
     private bool _isSetupBusy;
 
@@ -38,6 +40,7 @@ public partial class MainWindow : Window
         RecordingSettings settings,
         Func<MicrophoneCalibrationWindow> microphoneCalibrationWindowFactory,
         Func<RecordingLibraryWindow> recordingLibraryWindowFactory,
+        Func<GameProfilesWindow> gameProfilesWindowFactory,
         ILogger<MainWindow> logger)
     {
         _coordinator = coordinator;
@@ -50,6 +53,7 @@ public partial class MainWindow : Window
         _settings = settings;
         _microphoneCalibrationWindowFactory = microphoneCalibrationWindowFactory;
         _recordingLibraryWindowFactory = recordingLibraryWindowFactory;
+        _gameProfilesWindowFactory = gameProfilesWindowFactory;
         _logger = logger;
         InitializeComponent();
         _automaticCaptureService.StatusChanged += AutomaticCaptureService_StatusChanged;
@@ -180,6 +184,28 @@ public partial class MainWindow : Window
         }
     }
 
+    private void GamesButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_gameProfilesWindow is not null)
+            {
+                _gameProfilesWindow.Activate();
+                return;
+            }
+
+            var window = _gameProfilesWindowFactory();
+            window.Owner = this;
+            window.Closed += (_, _) => _gameProfilesWindow = null;
+            _gameProfilesWindow = window;
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            ReportCommandFailure("Open games", ex);
+        }
+    }
+
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e)
     {
         _isSetupBusy = true;
@@ -259,6 +285,10 @@ public partial class MainWindow : Window
             if (_automaticCaptureService.IsEnabled || status.State == AutomaticCaptureState.Faulted)
             {
                 StatusText.Text = status.Message;
+            }
+            else if (status.State == AutomaticCaptureState.Disabled && !_coordinator.IsRecording)
+            {
+                StatusText.Text = "Idle";
             }
 
             UpdateRecordingControls();
