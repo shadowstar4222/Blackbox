@@ -97,6 +97,21 @@ The Release build has zero warnings and errors, all 114 automated tests pass, fi
 
 See `docs/milestone-7-hardening-report.md` for the audit and validation record.
 
+### Milestone 7D: Desktop Experience And Quality Of Life
+
+- [x] Replace the utility-style main window with an OBS-inspired capture console.
+- [x] Add persistent navigation and animated Games, Microphone, Diagnostics, and Settings drawers.
+- [x] Add a Blackbox executable, taskbar, title-bar, and notification-area icon.
+- [x] Add notification-area recording, protection, automatic-capture, recordings, open, and exit actions.
+- [x] Add optional close-to-notification-area and minimize-to-notification-area behavior.
+- [x] Add optional current-user Windows startup with a quiet background launch.
+- [x] Start the private OBS backend and remembered-game detector automatically when watching is enabled.
+- [x] Persist desktop preferences atomically and recover safe defaults from corrupted settings.
+- [x] Apply the dark desktop theme to recordings, game profiles, microphone calibration, and diagnostics.
+- [x] Validate keyboard focus, drawers, 150% display scaling, background launch, and startup registration.
+
+Milestone 7D is complete. The Release build has zero warnings and errors, all 121 automated tests pass, and the desktop workflow was exercised against the private OBS runtime on Windows 10. See `docs/milestone-7d-desktop-experience-test.md`.
+
 ## Planned
 
 ### Milestone 8: OBS Dock Edition

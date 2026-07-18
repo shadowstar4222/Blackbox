@@ -1,8 +1,8 @@
-BLACKBOX MILESTONE 7 HARDENED TEST BUILD
+BLACKBOX DESKTOP EXPERIENCE TEST BUILD
 
 1. Extract the entire ZIP to a normal folder.
 2. Double-click Blackbox.App.exe.
-3. Click Setup OBS and wait for the ready message.
+3. Use Capture > Setup OBS and wait for the ready message.
 
 The first setup checks normal and Steam OBS locations first. If OBS is already
 installed, Blackbox prepares its private runtime from those local files without a
@@ -12,16 +12,21 @@ Administrator access is not required.
 After setup succeeds:
 
 1. Start a game and leave its main window running.
-2. Click Games, select the game under Running applications, and click
-   Remember as game.
+2. Open the Games drawer, click Manage remembered games, select the game under
+   Running applications, and click Remember as game.
 3. Select the remembered profile to control automatic recording, game audio,
    launcher handoff, GPU preference, and executable aliases.
-4. Close the Games window and click Enable Auto.
+4. Open Settings and enable Watch remembered games.
 
 Blackbox remembers that executable for future runs. When the game starts, it
 detects the live window and size, configures OBS game video and process audio,
-then begins recording. Disable Auto to stop the automatic recording. You can
-pause or remove remembered games from the Games window.
+then begins recording. Disable Watch remembered games to stop automatic
+watching. You can pause or remove remembered games from the Games window.
+
+Settings also includes Start with Windows and Close to notification area.
+Windows startup launches Blackbox quietly in the notification area. The
+notification icon can open Blackbox, start or stop recording, protect the
+previous five minutes, toggle game watching, open recordings, or exit.
 
 Recordings and the short setup test recording are stored in your
 Videos\Blackbox folder. Click Recordings to play a continuous session or export

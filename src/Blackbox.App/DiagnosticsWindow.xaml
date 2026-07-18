@@ -107,11 +107,16 @@
                     <Grid Margin="8,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="145" />
-                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="185" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{Binding Timestamp}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                        <TextBlock Grid.Column="1" Text="{Binding CategoryAndSeverity}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1"
+                                   Margin="0,0,12,0"
+                                   Text="{Binding CategoryAndSeverity}"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding CategoryAndSeverity}" />
                         <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" />
                     </Grid>
                 </DataTemplate>

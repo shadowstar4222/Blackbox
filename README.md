@@ -4,10 +4,19 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 7 Status
+## Milestone 7D Desktop Experience Status
 
 Implemented:
 
+- An OBS-inspired dark capture console with persistent navigation, compact status summaries, and responsive drawer panels.
+- Games, microphone, diagnostics, and settings drawers that keep common actions in the main window.
+- A dedicated Blackbox application icon for the executable, taskbar, title bars, and notification area.
+- Notification-area controls for opening Blackbox, recording, protection, remembered-game watching, recordings, and exit.
+- Optional close-to-notification-area and minimize-to-notification-area behavior.
+- Optional Windows startup through the current-user Run key with a quiet `--background` launch.
+- Optional remembered-game watching that starts the private OBS backend and capture detector after Blackbox launches.
+- Atomically persisted desktop preferences with safe recovery from missing, corrupted, or failed writes.
+- Dark themed timeline, game profile, microphone, and diagnostics windows with keyboard focus and 150% scaling fixes.
 - Recording coordination, completed-segment discovery, and SQLite metadata from Milestone 1.
 - Quota pruning, missing-file reconciliation, five-minute protection, and the `Ctrl+Shift+F7` hotkey from Milestone 2.
 - Five-track audio routing, processed microphone filters, and microphone level calculations from Milestone 3.
@@ -67,7 +76,7 @@ Implemented:
 - Deterministic cancellation and shutdown for automatic capture, microphone monitoring, recording, playback leases, hotkeys, and WPF windows.
 - Hardened OBS websocket message limits, native DLL search paths, setup readiness retries, and portable-runtime installation.
 
-Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 7 hardening and optimization are complete.
+Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 7D desktop quality-of-life work is complete.
 
 ## Build
 
@@ -86,20 +95,21 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 ## First Run
 
 1. Start Blackbox.
-2. Click `Setup OBS`.
+2. Use the `Capture` workspace and click `Setup OBS`.
 3. Wait while Blackbox finds an existing OBS installation or downloads the official package, then starts its private OBS runtime.
 4. Confirm the status changes to `OBS is installed, configured, and ready.`
-5. Use `Calibrate Mic` to select and tune the microphone.
+5. Open the `Microphone` drawer to apply routing or calibrate the selected microphone.
 6. Use `Start Recording` and `Stop` for recording tests.
 7. Use `Recordings` to browse the visual timeline, open the full Blackbox player from any cursor position, tag moments, select a range, mix tracks, and export one continuous video.
-8. Start a game, open `Games`, select it under running applications, and click `Remember selected game`.
-9. Click `Enable Auto` and let Blackbox configure OBS and start or stop recording with that remembered game.
+8. Start a game, open the `Games` drawer and game manager, select it under running applications, and remember it.
+9. Open `Settings` and enable `Watch remembered games` to let Blackbox start and stop recording with that game.
 10. Use `Open Folder` when you need direct access to the underlying safe segments.
-11. Open `Diagnostics` to inspect recovery results, media health, storage use, and recent recording or detection events.
+11. Open the `Diagnostics` drawer and workspace to inspect recovery results, media health, storage use, and recent recording or detection events.
 12. Use `Support bundle` only when troubleshooting. Review the privacy disclosure, choose a local ZIP destination, and inspect the ZIP before sharing it.
+13. Optionally enable `Start with Windows`; Blackbox then starts quietly in the notification area.
 
-The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The complete automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`. The Milestone 7 audit and validation record is in `docs/milestone-7-hardening-report.md`.
+The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The complete automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`. The Milestone 7 audit is in `docs/milestone-7-hardening-report.md`. The desktop quality-of-life validation is in `docs/milestone-7d-desktop-experience-test.md`.
 
 ## Current Milestone
 
-Milestone 7 debugging, hardening, optimization, privacy-reviewed diagnostics, and Windows 10 live validation are complete. The OBS dock edition is planned as Milestone 8. See `docs/roadmap.md` for the acceptance criteria.
+Milestone 7D's OBS-inspired shell, drawers, icons, background startup, notification-area controls, and remembered-game watching are complete. The OBS dock edition remains planned as Milestone 8. See `docs/roadmap.md` for the acceptance criteria.

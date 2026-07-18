@@ -60,6 +60,10 @@ public partial class App : Application
                     LogDirectory = Path.Combine(appData, "logs")
                 });
                 services.AddSingleton(new SupportBundleOptions());
+                services.AddSingleton(new UserExperienceOptions
+                {
+                    SettingsPath = Path.Combine(appData, "experience.json")
+                });
                 services.AddSingleton(new HttpClient
                 {
                     Timeout = TimeSpan.FromMinutes(20)
@@ -67,6 +71,8 @@ public partial class App : Application
                 services.AddSingleton<IClock, SystemClock>();
                 services.AddSingleton<IDiagnosticLogReader, DiagnosticLogReader>();
                 services.AddSingleton<SupportBundleService>();
+                services.AddSingleton<UserExperienceSettingsStore>();
+                services.AddSingleton<IWindowsStartupManager, WindowsStartupManager>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(databasePath));
                 services.AddSingleton<IGameProfileRepository>(_ => new SqliteGameProfileRepository(databasePath));
                 services.AddSingleton<ISegmentUsageRegistry, SegmentUsageRegistry>();
@@ -119,6 +125,7 @@ public partial class App : Application
                 services.AddSingleton<ProtectionService>();
                 services.AddSingleton<StorageQuotaEnforcer>();
                 services.AddSingleton<GlobalHotkeyService>();
+                services.AddSingleton<TrayIconService>();
                 services.AddTransient<MicrophoneCalibrationWindow>();
                 services.AddSingleton<Func<MicrophoneCalibrationWindow>>(provider =>
                     () => provider.GetRequiredService<MicrophoneCalibrationWindow>());
@@ -138,7 +145,30 @@ public partial class App : Application
         await _host.StartAsync();
         await _host.Services.GetRequiredService<ISegmentRepository>().InitializeAsync();
         await _host.Services.GetRequiredService<IGameProfileRepository>().InitializeAsync();
-        _host.Services.GetRequiredService<MainWindow>().Show();
+        var experienceSettings = _host.Services
+            .GetRequiredService<UserExperienceSettingsStore>()
+            .Current;
+        try
+        {
+            _host.Services
+                .GetRequiredService<IWindowsStartupManager>()
+                .SetEnabled(experienceSettings.StartWithWindows);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not refresh the Blackbox Windows startup registration.");
+        }
+
+        var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+        mainWindow.StartHidden = e.Args.Any(static argument =>
+            argument.Equals("--background", StringComparison.OrdinalIgnoreCase));
+        mainWindow.Show();
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        _host?.Services.GetService<MainWindow>()?.PrepareForSystemShutdown();
+        base.OnSessionEnding(e);
     }
 
     protected override async void OnExit(ExitEventArgs e)

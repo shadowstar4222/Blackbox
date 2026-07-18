@@ -49,6 +49,10 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 33. `RecordingCoordinator` queries OBS recording status and adopts a surviving recording after a Blackbox restart without issuing another start request.
 34. `AutomaticCapturePreferenceStore` atomically persists automatic-capture intent so startup can resume an interrupted automatic session after OBS is ready.
 35. `DiagnosticLogReader` reads rolling Serilog files with shared access and classifies recent system, recording, detection, export, and recovery events for the diagnostics window.
+36. `UserExperienceSettingsStore` atomically persists Windows startup, notification-area, and remembered-game watching preferences.
+37. `WindowsStartupManager` owns the current-user Run registration and always launches the same executable with `--background`.
+38. `TrayIconService` mirrors recording, OBS, game, and automatic-capture state and routes notification-area commands back through the main dispatcher.
+39. `MainWindow` remains the lifetime owner while hidden, so startup recovery, capture detection, protection, and recording continue without a taskbar window.
 
 ## Safety Boundaries
 
@@ -76,6 +80,8 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Repaired media replaces its source only after FFprobe validates a non-empty staged output; the original is retained as a recovery backup.
 - A failed remux leaves the source byte-for-byte unchanged and preserves any non-empty diagnostic output separately.
 - Automatic-capture preference writes use temporary files and atomic moves so a process interruption cannot leave partial JSON state.
+- Windows startup is opt-in, current-user only, and does not require administrator access.
+- Closing to the notification area never stops an active recording or remembered-game detector; explicit `Exit Blackbox` uses the guarded shutdown path.
 
 ## Database
 
