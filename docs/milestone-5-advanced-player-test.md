@@ -19,7 +19,8 @@ Playback performance regression verification on 2026-07-18:
 
 - The Release build completed with zero warnings or errors and all 122 automated tests passed.
 - A real 2880 x 1620, 30 fps MKV advanced and reversed by exactly one 33 ms frame per request without sticking.
-- Twelve consecutive reverse-frame requests averaged about 0.14 seconds on the full-resolution recording; forward requests use LibVLC's native frame decoder.
+- Forward and reverse requests share one serialized queue. Blackbox advances the logical playhead without touching the decoder for every queued click, then reopens one decoder at the final requested frame.
+- A live 2880 x 1620, 30 fps recording remained visible after a 24-frame burst followed by 10 spaced frame requests; decoder memory returned after the superseded native resources were released.
 - Selecting a recording loaded only an existing timeline cache. A cache miss no longer launches FFmpeg until `Build preview` is requested.
 - Repeated `Play from cursor` requests reused one player window instead of stacking full-resolution LibVLC decoders.
 - Closing the player released its native decoder and reduced the measured Blackbox working set from about 500 MB to 228 MB.

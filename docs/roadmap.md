@@ -69,7 +69,7 @@ The advanced player pass was validated against a real three-segment Blackbox ses
 #### Milestone 6B: Per-Game Profiles
 
 - [x] Persist remembered executables and per-game automatic-recording enablement.
-- [x] Add a running-application picker with profile enable, disable, and remove controls.
+- [x] Add a taskbar-window picker with profile enable, disable, and remove controls.
 - [x] Add additional capture preferences and executable aliases per game.
 - [x] Rebind capture when a launcher hands off to the final game process.
 

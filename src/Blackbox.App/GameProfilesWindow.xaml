@@ -21,7 +21,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Games" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock Text="Running applications and remembered capture profiles"
+                <TextBlock Text="Open taskbar windows and remembered capture profiles"
                            Margin="0,4,0,0"
                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
             </StackPanel>
@@ -46,7 +46,7 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="Running applications" FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="Open application windows" FontSize="16" FontWeight="SemiBold" />
                 <ListBox x:Name="RunningApplicationsList"
                          Grid.Row="1"
                          Margin="0,10,0,10"

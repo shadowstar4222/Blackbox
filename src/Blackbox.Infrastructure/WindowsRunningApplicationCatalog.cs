@@ -35,17 +35,7 @@ public sealed class WindowsRunningApplicationCatalog(
         }, IntPtr.Zero);
 
         cancellationToken.ThrowIfCancellationRequested();
-        var distinct = applications
-            .GroupBy(application => application.ExecutablePath, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(application => application.IsForeground)
-                .ThenByDescending(application => (long)application.WindowWidth * application.WindowHeight)
-                .First())
-            .OrderByDescending(application => application.IsForeground)
-            .ThenBy(application => application.Title, StringComparer.CurrentCultureIgnoreCase)
-            .ToArray();
-
-        return Task.FromResult<IReadOnlyList<RunningApplication>>(distinct);
+        return Task.FromResult(TaskbarWindowCatalogRules.Order(applications));
     }
 
     private void TryAddWindow(
@@ -54,13 +44,14 @@ public sealed class WindowsRunningApplicationCatalog(
         IntPtr foregroundWindow,
         IReadOnlyDictionary<int, ProcessTreeEntry> processTree)
     {
-        if (!NativeMethods.IsWindowVisible(window))
+        var snapshot = NativeMethods.ReadTaskbarWindowSnapshot(window);
+        if (!TaskbarWindowCatalogRules.IsEligible(snapshot))
         {
             return;
         }
 
         var threadId = NativeMethods.GetWindowThreadProcessId(window, out var processId);
-        if (threadId == 0 || processId == 0)
+        if (threadId == 0 || processId == 0 || processId == Environment.ProcessId)
         {
             return;
         }
@@ -70,8 +61,7 @@ public sealed class WindowsRunningApplicationCatalog(
             var title = ReadWindowText(window);
             var windowClass = ReadWindowClass(window);
             var executablePath = ReadExecutablePath(processId);
-            if (string.IsNullOrWhiteSpace(title) ||
-                string.IsNullOrWhiteSpace(windowClass) ||
+            if (string.IsNullOrWhiteSpace(windowClass) ||
                 string.IsNullOrWhiteSpace(executablePath))
             {
                 return;
@@ -79,20 +69,22 @@ public sealed class WindowsRunningApplicationCatalog(
 
             executablePath = Path.GetFullPath(executablePath);
             var executableName = Path.GetFileName(executablePath);
-            if (GameCandidateSelector.IsIgnoredExecutable(executableName) ||
-                IsWindowsSystemExecutable(executablePath) ||
+            if (executableName.Equals("Blackbox.App.exe", StringComparison.OrdinalIgnoreCase) ||
                 !NativeMethods.GetClientRect(window, out var bounds))
             {
                 return;
             }
 
-            var width = bounds.Right - bounds.Left;
-            var height = bounds.Bottom - bounds.Top;
-            if (width < 320 || height < 200)
-            {
-                return;
-            }
+            var normalBounds = NativeMethods.ReadNormalWindowBounds(window);
+            var (width, height) = TaskbarWindowCatalogRules.ResolveWindowSize(
+                bounds.Right - bounds.Left,
+                bounds.Bottom - bounds.Top,
+                normalBounds.Right - normalBounds.Left,
+                normalBounds.Bottom - normalBounds.Top);
 
+            title = string.IsNullOrWhiteSpace(title)
+                ? Path.GetFileNameWithoutExtension(executableName)
+                : title;
             var isForeground = window == foregroundWindow;
             applications.Add(new RunningApplication(
                 (int)processId,
@@ -112,13 +104,6 @@ public sealed class WindowsRunningApplicationCatalog(
         {
             logger.LogDebug(ex, "Could not inspect window for process {ProcessId}.", processId);
         }
-    }
-
-    private static bool IsWindowsSystemExecutable(string executablePath)
-    {
-        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        return executablePath.StartsWith(windowsDirectory, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? ReadExecutablePath(uint processId)
@@ -241,6 +226,10 @@ public sealed class WindowsRunningApplicationCatalog(
     {
         public const uint Th32csSnapProcess = 0x00000002;
         public const uint ProcessQueryLimitedInformation = 0x1000;
+        private const uint DwmWindowAttributeCloaked = 14;
+        private const uint GetWindowOwner = 4;
+        private const uint GetAncestorRootOwner = 3;
+        private const int ExtendedWindowStyle = -20;
         public static readonly IntPtr InvalidHandleValue = new(-1);
 
         public delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
@@ -257,11 +246,37 @@ public sealed class WindowsRunningApplicationCatalog(
         public static extern bool IsWindowVisible(IntPtr window);
 
         [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr window, uint command);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr window, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetLastActivePopup(IntPtr window);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+        private static extern int GetWindowLong32(IntPtr window, int index);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+        private static extern IntPtr GetWindowLongPtr64(IntPtr window, int index);
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmGetWindowAttribute(
+            IntPtr window,
+            uint attribute,
+            out int value,
+            int valueSize);
+
+        [DllImport("user32.dll")]
         public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool GetClientRect(IntPtr window, out Rect bounds);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowPlacement(IntPtr window, ref WindowPlacement placement);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern int GetWindowText(IntPtr window, StringBuilder text, int maximumCount);
@@ -298,6 +313,65 @@ public sealed class WindowsRunningApplicationCatalog(
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool CloseHandle(IntPtr handle);
 
+        public static TaskbarWindowSnapshot ReadTaskbarWindowSnapshot(IntPtr window)
+        {
+            var isVisible = IsWindowVisible(window);
+            var isCloaked = DwmGetWindowAttribute(
+                    window,
+                    DwmWindowAttributeCloaked,
+                    out var cloaked,
+                    sizeof(int)) == 0 &&
+                cloaked != 0;
+            var extendedStyle = IntPtr.Size == 8
+                ? GetWindowLongPtr64(window, ExtendedWindowStyle).ToInt64()
+                : GetWindowLong32(window, ExtendedWindowStyle);
+
+            return new TaskbarWindowSnapshot(
+                isVisible,
+                isCloaked,
+                IsRootOwnerLastActivePopup(window),
+                GetWindow(window, GetWindowOwner) != IntPtr.Zero,
+                extendedStyle);
+        }
+
+        private static bool IsRootOwnerLastActivePopup(IntPtr window)
+        {
+            var current = GetAncestor(window, GetAncestorRootOwner);
+            if (current == IntPtr.Zero)
+            {
+                current = window;
+            }
+
+            while (true)
+            {
+                var candidate = GetLastActivePopup(current);
+                if (candidate == current)
+                {
+                    break;
+                }
+
+                if (IsWindowVisible(candidate))
+                {
+                    break;
+                }
+
+                current = candidate;
+            }
+
+            return current == window;
+        }
+
+        public static Rect ReadNormalWindowBounds(IntPtr window)
+        {
+            var placement = new WindowPlacement
+            {
+                Length = Marshal.SizeOf<WindowPlacement>()
+            };
+            return GetWindowPlacement(window, ref placement)
+                ? placement.NormalPosition
+                : default;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct Rect
         {
@@ -305,6 +379,24 @@ public sealed class WindowsRunningApplicationCatalog(
             public int Top;
             public int Right;
             public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WindowPlacement
+        {
+            public int Length;
+            public int Flags;
+            public int ShowCommand;
+            public Point MinimumPosition;
+            public Point MaximumPosition;
+            public Rect NormalPosition;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Point
+        {
+            public int X;
+            public int Y;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

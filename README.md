@@ -45,7 +45,7 @@ Implemented:
 - Durable markers and protected ranges plus clear damaged-media and timeline-gap reporting.
 - An embedded Blackbox video player backed by bundled LibVLC codecs.
 - Play/pause, 10-second jumps, segment jumps, frame stepping, speed, loop, volume, mute, audio-track, and fullscreen controls.
-- Serialized, cancelable frame navigation with native forward stepping and bounded reverse-frame refresh.
+- Serialized, cancelable frame navigation that batches queued clicks and reopens one decoder at the final requested frame.
 - Cache-first timeline previews that run FFmpeg only when `Build preview` is requested.
 - One reusable review window per recordings library, preventing duplicate full-resolution video decoders.
 - Numbered segment bands, live scrubbing, quick tags, manual event markers, marker navigation, and marker removal.
@@ -53,7 +53,7 @@ Implemented:
 - Per-track mute, solo, volume, WAV-selection controls, and common export presets.
 - Optional 24-bit PCM WAV export for selected isolated audio tracks.
 - Export progress, cancellation, atomic completion, and source-segment locks that prevent quota deletion during playback and export.
-- A remembered-games manager populated from useful application windows that are currently running.
+- A remembered-games manager populated from every visible taskbar application window, including multiple windows from the same program.
 - Persistent per-game automatic-recording enablement keyed by full executable path.
 - Opt-in automatic capture that ignores every executable the user has not remembered.
 - Start-time OBS scene, canvas, game-video, and isolated game-audio rebinding using the live window identifier and client size.
@@ -81,7 +81,7 @@ Implemented:
 
 Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 7D desktop quality-of-life work is complete.
 
-The post-7D playback performance pass is also complete. The Release build has zero warnings and errors, all 122 automated tests pass, and frame navigation plus player memory cleanup were exercised against a real 2880 x 1620, 30 fps Blackbox recording.
+The post-7D playback performance pass is also complete. The Release build has zero warnings and errors, all 129 automated tests pass, and frame navigation plus player memory cleanup were exercised against a real 2880 x 1620, 30 fps Blackbox recording.
 
 ## Build
 

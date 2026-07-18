@@ -468,7 +468,16 @@ public partial class PlaybackWindow : Window
                 cancellation.Token.ThrowIfCancellationRequested();
                 var direction = Math.Sign(_queuedFrameSteps);
                 _queuedFrameSteps -= direction;
-                await StepSingleFrameAsync(direction, cancellation.Token);
+                StepSingleFrame(direction);
+                await Task.Delay(5, cancellation.Token);
+            }
+
+            if (!_closing)
+            {
+                await RefreshPausedFrameAsync(
+                    _lastKnownPosition,
+                    CurrentFrameDuration(),
+                    cancellation.Token);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -493,7 +502,7 @@ public partial class PlaybackWindow : Window
         }
     }
 
-    private async Task StepSingleFrameAsync(int direction, CancellationToken cancellationToken)
+    private void StepSingleFrame(int direction)
     {
         var current = ClampOffset(_lastKnownPosition);
         var frameDuration = CurrentFrameDuration();
@@ -504,22 +513,9 @@ public partial class PlaybackWindow : Window
             return;
         }
 
-        var targetLocation = RecordingTimeline.LocateSegment(_session, target);
-        var canUseNativeStep =
-            direction > 0 &&
-            targetLocation.SegmentIndex == _activeSegmentIndex &&
-            _activeMedia is not null &&
-            _mediaPlayer.State == VLCState.Paused;
-        if (canUseNativeStep)
-        {
-            _mediaPlayer.NextFrame();
-            _lastKnownPosition = target;
-            UpdatePositionDisplay(target);
-            await Task.Delay(20, cancellationToken);
-            return;
-        }
-
-        await RefreshPausedFrameAsync(target, frameDuration, cancellationToken);
+        _lastKnownPosition = target;
+        _frameStepMode = true;
+        UpdatePositionDisplay(target);
     }
 
     private async Task RefreshPausedFrameAsync(
@@ -527,19 +523,20 @@ public partial class PlaybackWindow : Window
         TimeSpan frameDuration,
         CancellationToken cancellationToken)
     {
+        var restoreVolume = (int)Math.Round(VolumeSlider.Value);
         var restoreMute = _mediaPlayer.Mute;
-        _mediaPlayer.Mute = true;
+        _mediaPlayer.Volume = 0;
         try
         {
+            _frameStepMode = false;
             _lastKnownPosition = target;
-            Seek(
-                target,
-                playAfterSeek: true,
-                preserveFrameNavigation: true,
-                publishPosition: false);
+            var location = RecordingTimeline.LocateSegment(_session, target);
+            PlaySegment(location.SegmentIndex, location.SegmentOffset, playAfterSeek: true);
             var startedAt = Stopwatch.GetTimestamp();
             long? playbackStartedAt = null;
             var resumeRetryCount = 0;
+            var minimumPresentationTime = TimeSpan.FromMilliseconds(
+                Math.Clamp(frameDuration.TotalMilliseconds * 5, 150, 220));
             while (Stopwatch.GetElapsedTime(startedAt) < TimeSpan.FromMilliseconds(350))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -549,7 +546,7 @@ public partial class PlaybackWindow : Window
                     var decodedPosition = _activeSegmentIndex < 0 || _mediaPlayer.Time < 0
                         ? target
                         : _segmentStarts[_activeSegmentIndex] + TimeSpan.FromMilliseconds(_mediaPlayer.Time);
-                    if (Stopwatch.GetElapsedTime(playbackStartedAt.Value) >= TimeSpan.FromMilliseconds(12) &&
+                    if (Stopwatch.GetElapsedTime(playbackStartedAt.Value) >= minimumPresentationTime &&
                         decodedPosition >= target - TimeSpan.FromTicks(frameDuration.Ticks / 3))
                     {
                         break;
@@ -595,6 +592,7 @@ public partial class PlaybackWindow : Window
         {
             if (!_closing)
             {
+                _mediaPlayer.Volume = restoreVolume;
                 _mediaPlayer.Mute = restoreMute;
                 UpdateMuteGlyph();
             }

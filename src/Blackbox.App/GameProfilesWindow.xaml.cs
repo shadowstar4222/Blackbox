@@ -204,7 +204,10 @@ public partial class GameProfilesWindow : Window
         {
             var applications = await _runningApplications.GetRunningApplicationsAsync();
             var gpuSnapshot = await _gpuActivityProbe.SampleAsync(
-                applications.Select(static application => application.ProcessId).ToArray());
+                applications
+                    .Select(static application => application.ProcessId)
+                    .Distinct()
+                    .ToArray());
             _runningItems.Clear();
             foreach (var application in applications)
             {
@@ -215,8 +218,8 @@ public partial class GameProfilesWindow : Window
 
             await LoadProfilesAsync();
             StatusText.Text = applications.Count == 0
-                ? "No suitable application windows are currently running."
-                : $"Found {applications.Count} running application(s).";
+                ? "No taskbar application windows are currently open."
+                : $"Found {applications.Count} open taskbar window(s).";
         });
     }
 

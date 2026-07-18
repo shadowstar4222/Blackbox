@@ -38,7 +38,7 @@
 - Limit generated thumbnails and waveform buckets, key the cache to source size and modification time, and stage new assets atomically.
 - Re-probe stable media during library refresh and keep damaged rows visible with a diagnostic message.
 - Stream-copy video whenever trimming is unnecessary, and transcode only audio when track mixing or volume changes require it.
-- Require an executable to be explicitly remembered from the running-applications picker, ignore known desktop processes, and keep automatic capture opt-in.
+- Show visible taskbar windows for explicit user selection, require an executable to be remembered before detection, and keep automatic capture opt-in.
 - Confirm the same candidate across multiple polls and wait through a stop grace period before ending an automatic recording.
 - Use limited-information process queries as a fallback without requesting administrator privileges.
 - Read bounded Toolhelp ancestry only for visible candidate windows and require two consecutive handoff matches before persisting a child executable as an alias.

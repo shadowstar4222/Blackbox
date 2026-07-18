@@ -71,7 +71,7 @@ Blackbox uses OBS Studio as the capture and encoding backend while keeping all p
 - Timeline assets are generated in a staging directory and moved into a keyed local cache only after successful completion.
 - Exports write video and WAV outputs to unique partial paths and publish them only after FFmpeg exits successfully with non-empty files.
 - Automatic capture is disabled until the user enables it after a successful OBS check.
-- Automatic detection requires an enabled profile explicitly remembered from the running-applications picker; unapproved applications are ignored.
+- The picker enumerates visible taskbar windows without guessing which programs are games. Automatic detection still requires an enabled profile explicitly remembered by the user; unapproved applications are ignored.
 - Launch confirmation and a stop grace period prevent brief process or focus transitions from repeatedly starting and stopping OBS.
 - Launcher-child aliases require two consecutive detections before they are persisted and remain visible and removable in the Games window.
 - GPU activity is a ranking signal, not a hard recording dependency; executable and foreground matching continue when counters are unavailable.

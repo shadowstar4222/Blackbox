@@ -475,7 +475,7 @@ public partial class MainWindow : Window
         CurrentViewTitleText.Text = title;
         CurrentViewSubtitleText.Text = section switch
         {
-            DrawerSection.Games => "Running applications and remembered profiles",
+            DrawerSection.Games => "Open taskbar windows and remembered profiles",
             DrawerSection.Microphone => "Routing and calibration",
             DrawerSection.Diagnostics => "Recovery, storage, and recent activity",
             DrawerSection.Settings => "Startup and background behavior",
