@@ -101,6 +101,27 @@ public sealed class AutomaticCaptureController(
                 return;
             }
 
+            if (_activeTarget?.CaptureSourceIdentity == target.CaptureSourceIdentity)
+            {
+                Publish(new AutomaticCaptureStatus(
+                    AutomaticCaptureState.Starting,
+                    $"Adjusting OBS to {target.Title}'s new window size...",
+                    target,
+                    recordingCoordinator.IsRecording));
+                await obsController.RefreshGameCaptureAsync(target, cancellationToken);
+                _activeTarget = target;
+                _pendingTarget = null;
+                _positiveDetections = 0;
+                Publish(new AutomaticCaptureStatus(
+                    AutomaticCaptureState.Recording,
+                    recordingCoordinator.IsRecording
+                        ? $"Recording {target.Title}."
+                        : $"Tracking {target.Title}; recording is currently stopped.",
+                    target,
+                    recordingCoordinator.IsRecording));
+                return;
+            }
+
             if (_pendingTarget?.Identity == target.Identity)
             {
                 _positiveDetections++;
@@ -151,7 +172,17 @@ public sealed class AutomaticCaptureController(
 
             if (!recordingCoordinator.IsRecording)
             {
-                _ownsRecording = await recordingCoordinator.TryStartAsync(recordingSettings, cancellationToken);
+                var organizedSettings = recordingSettings with
+                {
+                    RecordingLocation = RecordingDirectoryLayout.GetSessionDirectory(
+                        recordingSettings.RecordingLocation,
+                        target.Title,
+                        clock.UtcNow)
+                };
+                _ownsRecording = await recordingCoordinator.TryStartAsync(
+                    organizedSettings,
+                    target,
+                    cancellationToken);
             }
 
             _activeTarget = target;

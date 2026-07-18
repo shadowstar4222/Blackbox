@@ -101,12 +101,50 @@ public sealed class ObsWebSocketControllerTests
             request.RequestData?["sceneName"]?.GetValue<string>() == "Blackbox Recording");
     }
 
+    [Fact]
+    public async Task RefreshGameCaptureAsync_reframes_without_changing_video_output()
+    {
+        var rpc = new RecordingRpcClient(resourcesExist: true);
+        var controller = CreateController(rpc);
+        var target = new GameCaptureTarget(
+            42,
+            "C:\\Games\\Example.exe",
+            "Example.exe",
+            "Example Game",
+            "Example Game:ExampleWindow:Example.exe",
+            GameDetectionSource.ConfiguredExecutable,
+            1600,
+            900);
+
+        await controller.RefreshGameCaptureAsync(target);
+
+        Assert.DoesNotContain(rpc.AllRequests, static request =>
+            request.RequestType == "SetVideoSettings");
+        var transform = rpc.AllRequests.Single(static request =>
+            request.RequestType == "SetSceneItemTransform");
+        Assert.Equal(
+            1920,
+            transform.RequestData?["sceneItemTransform"]?["boundsWidth"]?.GetValue<int>());
+        Assert.Equal(
+            1080,
+            transform.RequestData?["sceneItemTransform"]?["boundsHeight"]?.GetValue<int>());
+        Assert.DoesNotContain(rpc.AllRequests, static request =>
+            request.RequestType == "SetSceneItemEnabled" &&
+            request.RequestData?["sceneItemEnabled"]?.GetValue<bool>() == false);
+    }
+
     private static ObsWebSocketController CreateController(IObsWebSocketRpcClient rpc) =>
         new(
             rpc,
             new ObsConnectionSettingsProvider(),
+            new FixedRecordingQualityProvider(),
             new ObsSetupRequestBuilder(),
             NullLogger<ObsWebSocketController>.Instance);
+
+    private sealed class FixedRecordingQualityProvider : IRecordingQualitySettingsProvider
+    {
+        public RecordingQualitySettings Current { get; } = new();
+    }
 
     private static bool GetCreatedInputEnabled(IEnumerable<ObsRequest> requests, string inputName) =>
         requests.Single(request =>
@@ -223,6 +261,13 @@ public sealed class ObsWebSocketControllerTests
                     ["outputPaused"] = false,
                     ["outputDuration"] = 12000,
                     ["outputBytes"] = 3456
+                }),
+                "GetVideoSettings" => ObsResponse.Successful(request.RequestType, new JsonObject
+                {
+                    ["baseWidth"] = 1920,
+                    ["baseHeight"] = 1080,
+                    ["outputWidth"] = 1920,
+                    ["outputHeight"] = 1080
                 }),
                 "StopRecord" => ObsResponse.Successful(request.RequestType, new JsonObject
                 {

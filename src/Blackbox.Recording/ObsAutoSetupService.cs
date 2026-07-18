@@ -12,12 +12,35 @@ public sealed class ObsAutoSetupService(
     IObsConnectionSettingsProvider connectionSettingsProvider,
     IObsController obsController,
     ObsSetupPlanner planner,
+    IRecordingQualitySettingsProvider recordingQualitySettingsProvider,
+    IClock clock,
     ObsOnboardingOptions options,
     ILogger<ObsAutoSetupService> logger)
 {
     public async Task<ObsSetupResult> SetupAsync(
         RecordingSettings recordingSettings,
         IProgress<ObsSetupProgress>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        await SetupCoreAsync(
+            recordingSettings,
+            runRecordingProbe: true,
+            progress,
+            cancellationToken);
+
+    public async Task<ObsSetupResult> PrepareAsync(
+        RecordingSettings recordingSettings,
+        IProgress<ObsSetupProgress>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        await SetupCoreAsync(
+            recordingSettings,
+            runRecordingProbe: false,
+            progress,
+            cancellationToken);
+
+    private async Task<ObsSetupResult> SetupCoreAsync(
+        RecordingSettings recordingSettings,
+        bool runRecordingProbe,
+        IProgress<ObsSetupProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(recordingSettings);
@@ -50,12 +73,33 @@ public sealed class ObsAutoSetupService(
             }
 
             progress?.Report(new ObsSetupProgress(ObsSetupStage.Configuring, "Creating the Blackbox recording profile..."));
-            var plan = planner.CreateDefaultPlan(recordingSettings);
+            var setupSettings = runRecordingProbe
+                ? recordingSettings with
+                {
+                    RecordingLocation = RecordingDirectoryLayout.GetSessionDirectory(
+                        recordingSettings.RecordingLocation,
+                        RecordingDirectoryLayout.SetupCheckName,
+                        clock.UtcNow)
+                }
+                : recordingSettings;
+            var plan = planner.CreateDefaultPlan(
+                setupSettings,
+                recordingQualitySettingsProvider.Current);
             await ApplySetupWhenReadyAsync(
                 connectionSettings,
                 plan,
                 progress,
                 cancellationToken);
+
+            if (!runRecordingProbe)
+            {
+                progress?.Report(new ObsSetupProgress(
+                    ObsSetupStage.Complete,
+                    "OBS is configured and ready for Blackbox.",
+                    100));
+                logger.LogInformation("Prepared OBS without creating a probe recording.");
+                return ObsSetupResult.Successful("OBS is configured and ready.");
+            }
 
             progress?.Report(new ObsSetupProgress(ObsSetupStage.TestingRecording, "Running a short recording check..."));
             var probePath = await RunRecordingProbeAsync(cancellationToken);

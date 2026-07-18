@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly StorageQuotaEnforcer _storageQuotaEnforcer;
     private readonly GlobalHotkeyService _hotkeyService;
     private readonly RecordingSettings _settings;
+    private readonly IClock _clock;
     private readonly UserExperienceSettingsStore _experienceSettingsStore;
     private readonly IWindowsStartupManager _windowsStartupManager;
     private readonly TrayIconService _trayIconService;
@@ -64,6 +65,7 @@ public partial class MainWindow : Window
         StorageQuotaEnforcer storageQuotaEnforcer,
         GlobalHotkeyService hotkeyService,
         RecordingSettings settings,
+        IClock clock,
         UserExperienceSettingsStore experienceSettingsStore,
         IWindowsStartupManager windowsStartupManager,
         TrayIconService trayIconService,
@@ -82,6 +84,7 @@ public partial class MainWindow : Window
         _storageQuotaEnforcer = storageQuotaEnforcer;
         _hotkeyService = hotkeyService;
         _settings = settings;
+        _clock = clock;
         _experienceSettingsStore = experienceSettingsStore;
         _windowsStartupManager = windowsStartupManager;
         _trayIconService = trayIconService;
@@ -92,6 +95,7 @@ public partial class MainWindow : Window
         _logger = logger;
 
         InitializeComponent();
+        InitializeQualityOptions();
         _automaticCaptureService.StatusChanged += AutomaticCaptureService_StatusChanged;
         _trayIconService.CommandRequested += TrayIconService_CommandRequested;
         SegmentLengthText.Text = $"{_settings.SegmentDurationMinutes} minutes";
@@ -127,6 +131,12 @@ public partial class MainWindow : Window
             _obsReady = outcome.ObsReady;
             SetStatus(outcome.Message);
             ObsSetupButton.Content = outcome.ObsReady ? "Check OBS" : "Setup OBS";
+
+            if (_experienceSettingsStore.Current.AutoSetupObsAtStartup &&
+                !_coordinator.IsRecording)
+            {
+                await RunObsSetupAsync(runRecordingProbe: false);
+            }
 
             if (_experienceSettingsStore.Current.WatchRememberedGames)
             {
@@ -177,7 +187,14 @@ public partial class MainWindow : Window
     {
         await ExecuteCommandAsync("Start recording", async () =>
         {
-            await _coordinator.StartAsync(_settings);
+            var manualSettings = _settings with
+            {
+                RecordingLocation = RecordingDirectoryLayout.GetSessionDirectory(
+                    _settings.RecordingLocation,
+                    RecordingDirectoryLayout.ManualRecordingName,
+                    _clock.UtcNow)
+            };
+            await _coordinator.StartAsync(manualSettings);
             SetStatus("Recording");
             UpdateRecordingControls();
         });
@@ -216,7 +233,7 @@ public partial class MainWindow : Window
 
     private async Task SetAutomaticCaptureAsync(bool enabled, bool persistPreference)
     {
-        if (enabled && !_obsReady && !await RunObsSetupAsync())
+        if (enabled && !_obsReady && !await RunObsSetupAsync(runRecordingProbe: false))
         {
             UpdateRecordingControls();
             return;
@@ -258,7 +275,7 @@ public partial class MainWindow : Window
 
     private async Task EnsureAutomaticCaptureReadyAsync()
     {
-        if (!_obsReady && !await RunObsSetupAsync())
+        if (!_obsReady && !await RunObsSetupAsync(runRecordingProbe: false))
         {
             return;
         }
@@ -570,9 +587,9 @@ public partial class MainWindow : Window
     }
 
     private async void ObsSetupButton_Click(object sender, RoutedEventArgs e) =>
-        await RunObsSetupAsync();
+        await RunObsSetupAsync(runRecordingProbe: true);
 
-    private async Task<bool> RunObsSetupAsync()
+    private async Task<bool> RunObsSetupAsync(bool runRecordingProbe)
     {
         if (_isSetupBusy)
         {
@@ -596,7 +613,9 @@ public partial class MainWindow : Window
 
         try
         {
-            var result = await _obsAutoSetupService.SetupAsync(_settings, progress);
+            var result = runRecordingProbe
+                ? await _obsAutoSetupService.SetupAsync(_settings, progress)
+                : await _obsAutoSetupService.PrepareAsync(_settings, progress);
             _obsReady = result.IsSuccessful;
             SetStatus(result.Message);
             ObsSetupButton.Content =
@@ -682,6 +701,54 @@ public partial class MainWindow : Window
         SyncExperienceToggles();
     }
 
+    private void AutoSetupObsToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingExperienceSettings)
+        {
+            return;
+        }
+
+        try
+        {
+            var enabled = AutoSetupObsToggle.IsChecked == true;
+            SaveExperienceSettings(
+                _experienceSettingsStore.Current with { AutoSetupObsAtStartup = enabled });
+            SetStatus(enabled
+                ? "OBS setup will run when Blackbox starts"
+                : "Automatic OBS setup disabled");
+        }
+        catch (Exception ex)
+        {
+            SyncExperienceToggles();
+            ReportCommandFailure("Update automatic OBS setup", ex);
+        }
+    }
+
+    private async void ApplyQualityButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ResolutionComboBox.SelectedValue is not RecordingResolution resolution ||
+            FrameRateComboBox.SelectedValue is not int framesPerSecond ||
+            AudioQualityComboBox.SelectedValue is not int audioBitrateKbps)
+        {
+            SetStatus("Choose a resolution, frame rate, and audio quality");
+            return;
+        }
+
+        await ExecuteCommandAsync("Apply recording quality", async () =>
+        {
+            var quality = new RecordingQualitySettings
+            {
+                Resolution = resolution,
+                FramesPerSecond = framesPerSecond,
+                AudioBitrateKbps = audioBitrateKbps
+            };
+            quality.Validate();
+            SaveExperienceSettings(
+                _experienceSettingsStore.Current with { RecordingQuality = quality });
+            await RunObsSetupAsync(runRecordingProbe: false);
+        });
+    }
+
     private void CloseToTrayToggle_Click(object sender, RoutedEventArgs e)
     {
         if (_isLoadingExperienceSettings)
@@ -705,26 +772,63 @@ public partial class MainWindow : Window
         }
     }
 
+    private void InitializeQualityOptions()
+    {
+        ResolutionComboBox.ItemsSource = new[]
+        {
+            new QualityOption<RecordingResolution>("Match application", RecordingResolution.MatchApplication),
+            new QualityOption<RecordingResolution>("1280 x 720", RecordingResolution.Hd720),
+            new QualityOption<RecordingResolution>("1920 x 1080", RecordingResolution.FullHd1080),
+            new QualityOption<RecordingResolution>("2560 x 1440", RecordingResolution.QuadHd1440),
+            new QualityOption<RecordingResolution>("3840 x 2160", RecordingResolution.UltraHd2160)
+        };
+        FrameRateComboBox.ItemsSource = new[]
+        {
+            new QualityOption<int>("30 FPS", 30),
+            new QualityOption<int>("60 FPS", 60),
+            new QualityOption<int>("120 FPS", 120)
+        };
+        AudioQualityComboBox.ItemsSource = new[]
+        {
+            new QualityOption<int>("Standard - 160 kbps", 160),
+            new QualityOption<int>("High - 256 kbps", 256),
+            new QualityOption<int>("Maximum - 320 kbps", 320)
+        };
+    }
+
+    private void SyncQualitySelections(RecordingQualitySettings? quality)
+    {
+        quality ??= new RecordingQualitySettings();
+        ResolutionComboBox.SelectedValue = quality.Resolution;
+        FrameRateComboBox.SelectedValue = quality.FramesPerSecond;
+        AudioQualityComboBox.SelectedValue = quality.AudioBitrateKbps;
+    }
+
     private void LoadExperienceSettings()
     {
         _isLoadingExperienceSettings = true;
         try
         {
             var settings = _experienceSettingsStore.Current;
+            AutoSetupObsToggle.IsChecked = settings.AutoSetupObsAtStartup;
             StartWithWindowsToggle.IsChecked =
                 settings.StartWithWindows && _windowsStartupManager.IsEnabled;
             WatchGamesToggle.IsChecked = settings.WatchRememberedGames;
             CloseToTrayToggle.IsChecked = settings.CloseToTray;
+            SyncQualitySelections(settings.RecordingQuality);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not read Windows startup registration.");
             StartWithWindowsToggle.IsChecked =
                 _experienceSettingsStore.Current.StartWithWindows;
+            AutoSetupObsToggle.IsChecked =
+                _experienceSettingsStore.Current.AutoSetupObsAtStartup;
             WatchGamesToggle.IsChecked =
                 _experienceSettingsStore.Current.WatchRememberedGames;
             CloseToTrayToggle.IsChecked =
                 _experienceSettingsStore.Current.CloseToTray;
+            SyncQualitySelections(_experienceSettingsStore.Current.RecordingQuality);
         }
         finally
         {
@@ -744,9 +848,11 @@ public partial class MainWindow : Window
         try
         {
             var settings = _experienceSettingsStore.Current;
+            AutoSetupObsToggle.IsChecked = settings.AutoSetupObsAtStartup;
             StartWithWindowsToggle.IsChecked = settings.StartWithWindows;
             WatchGamesToggle.IsChecked = settings.WatchRememberedGames;
             CloseToTrayToggle.IsChecked = settings.CloseToTray;
+            SyncQualitySelections(settings.RecordingQuality);
         }
         finally
         {
@@ -822,6 +928,11 @@ public partial class MainWindow : Window
         CalibrateButton.IsEnabled = _obsReady && !busy;
         DrawerApplyAudioButton.IsEnabled = _obsReady && !busy;
         DrawerCalibrateButton.IsEnabled = _obsReady && !busy;
+        var qualityControlsEnabled = !busy && !automatic && !recording;
+        ResolutionComboBox.IsEnabled = qualityControlsEnabled;
+        FrameRateComboBox.IsEnabled = qualityControlsEnabled;
+        AudioQualityComboBox.IsEnabled = qualityControlsEnabled;
+        ApplyQualityButton.IsEnabled = qualityControlsEnabled;
 
         ObsStatusText.Text = _obsReady ? "OBS READY" : "OBS SETUP";
         ObsStatusDot.Fill = GetStatusBrush(_obsReady
@@ -992,4 +1103,6 @@ public partial class MainWindow : Window
         Diagnostics,
         Settings
     }
+
+    private sealed record QualityOption<T>(string Label, T Value);
 }

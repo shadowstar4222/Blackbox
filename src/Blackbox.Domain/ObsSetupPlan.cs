@@ -7,6 +7,7 @@ public sealed record ObsSetupPlan
     public string SceneName { get; init; } = "Blackbox Recording";
     public required string RecordingDirectory { get; init; }
     public int SegmentMinutes { get; init; } = 2;
+    public RecordingQualitySettings RecordingQuality { get; init; } = new();
     public required AudioRoutingProfile AudioRoutingProfile { get; init; }
     public required MicrophoneProcessingSettings MicrophoneProcessingSettings { get; init; }
     public required IReadOnlyList<ObsSourcePlan> Sources { get; init; }
@@ -39,6 +40,7 @@ public sealed record ObsSetupPlan
             throw new InvalidOperationException("Segment duration must be between 1 and 10 minutes.");
         }
 
+        RecordingQuality.Validate();
         AudioRoutingProfile.Validate();
         MicrophoneProcessingSettings.Validate();
     }

@@ -72,6 +72,8 @@ public partial class App : Application
                 services.AddSingleton<IDiagnosticLogReader, DiagnosticLogReader>();
                 services.AddSingleton<SupportBundleService>();
                 services.AddSingleton<UserExperienceSettingsStore>();
+                services.AddSingleton<IRecordingQualitySettingsProvider>(provider =>
+                    provider.GetRequiredService<UserExperienceSettingsStore>());
                 services.AddSingleton<IWindowsStartupManager, WindowsStartupManager>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(databasePath));
                 services.AddSingleton<IGameProfileRepository>(_ => new SqliteGameProfileRepository(databasePath));

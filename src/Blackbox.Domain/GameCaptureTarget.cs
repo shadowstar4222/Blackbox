@@ -12,8 +12,10 @@ public sealed record GameCaptureTarget(
     bool CaptureGameAudio = true)
 {
     public string Identity => Path.GetFullPath(ExecutablePath).ToUpperInvariant();
-    public string CaptureBindingIdentity =>
+    public string CaptureSourceIdentity =>
         $"{Identity}|{ObsWindowIdentifier.ToUpperInvariant()}|AUDIO:{CaptureGameAudio}";
+    public string CaptureBindingIdentity =>
+        $"{CaptureSourceIdentity}|SIZE:{WindowWidth}X{WindowHeight}";
 
     public void Validate()
     {

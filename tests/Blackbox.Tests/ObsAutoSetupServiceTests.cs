@@ -73,6 +73,24 @@ public sealed class ObsAutoSetupServiceTests
     }
 
     [Fact]
+    public async Task PrepareAsync_configures_obs_without_creating_a_probe_recording()
+    {
+        var provisioner = new RecordingProvisioner();
+        var provider = new ObsConnectionSettingsProvider();
+        provider.Set(new ObsConnectionSettings { Port = 4567, Password = "saved-password" });
+        var obs = new SetupObsController(ObsConnectionStatus.Connected(), null);
+        var service = CreateService(provisioner, provider, obs);
+
+        var result = await service.PrepareAsync(
+            new RecordingSettings { RecordingLocation = Path.GetTempPath() });
+
+        Assert.True(result.IsSuccessful);
+        Assert.Null(result.ProbeRecordingPath);
+        Assert.Empty(provisioner.Calls);
+        Assert.Equal(["TestConnection", "ApplySetup:5"], obs.Calls);
+    }
+
+    [Fact]
     public async Task SetupAsync_waits_for_obs_to_finalize_the_probe_file()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
@@ -143,6 +161,8 @@ public sealed class ObsAutoSetupServiceTests
             provider,
             controller,
             new ObsSetupPlanner(),
+            new FixedRecordingQualityProvider(),
+            new FixedClock(DateTimeOffset.Parse("2026-07-18T12:00:00Z")),
             new ObsOnboardingOptions
             {
                 ConnectionAttempts = connectionAttempts,
@@ -209,6 +229,7 @@ public sealed class ObsAutoSetupServiceTests
         public Task ConfigureSegmentedRecordingAsync(
             string recordingDirectory,
             int segmentMinutes,
+            GameCaptureTarget? captureTarget = null,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task ConfigureAudioAsync(
@@ -217,6 +238,10 @@ public sealed class ObsAutoSetupServiceTests
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task ConfigureGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task RefreshGameCaptureAsync(
             GameCaptureTarget target,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -234,5 +259,10 @@ public sealed class ObsAutoSetupServiceTests
             Calls.Add("Stop");
             return Task.FromResult(probePath);
         }
+    }
+
+    private sealed class FixedRecordingQualityProvider : IRecordingQualitySettingsProvider
+    {
+        public RecordingQualitySettings Current { get; } = new();
     }
 }

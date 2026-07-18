@@ -7,6 +7,7 @@ namespace Blackbox.Infrastructure;
 public sealed class ObsWebSocketController(
     IObsWebSocketRpcClient rpcClient,
     IObsConnectionSettingsProvider connectionSettingsProvider,
+    IRecordingQualitySettingsProvider recordingQualitySettingsProvider,
     ObsSetupRequestBuilder requestBuilder,
     ILogger<ObsWebSocketController> logger) : IObsController
 {
@@ -36,7 +37,10 @@ public sealed class ObsWebSocketController(
         await EnsureProfileAsync(settings, plan.ProfileName, cancellationToken);
         await rpcClient.SendBatchAsync(
             settings,
-            requestBuilder.BuildRecordingConfigurationRequests(plan.RecordingDirectory, plan.SegmentMinutes),
+            requestBuilder.BuildRecordingConfigurationRequests(
+                plan.RecordingDirectory,
+                plan.SegmentMinutes,
+                plan.RecordingQuality),
             cancellationToken);
         await ReloadProfileAsync(settings, plan.ProfileName, cancellationToken);
         await EnsureSceneCollectionAsync(settings, plan.SceneCollectionName, cancellationToken);
@@ -59,9 +63,14 @@ public sealed class ObsWebSocketController(
     public Task ConfigureSegmentedRecordingAsync(
         string recordingDirectory,
         int segmentMinutes,
+        GameCaptureTarget? captureTarget = null,
         CancellationToken cancellationToken = default)
     {
-        var requests = requestBuilder.BuildRecordingConfigurationRequests(recordingDirectory, segmentMinutes);
+        var requests = requestBuilder.BuildRecordingConfigurationRequests(
+            recordingDirectory,
+            segmentMinutes,
+            recordingQualitySettingsProvider.Current,
+            captureTarget);
         return SendBatchWithoutResultAsync(connectionSettingsProvider.Current, requests, cancellationToken);
     }
 
@@ -94,11 +103,17 @@ public sealed class ObsWebSocketController(
             cancellationToken);
         await SendBatchWithoutResultAsync(
             settings,
-            requestBuilder.BuildGameCaptureRequests(target),
+            requestBuilder.BuildGameCaptureRequests(
+                target,
+                recordingQualitySettingsProvider.Current),
             cancellationToken);
         await SendBatchWithoutResultAsync(
             settings,
-            requestBuilder.BuildGameCaptureActivationRequests(target, videoSceneItemId, audioSceneItemId),
+            requestBuilder.BuildGameCaptureActivationRequests(
+                target,
+                videoSceneItemId,
+                audioSceneItemId,
+                recordingQualitySettingsProvider.Current),
             cancellationToken);
         logger.LogInformation(
             "OBS scene bound to {GameTitle} ({GameExecutable}) at {Width}x{Height}. GameAudio={CaptureGameAudio}, DetectionSources={DetectionSources}.",
@@ -108,6 +123,43 @@ public sealed class ObsWebSocketController(
             target.WindowHeight,
             target.CaptureGameAudio,
             target.DetectionSources);
+    }
+
+    public async Task RefreshGameCaptureAsync(
+        GameCaptureTarget target,
+        CancellationToken cancellationToken = default)
+    {
+        target.Validate();
+        var settings = connectionSettingsProvider.Current;
+        var (videoSceneItemId, audioSceneItemId) =
+            await GetGameSceneItemIdsAsync(settings, cancellationToken);
+        var videoSettings = await rpcClient.SendRequestAsync(
+            settings,
+            new ObsRequest("GetVideoSettings"),
+            cancellationToken);
+        var canvasWidth = GetPositiveInt(videoSettings.ResponseData?["baseWidth"], "baseWidth");
+        var canvasHeight = GetPositiveInt(videoSettings.ResponseData?["baseHeight"], "baseHeight");
+
+        await SendBatchWithoutResultAsync(
+            settings,
+            requestBuilder.BuildGameCaptureRefreshRequests(target),
+            cancellationToken);
+        await SendBatchWithoutResultAsync(
+            settings,
+            requestBuilder.BuildGameCaptureActivationRequests(
+                target,
+                videoSceneItemId,
+                audioSceneItemId,
+                canvasWidth,
+                canvasHeight),
+            cancellationToken);
+        logger.LogInformation(
+            "OBS reframed {GameTitle} after its window changed to {Width}x{Height}; recording output remains {CanvasWidth}x{CanvasHeight}.",
+            target.Title,
+            target.WindowWidth,
+            target.WindowHeight,
+            canvasWidth,
+            canvasHeight);
     }
 
     public async Task StartRecordingAsync(CancellationToken cancellationToken = default)
@@ -385,6 +437,14 @@ public sealed class ObsWebSocketController(
         }
 
         return jsonValue.TryGetValue<double>(out var doubleValue) ? (long)doubleValue : 0;
+    }
+
+    private static int GetPositiveInt(JsonNode? value, string fieldName)
+    {
+        var parsed = (int)GetInt64(value);
+        return parsed > 0
+            ? parsed
+            : throw new InvalidOperationException($"OBS returned an invalid {fieldName} video setting.");
     }
 
     private static HashSet<string> GetStringSet(ObsResponse response, string fieldName) =>

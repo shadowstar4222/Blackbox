@@ -51,7 +51,12 @@ public sealed class ObsSetupRequestBuilderTests
             2560,
             1440);
 
-        var requests = new ObsSetupRequestBuilder().BuildGameCaptureRequests(target);
+        var requests = new ObsSetupRequestBuilder().BuildGameCaptureRequests(
+            target,
+            new RecordingQualitySettings
+            {
+                Resolution = RecordingResolution.MatchApplication
+            });
 
         Assert.Equal(4, requests.Count);
         var videoSettings = requests.Single(static request => request.RequestType == "SetVideoSettings");
@@ -86,7 +91,12 @@ public sealed class ObsSetupRequestBuilderTests
             7680,
             2161);
 
-        var request = new ObsSetupRequestBuilder().BuildGameCaptureRequests(target)
+        var request = new ObsSetupRequestBuilder().BuildGameCaptureRequests(
+                target,
+                new RecordingQualitySettings
+                {
+                    Resolution = RecordingResolution.MatchApplication
+                })
             .Single(static candidate => candidate.RequestType == "SetVideoSettings");
 
         Assert.Equal(4096, request.RequestData?["baseWidth"]?.GetValue<int>());
@@ -119,6 +129,59 @@ public sealed class ObsSetupRequestBuilderTests
             request.RequestType == "SetSceneItemEnabled" &&
             request.RequestData?["sceneItemId"]?.GetValue<int>() == 20 &&
             request.RequestData?["sceneItemEnabled"]?.GetValue<bool>() == false);
+    }
+
+    [Fact]
+    public void BuildRecordingConfigurationRequests_applies_resolution_fps_and_audio_quality()
+    {
+        var quality = new RecordingQualitySettings
+        {
+            Resolution = RecordingResolution.QuadHd1440,
+            FramesPerSecond = 120,
+            AudioBitrateKbps = 320
+        };
+
+        var requests = new ObsSetupRequestBuilder()
+            .BuildRecordingConfigurationRequests("C:\\Recordings", 2, quality);
+
+        var video = requests.Single(static request => request.RequestType == "SetVideoSettings");
+        Assert.Equal(2560, video.RequestData?["baseWidth"]?.GetValue<int>());
+        Assert.Equal(1440, video.RequestData?["baseHeight"]?.GetValue<int>());
+        Assert.Equal(120, video.RequestData?["fpsNumerator"]?.GetValue<int>());
+        Assert.Contains(requests, request => HasProfileValue(request, "FPSCommon", "120"));
+        Assert.Contains(requests, request => HasProfileValue(request, "OutputCX", "2560"));
+        Assert.Contains(requests, request => HasProfileValue(request, "OutputCY", "1440"));
+        Assert.Equal(6, requests.Count(request => HasProfileValue(request, "Track1Bitrate", "320") ||
+            HasProfileValue(request, "Track2Bitrate", "320") ||
+            HasProfileValue(request, "Track3Bitrate", "320") ||
+            HasProfileValue(request, "Track4Bitrate", "320") ||
+            HasProfileValue(request, "Track5Bitrate", "320") ||
+            HasProfileValue(request, "Track6Bitrate", "320")));
+    }
+
+    [Fact]
+    public void BuildRecordingConfigurationRequests_preserves_match_application_dimensions()
+    {
+        var target = new GameCaptureTarget(
+            42,
+            "C:\\Games\\Example.exe",
+            "Example.exe",
+            "Example Game",
+            "Example Game:ExampleWindow:Example.exe",
+            GameDetectionSource.ConfiguredExecutable,
+            2560,
+            1440);
+        var quality = new RecordingQualitySettings
+        {
+            Resolution = RecordingResolution.MatchApplication
+        };
+
+        var video = new ObsSetupRequestBuilder()
+            .BuildRecordingConfigurationRequests("C:\\Recordings", 2, quality, target)
+            .Single(static request => request.RequestType == "SetVideoSettings");
+
+        Assert.Equal(2560, video.RequestData?["outputWidth"]?.GetValue<int>());
+        Assert.Equal(1440, video.RequestData?["outputHeight"]?.GetValue<int>());
     }
 
     private static bool HasProfileValue(ObsRequest request, string name, string value) =>

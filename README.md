@@ -4,7 +4,7 @@ Blackbox is a Windows 10 64-bit continuous background gameplay recorder built wi
 
 Minimum supported OS: Windows 10 version 2004, build 19041.
 
-## Milestone 7D Desktop Experience Status
+## Milestone 7E Capture Quality Of Life Status
 
 Implemented:
 
@@ -15,6 +15,12 @@ Implemented:
 - Optional close-to-notification-area and minimize-to-notification-area behavior.
 - Optional Windows startup through the current-user Run key with a quiet `--background` launch.
 - Optional remembered-game watching that starts the private OBS backend and capture detector after Blackbox launches.
+- Automatic, probe-free OBS preparation at startup so the private backend is ready without creating a throwaway recording.
+- Persisted recording resolution, frame-rate, and audio-quality controls in the Settings drawer.
+- Resolution choices from 720p through 4K plus match-application, 30/60/120 FPS, and 160/256/320 kbps audio.
+- Manual recordings organized under `Manual\YYYY-MM-DD` and automatic recordings under `Application\YYYY-MM-DD`.
+- Recursive recording indexing and recovery across the organized application/date folders.
+- Live OBS reframing when a captured application changes size, without stopping or restarting the active recording.
 - Atomically persisted desktop preferences with safe recovery from missing, corrupted, or failed writes.
 - Dark themed timeline, game profile, microphone, and diagnostics windows with keyboard focus and 150% scaling fixes.
 - Recording coordination, completed-segment discovery, and SQLite metadata from Milestone 1.
@@ -79,9 +85,9 @@ Implemented:
 - Deterministic cancellation and shutdown for automatic capture, microphone monitoring, recording, playback leases, hotkeys, and WPF windows.
 - Hardened OBS websocket message limits, native DLL search paths, setup readiness retries, and portable-runtime installation.
 
-Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 7D desktop quality-of-life work is complete.
+Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 7E capture quality-of-life work is complete.
 
-The post-7D playback performance pass is also complete. The Release build has zero warnings and errors, all 129 automated tests pass, and frame navigation plus player memory cleanup were exercised against a real 2880 x 1620, 30 fps Blackbox recording.
+The Release build has zero warnings and errors, all 138 automated tests pass, and the quality/folder pass produced a real 1920 x 1080, 60 fps recording with five AAC tracks in the organized manual-recording folder.
 
 ## Build
 
@@ -100,21 +106,22 @@ dotnet run --project src\Blackbox.App\Blackbox.App.csproj
 ## First Run
 
 1. Start Blackbox.
-2. Use the `Capture` workspace and click `Setup OBS`.
-3. Wait while Blackbox finds an existing OBS installation or downloads the official package, then starts its private OBS runtime.
-4. Confirm the status changes to `OBS is installed, configured, and ready.`
+2. Blackbox automatically finds or prepares its private OBS runtime and applies the saved recording quality.
+3. Confirm the status changes to `OBS is configured and ready.`
+4. Use `Check OBS` when you want Blackbox to make and validate a short setup-check recording.
 5. Open the `Microphone` drawer to apply routing or calibrate the selected microphone.
 6. Use `Start Recording` and `Stop` for recording tests.
 7. Use `Recordings` to browse the visual timeline, open the full Blackbox player from any cursor position, tag moments, select a range, mix tracks, and export one continuous video.
 8. Start a game, open the `Games` drawer and game manager, select it under running applications, and remember it.
-9. Open `Settings` and enable `Watch remembered games` to let Blackbox start and stop recording with that game.
-10. Use `Open Folder` when you need direct access to the underlying safe segments.
-11. Open the `Diagnostics` drawer and workspace to inspect recovery results, media health, storage use, and recent recording or detection events.
-12. Use `Support bundle` only when troubleshooting. Review the privacy disclosure, choose a local ZIP destination, and inspect the ZIP before sharing it.
-13. Optionally enable `Start with Windows`; Blackbox then starts quietly in the notification area.
+9. Open `Settings` and enable `Automatic recording at startup` to let Blackbox start and stop recording with that game.
+10. Choose the recording resolution, frame rate, and audio quality, then select `Apply recording quality`.
+11. Use `Open Folder` when you need direct access to recordings grouped by application and date.
+12. Open the `Diagnostics` drawer and workspace to inspect recovery results, media health, storage use, and recent recording or detection events.
+13. Use `Support bundle` only when troubleshooting. Review the privacy disclosure, choose a local ZIP destination, and inspect the ZIP before sharing it.
+14. Optionally enable `Start with Windows`; Blackbox then starts quietly in the notification area.
 
-The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The complete automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`. The Milestone 7 audit is in `docs/milestone-7-hardening-report.md`. The desktop quality-of-life validation is in `docs/milestone-7d-desktop-experience-test.md`.
+The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The complete automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`. The Milestone 7 audit is in `docs/milestone-7-hardening-report.md`. Desktop validation is covered by `docs/milestone-7d-desktop-experience-test.md` and `docs/milestone-7e-capture-qol-test.md`.
 
 ## Current Milestone
 
-Milestone 7D's OBS-inspired shell, drawers, icons, background startup, notification-area controls, and remembered-game watching are complete. The OBS dock edition remains planned as Milestone 8. See `docs/roadmap.md` for the acceptance criteria.
+Milestone 7E's automatic OBS preparation, quality controls, organized recording folders, and live resize handling are complete. The OBS dock edition remains planned as Milestone 8. See `docs/roadmap.md` for the acceptance criteria.

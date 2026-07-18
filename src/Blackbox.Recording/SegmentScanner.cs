@@ -15,7 +15,10 @@ public sealed class SegmentScanner(ISegmentRepository repository)
         }
 
         var imported = 0;
-        foreach (var file in Directory.EnumerateFiles(recordingDirectory, "*.mkv").OrderBy(static path => path))
+        foreach (var file in Directory
+                     .EnumerateFiles(recordingDirectory, "*.mkv", SearchOption.AllDirectories)
+                     .Where(path => !RecordingDirectoryLayout.IsInternalPath(recordingDirectory, path))
+                     .OrderBy(static path => path))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (file.EndsWith(".active.mkv", StringComparison.OrdinalIgnoreCase))

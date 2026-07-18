@@ -4,9 +4,13 @@ namespace Blackbox.Recording;
 
 public sealed class ObsSetupPlanner
 {
-    public ObsSetupPlan CreateDefaultPlan(RecordingSettings recordingSettings)
+    public ObsSetupPlan CreateDefaultPlan(
+        RecordingSettings recordingSettings,
+        RecordingQualitySettings? recordingQuality = null)
     {
         recordingSettings.Validate();
+        recordingQuality ??= new RecordingQualitySettings();
+        recordingQuality.Validate();
         var microphoneSettings = new MicrophoneProcessingSettings();
         var audioRouting = AudioRoutingProfile.Default;
 
@@ -14,6 +18,7 @@ public sealed class ObsSetupPlanner
         {
             RecordingDirectory = recordingSettings.RecordingLocation,
             SegmentMinutes = recordingSettings.SegmentDurationMinutes,
+            RecordingQuality = recordingQuality,
             AudioRoutingProfile = audioRouting,
             MicrophoneProcessingSettings = microphoneSettings,
             Sources =

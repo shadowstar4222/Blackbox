@@ -5,7 +5,11 @@ namespace Blackbox.Infrastructure;
 
 public sealed class ObsSetupRequestBuilder
 {
-    public IReadOnlyList<ObsRequest> BuildRecordingConfigurationRequests(string recordingDirectory, int segmentMinutes)
+    public IReadOnlyList<ObsRequest> BuildRecordingConfigurationRequests(
+        string recordingDirectory,
+        int segmentMinutes,
+        RecordingQualitySettings? recordingQuality = null,
+        GameCaptureTarget? captureTarget = null)
     {
         if (string.IsNullOrWhiteSpace(recordingDirectory))
         {
@@ -17,8 +21,14 @@ public sealed class ObsSetupRequestBuilder
             throw new InvalidOperationException("Segment duration must be between 1 and 10 minutes.");
         }
 
-        return
-        [
+        recordingQuality ??= new RecordingQualitySettings();
+        recordingQuality.Validate();
+        captureTarget?.Validate();
+        var (width, height) = captureTarget is null
+            ? GetOutputSize(recordingQuality)
+            : GetCanvasSize(captureTarget, recordingQuality);
+        var requests = new List<ObsRequest>
+        {
             new ObsRequest("SetRecordDirectory", new JsonObject { ["recordDirectory"] = recordingDirectory }),
             ProfileParameter("Output", "Mode", "Advanced"),
             ProfileParameter("AdvOut", "RecType", "Standard"),
@@ -28,8 +38,35 @@ public sealed class ObsSetupRequestBuilder
             ProfileParameter("AdvOut", "RecSplitFile", "true"),
             ProfileParameter("AdvOut", "RecSplitFileType", "Time"),
             ProfileParameter("AdvOut", "RecSplitFileTime", segmentMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            ProfileParameter("Audio", "SampleRate", "48000")
-        ];
+            ProfileParameter("Audio", "SampleRate", "48000"),
+            ProfileParameter("Video", "BaseCX", width.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "BaseCY", height.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "OutputCX", width.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "OutputCY", height.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "FPSType", "0"),
+            ProfileParameter("Video", "FPSCommon", recordingQuality.FramesPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "FPSInt", recordingQuality.FramesPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "FPSNum", recordingQuality.FramesPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ProfileParameter("Video", "FPSDen", "1"),
+            new ObsRequest("SetVideoSettings", new JsonObject
+            {
+                ["baseWidth"] = width,
+                ["baseHeight"] = height,
+                ["outputWidth"] = width,
+                ["outputHeight"] = height,
+                ["fpsNumerator"] = recordingQuality.FramesPerSecond,
+                ["fpsDenominator"] = 1
+            })
+        };
+        for (var track = 1; track <= 6; track++)
+        {
+            requests.Add(ProfileParameter(
+                "AdvOut",
+                $"Track{track}Bitrate",
+                recordingQuality.AudioBitrateKbps.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        return requests;
     }
 
     public IReadOnlyList<ObsRequest> BuildAudioRequests(AudioRoutingProfile profile, MicrophoneProcessingSettings microphoneSettings)
@@ -46,10 +83,14 @@ public sealed class ObsSetupRequestBuilder
             .ToArray();
     }
 
-    public IReadOnlyList<ObsRequest> BuildGameCaptureRequests(GameCaptureTarget target)
+    public IReadOnlyList<ObsRequest> BuildGameCaptureRequests(
+        GameCaptureTarget target,
+        RecordingQualitySettings? recordingQuality = null)
     {
         target.Validate();
-        var (width, height) = GetCanvasSize(target);
+        recordingQuality ??= new RecordingQualitySettings();
+        recordingQuality.Validate();
+        var (width, height) = GetCanvasSize(target, recordingQuality);
         List<ObsRequest> requests =
         [
             new ObsRequest("SetVideoSettings", new JsonObject
@@ -57,8 +98,20 @@ public sealed class ObsSetupRequestBuilder
                 ["baseWidth"] = width,
                 ["baseHeight"] = height,
                 ["outputWidth"] = width,
-                ["outputHeight"] = height
-            }),
+                ["outputHeight"] = height,
+                ["fpsNumerator"] = recordingQuality.FramesPerSecond,
+                ["fpsDenominator"] = 1
+            })
+        ];
+        requests.AddRange(BuildGameCaptureRefreshRequests(target));
+        return requests;
+    }
+
+    public IReadOnlyList<ObsRequest> BuildGameCaptureRefreshRequests(GameCaptureTarget target)
+    {
+        target.Validate();
+        List<ObsRequest> requests =
+        [
             InputSettings("Blackbox Game Capture", new JsonObject
             {
                 ["capture_mode"] = "window",
@@ -93,10 +146,34 @@ public sealed class ObsSetupRequestBuilder
     public IReadOnlyList<ObsRequest> BuildGameCaptureActivationRequests(
         GameCaptureTarget target,
         int videoSceneItemId,
-        int audioSceneItemId)
+        int audioSceneItemId,
+        RecordingQualitySettings? recordingQuality = null)
     {
         target.Validate();
-        var (width, height) = GetCanvasSize(target);
+        recordingQuality ??= new RecordingQualitySettings();
+        recordingQuality.Validate();
+        var (width, height) = GetCanvasSize(target, recordingQuality);
+        return BuildGameCaptureActivationRequests(
+            target,
+            videoSceneItemId,
+            audioSceneItemId,
+            width,
+            height);
+    }
+
+    public IReadOnlyList<ObsRequest> BuildGameCaptureActivationRequests(
+        GameCaptureTarget target,
+        int videoSceneItemId,
+        int audioSceneItemId,
+        int canvasWidth,
+        int canvasHeight)
+    {
+        target.Validate();
+        if (canvasWidth <= 0 || canvasHeight <= 0)
+        {
+            throw new InvalidOperationException("The OBS canvas dimensions must be positive.");
+        }
+
         return
         [
             new ObsRequest("SetSceneItemTransform", new JsonObject
@@ -113,8 +190,8 @@ public sealed class ObsSetupRequestBuilder
                     ["alignment"] = 5,
                     ["boundsType"] = "OBS_BOUNDS_SCALE_INNER",
                     ["boundsAlignment"] = 5,
-                    ["boundsWidth"] = width,
-                    ["boundsHeight"] = height
+                    ["boundsWidth"] = canvasWidth,
+                    ["boundsHeight"] = canvasHeight
                 }
             }),
             SceneItemEnabled(videoSceneItemId, true),
@@ -170,8 +247,24 @@ public sealed class ObsSetupRequestBuilder
             ["sceneItemEnabled"] = enabled
         });
 
-    private static (int Width, int Height) GetCanvasSize(GameCaptureTarget target)
+    private static (int Width, int Height) GetOutputSize(RecordingQualitySettings recordingQuality) =>
+        recordingQuality.Resolution switch
+        {
+            RecordingResolution.Hd720 => (1280, 720),
+            RecordingResolution.QuadHd1440 => (2560, 1440),
+            RecordingResolution.UltraHd2160 => (3840, 2160),
+            _ => (1920, 1080)
+        };
+
+    private static (int Width, int Height) GetCanvasSize(
+        GameCaptureTarget target,
+        RecordingQualitySettings recordingQuality)
     {
+        if (recordingQuality.Resolution != RecordingResolution.MatchApplication)
+        {
+            return GetOutputSize(recordingQuality);
+        }
+
         const int maximumDimension = 4096;
         var scale = Math.Min(
             1d,

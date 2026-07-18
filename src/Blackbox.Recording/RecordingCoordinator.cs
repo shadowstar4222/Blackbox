@@ -19,10 +19,18 @@ public sealed class RecordingCoordinator(
 
     public async Task StartAsync(RecordingSettings settings, CancellationToken cancellationToken = default)
     {
-        await TryStartAsync(settings, cancellationToken);
+        await TryStartAsync(settings, null, cancellationToken);
     }
 
     public async Task<bool> TryStartAsync(RecordingSettings settings, CancellationToken cancellationToken = default)
+    {
+        return await TryStartAsync(settings, null, cancellationToken);
+    }
+
+    public async Task<bool> TryStartAsync(
+        RecordingSettings settings,
+        GameCaptureTarget? captureTarget,
+        CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -39,6 +47,7 @@ public sealed class RecordingCoordinator(
             await obsController.ConfigureSegmentedRecordingAsync(
                 settings.RecordingLocation,
                 settings.SegmentDurationMinutes,
+                captureTarget,
                 cancellationToken);
             var microphoneConfiguration = microphoneConfigurationStore.Current;
             await obsController.ConfigureAudioAsync(

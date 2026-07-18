@@ -218,8 +218,9 @@ public sealed class RecordingRecoveryService(
     ];
 
     private static IEnumerable<string> EnumerateCandidates(string directory) =>
-        Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-            .Where(static path =>
+        Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            .Where(path =>
+                !RecordingDirectoryLayout.IsInternalPath(directory, path) &&
                 !path.Contains(".partial", StringComparison.OrdinalIgnoreCase) &&
                 !path.Contains(".active", StringComparison.OrdinalIgnoreCase) &&
                 (Path.GetExtension(path).Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||

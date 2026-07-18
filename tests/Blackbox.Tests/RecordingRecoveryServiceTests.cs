@@ -73,7 +73,12 @@ public sealed class RecordingRecoveryServiceTests
         var root = CreateRoot();
         try
         {
-            var path = Path.Combine(root, "2026-07-16 12-02-00.mkv");
+            var sessionDirectory = RecordingDirectoryLayout.GetSessionDirectory(
+                root,
+                "Example Game",
+                DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            Directory.CreateDirectory(sessionDirectory);
+            var path = Path.Combine(sessionDirectory, "2026-07-16 12-02-00.mkv");
             await WriteStableFileAsync(path, "healthy");
             var runner = new RecoveryCommandRunner(succeeds: true);
             var provisioner = new RecoveryProvisioner();

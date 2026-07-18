@@ -537,6 +537,21 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock VerticalAlignment="Center"
                                            FontSize="14"
+                                           Text="Set up OBS when Blackbox starts" />
+                                <ToggleButton x:Name="AutoSetupObsToggle"
+                                              Grid.Column="1"
+                                              Style="{StaticResource SwitchStyle}"
+                                              Click="AutoSetupObsToggle_Click"
+                                              automation:AutomationProperties.Name="Set up OBS when Blackbox starts" />
+                            </Grid>
+                            <Separator Margin="0,0,0,20" />
+                            <Grid Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock VerticalAlignment="Center"
+                                           FontSize="14"
                                            Text="Start with Windows" />
                                 <ToggleButton x:Name="StartWithWindowsToggle"
                                               Grid.Column="1"
@@ -552,12 +567,12 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock VerticalAlignment="Center"
                                            FontSize="14"
-                                           Text="Watch remembered games" />
+                                           Text="Automatic recording at startup" />
                                 <ToggleButton x:Name="WatchGamesToggle"
                                               Grid.Column="1"
                                               Style="{StaticResource SwitchStyle}"
                                               Click="WatchGamesToggle_Click"
-                                              automation:AutomationProperties.Name="Watch remembered games automatically" />
+                                              automation:AutomationProperties.Name="Enable automatic recording at startup" />
                             </Grid>
                             <Separator Margin="0,0,0,20" />
                             <Grid Margin="0,0,0,26">
@@ -574,6 +589,39 @@
                                               Click="CloseToTrayToggle_Click"
                                               automation:AutomationProperties.Name="Keep Blackbox running in notification area" />
                             </Grid>
+                            <Separator Margin="0,0,0,20" />
+                            <TextBlock Margin="0,0,0,14"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="RECORDING QUALITY" />
+                            <TextBlock Margin="0,0,0,6"
+                                       FontSize="13"
+                                       Text="Resolution" />
+                            <ComboBox x:Name="ResolutionComboBox"
+                                      Margin="0,0,0,14"
+                                      DisplayMemberPath="Label"
+                                      SelectedValuePath="Value"
+                                      automation:AutomationProperties.Name="Recording resolution" />
+                            <TextBlock Margin="0,0,0,6"
+                                       FontSize="13"
+                                       Text="Frame rate" />
+                            <ComboBox x:Name="FrameRateComboBox"
+                                      Margin="0,0,0,14"
+                                      DisplayMemberPath="Label"
+                                      SelectedValuePath="Value"
+                                      automation:AutomationProperties.Name="Recording frame rate" />
+                            <TextBlock Margin="0,0,0,6"
+                                       FontSize="13"
+                                       Text="Audio quality" />
+                            <ComboBox x:Name="AudioQualityComboBox"
+                                      Margin="0,0,0,14"
+                                      DisplayMemberPath="Label"
+                                      SelectedValuePath="Value"
+                                      automation:AutomationProperties.Name="Recording audio quality" />
+                            <Button x:Name="ApplyQualityButton"
+                                    Margin="0,0,0,20"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Click="ApplyQualityButton_Click"
+                                    Content="Apply recording quality" />
                             <Button x:Name="PruneButton"
                                     Margin="0,0,0,8"
                                     Click="PruneButton_Click"

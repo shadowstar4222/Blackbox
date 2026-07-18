@@ -112,6 +112,18 @@ See `docs/milestone-7-hardening-report.md` for the audit and validation record.
 
 Milestone 7D is complete. The Release build has zero warnings and errors, all 121 automated tests pass, and the desktop workflow was exercised against the private OBS runtime on Windows 10. See `docs/milestone-7d-desktop-experience-test.md`.
 
+### Milestone 7E: Capture Quality Of Life
+
+- [x] Prepare the private OBS backend automatically when Blackbox starts, without making a probe recording.
+- [x] Add persisted resolution, frame-rate, and audio-bitrate controls.
+- [x] Make automatic recording at startup a clear Settings option.
+- [x] Organize manual and automatic recordings by application and local recording date.
+- [x] Index and recover recordings recursively across the organized folder layout.
+- [x] Reframe OBS when the captured window changes size without interrupting recording.
+- [x] Preserve full setup checks as an explicit action in their own internal folder.
+
+Milestone 7E is complete. The Release build has zero warnings and errors, all 138 automated tests pass, and a live startup prepared OBS without creating a probe file. A live manual test produced a 16.05-second 1920 x 1080, 60 fps H.264 recording with five AAC tracks under `Manual\2026-07-18`. See `docs/milestone-7e-capture-qol-test.md`.
+
 ## Planned
 
 ### Milestone 8: OBS Dock Edition

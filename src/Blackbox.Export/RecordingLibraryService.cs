@@ -25,8 +25,11 @@ public sealed class RecordingLibraryService(
         await repository.InitializeAsync(cancellationToken);
         Directory.CreateDirectory(recordingSettings.RecordingLocation);
         var mediaFiles = Directory
-            .EnumerateFiles(recordingSettings.RecordingLocation, "*", SearchOption.TopDirectoryOnly)
+            .EnumerateFiles(recordingSettings.RecordingLocation, "*", SearchOption.AllDirectories)
             .Where(IsRecordingFile)
+            .Where(path => !RecordingDirectoryLayout.IsInternalPath(
+                recordingSettings.RecordingLocation,
+                path))
             .Select(static path => new FileInfo(Path.GetFullPath(path)))
             .Where(static file => file.Exists && file.Length > 0 &&
                 DateTimeOffset.UtcNow - file.LastWriteTimeUtc > TimeSpan.FromSeconds(1))
@@ -68,18 +71,35 @@ public sealed class RecordingLibraryService(
                 existing.FileSizeBytes == file.Length &&
                 !existing.IsDamaged)
             {
-                candidates.Add(MediaCandidate.FromExisting(file, existing));
+                candidates.Add(MediaCandidate.FromExisting(
+                    file,
+                    existing,
+                    RecordingDirectoryLayout.GetApplicationName(
+                        recordingSettings.RecordingLocation,
+                        file.FullName)));
                 continue;
             }
 
             try
             {
                 var probe = await mediaProbe.ProbeAsync(file.FullName, cancellationToken);
-                candidates.Add(MediaCandidate.FromProbe(file, existing, probe));
+                candidates.Add(MediaCandidate.FromProbe(
+                    file,
+                    existing,
+                    probe,
+                    RecordingDirectoryLayout.GetApplicationName(
+                        recordingSettings.RecordingLocation,
+                        file.FullName)));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                candidates.Add(MediaCandidate.FromDamaged(file, existing, ex.Message));
+                candidates.Add(MediaCandidate.FromDamaged(
+                    file,
+                    existing,
+                    ex.Message,
+                    RecordingDirectoryLayout.GetApplicationName(
+                        recordingSettings.RecordingLocation,
+                        file.FullName)));
                 logger.LogWarning(
                     ex,
                     "Recording {RecordingPath} could not be read and was marked as damaged.",
@@ -185,6 +205,7 @@ public sealed class RecordingLibraryService(
         left.File.Extension.Equals(right.File.Extension, StringComparison.OrdinalIgnoreCase) &&
         left.Width == right.Width &&
         left.Height == right.Height &&
+        left.GameTitle.Equals(right.GameTitle, StringComparison.OrdinalIgnoreCase) &&
         left.AudioTrackTitles.Count == right.AudioTrackTitles.Count &&
         left.VideoCodec.Equals(right.VideoCodec, StringComparison.OrdinalIgnoreCase);
 
@@ -230,13 +251,16 @@ public sealed class RecordingLibraryService(
     {
         public DateTimeOffset EndTime => StartTime + Duration;
 
-        public static MediaCandidate FromExisting(FileInfo file, RecordingSegment segment) => new(
+        public static MediaCandidate FromExisting(
+            FileInfo file,
+            RecordingSegment segment,
+            string applicationName) => new(
             file,
             segment.Id,
             segment.StartTime,
             segment.EndTime - segment.StartTime,
             segment.GameExecutable,
-            segment.GameTitle,
+            applicationName == "Recording" ? segment.GameTitle : applicationName,
             segment.Encoder,
             segment.VideoFormat,
             segment.Width,
@@ -251,13 +275,16 @@ public sealed class RecordingLibraryService(
         public static MediaCandidate FromProbe(
             FileInfo file,
             RecordingSegment? existing,
-            MediaFileProbeResult probe) => new(
+            MediaFileProbeResult probe,
+            string applicationName) => new(
             file,
             existing?.Id ?? Guid.NewGuid(),
             ParseStartTime(file),
             probe.Duration,
             existing?.GameExecutable ?? string.Empty,
-            existing?.GameTitle ?? "Recording",
+            applicationName == "Recording"
+                ? existing?.GameTitle ?? "Recording"
+                : applicationName,
             probe.VideoCodec,
             probe.PixelFormat,
             probe.Width,
@@ -272,11 +299,12 @@ public sealed class RecordingLibraryService(
         public static MediaCandidate FromDamaged(
             FileInfo file,
             RecordingSegment? existing,
-            string detail)
+            string detail,
+            string applicationName)
         {
             if (existing is not null)
             {
-                return FromExisting(file, existing) with
+                return FromExisting(file, existing, applicationName) with
                 {
                     IsDamaged = true,
                     DamageDetail = detail
@@ -289,7 +317,7 @@ public sealed class RecordingLibraryService(
                 ParseStartTime(file),
                 TimeSpan.FromSeconds(1),
                 string.Empty,
-                "Damaged recording",
+                applicationName == "Recording" ? "Damaged recording" : applicationName,
                 "unknown",
                 "unknown",
                 0,

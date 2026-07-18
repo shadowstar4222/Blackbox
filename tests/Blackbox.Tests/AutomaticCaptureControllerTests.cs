@@ -32,6 +32,13 @@ public sealed class AutomaticCaptureControllerTests
             Assert.True(coordinator.IsRecording);
             Assert.Contains("ConfigureGame:Example.exe", obs.Calls);
             Assert.Contains("Start", obs.Calls);
+            Assert.Equal(
+                RecordingDirectoryLayout.GetSessionDirectory(
+                    root,
+                    target.Title,
+                    clock.UtcNow),
+                Assert.Single(obs.RecordingDirectories));
+            Assert.Equal(target, Assert.Single(obs.SegmentCaptureTargets));
 
             await controller.ProcessDetectionAsync(null);
             Assert.True(coordinator.IsRecording);
@@ -161,6 +168,42 @@ public sealed class AutomaticCaptureControllerTests
     }
 
     [Fact]
+    public async Task ProcessDetectionAsync_reframes_a_resized_window_without_restarting_recording()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            var controller = CreateController(root, obs, coordinator, clock);
+            var target = CreateTarget();
+
+            controller.Enable();
+            await controller.ProcessDetectionAsync(target);
+            await controller.ProcessDetectionAsync(target);
+            var callCountBeforeResize = obs.Calls.Count;
+
+            await controller.ProcessDetectionAsync(target with
+            {
+                WindowWidth = 1600,
+                WindowHeight = 900
+            });
+
+            Assert.Equal(
+                ["RefreshGame:Example.exe"],
+                obs.Calls.Skip(callCountBeforeResize).ToArray());
+            Assert.True(coordinator.IsRecording);
+            Assert.Equal(1600, controller.Status.Target?.WindowWidth);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task AdoptRecordingOwnership_stops_surviving_recording_when_no_game_returns()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
@@ -281,6 +324,8 @@ public sealed class AutomaticCaptureControllerTests
     private sealed class AutomaticCaptureObsController : IObsController
     {
         public List<string> Calls { get; } = [];
+        public List<string> RecordingDirectories { get; } = [];
+        public List<GameCaptureTarget?> SegmentCaptureTargets { get; } = [];
 
         public Task LaunchAsync(CancellationToken cancellationToken = default)
         {
@@ -301,8 +346,11 @@ public sealed class AutomaticCaptureControllerTests
         public Task ConfigureSegmentedRecordingAsync(
             string recordingDirectory,
             int segmentMinutes,
+            GameCaptureTarget? captureTarget = null,
             CancellationToken cancellationToken = default)
         {
+            RecordingDirectories.Add(recordingDirectory);
+            SegmentCaptureTargets.Add(captureTarget);
             Calls.Add("ConfigureSegments");
             return Task.CompletedTask;
         }
@@ -321,6 +369,14 @@ public sealed class AutomaticCaptureControllerTests
             CancellationToken cancellationToken = default)
         {
             Calls.Add($"ConfigureGame:{target.ExecutableName}");
+            return Task.CompletedTask;
+        }
+
+        public Task RefreshGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"RefreshGame:{target.ExecutableName}");
             return Task.CompletedTask;
         }
 

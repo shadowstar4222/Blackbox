@@ -170,7 +170,11 @@ public sealed class RecordingCoordinatorTests
             return Task.CompletedTask;
         }
 
-        public Task ConfigureSegmentedRecordingAsync(string recordingDirectory, int segmentMinutes, CancellationToken cancellationToken = default)
+        public Task ConfigureSegmentedRecordingAsync(
+            string recordingDirectory,
+            int segmentMinutes,
+            GameCaptureTarget? captureTarget = null,
+            CancellationToken cancellationToken = default)
         {
             Calls.Add($"Configure:{segmentMinutes}");
             return Task.CompletedTask;
@@ -187,6 +191,14 @@ public sealed class RecordingCoordinatorTests
             CancellationToken cancellationToken = default)
         {
             Calls.Add($"ConfigureGame:{target.ExecutableName}");
+            return Task.CompletedTask;
+        }
+
+        public Task RefreshGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"RefreshGame:{target.ExecutableName}");
             return Task.CompletedTask;
         }
 

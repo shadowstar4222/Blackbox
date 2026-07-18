@@ -1,3 +1,4 @@
+using Blackbox.Domain;
 using Blackbox.Infrastructure;
 
 namespace Blackbox.Tests;
@@ -15,6 +16,8 @@ public sealed class UserExperienceSettingsStoreTests
             Assert.False(store.Current.StartWithWindows);
             Assert.True(store.Current.CloseToTray);
             Assert.False(store.Current.WatchRememberedGames);
+            Assert.True(store.Current.AutoSetupObsAtStartup);
+            Assert.Equal(new RecordingQualitySettings(), store.Current.RecordingQuality);
         }
         finally
         {
@@ -33,7 +36,14 @@ public sealed class UserExperienceSettingsStoreTests
             {
                 StartWithWindows = true,
                 CloseToTray = false,
-                WatchRememberedGames = true
+                WatchRememberedGames = true,
+                AutoSetupObsAtStartup = false,
+                RecordingQuality = new RecordingQualitySettings
+                {
+                    Resolution = RecordingResolution.UltraHd2160,
+                    FramesPerSecond = 120,
+                    AudioBitrateKbps = 320
+                }
             };
 
             store.Save(expected);
@@ -60,6 +70,70 @@ public sealed class UserExperienceSettingsStoreTests
             Assert.False(settings.StartWithWindows);
             Assert.True(settings.CloseToTray);
             Assert.False(settings.WatchRememberedGames);
+            Assert.True(settings.AutoSetupObsAtStartup);
+            Assert.Equal(new RecordingQualitySettings(), settings.RecordingQuality);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Legacy_settings_receive_new_capture_defaults_without_losing_preferences()
+    {
+        var root = CreateRoot();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(root, "experience.json"),
+                """
+                {
+                  "startWithWindows": true,
+                  "closeToTray": false,
+                  "watchRememberedGames": true
+                }
+                """);
+
+            var settings = CreateStore(root).Current;
+
+            Assert.True(settings.StartWithWindows);
+            Assert.False(settings.CloseToTray);
+            Assert.True(settings.WatchRememberedGames);
+            Assert.True(settings.AutoSetupObsAtStartup);
+            Assert.Equal(new RecordingQualitySettings(), settings.RecordingQuality);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Invalid_quality_uses_balanced_defaults_without_losing_preferences()
+    {
+        var root = CreateRoot();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(root, "experience.json"),
+                """
+                {
+                  "startWithWindows": true,
+                  "closeToTray": false,
+                  "recordingQuality": {
+                    "resolution": "UltraHd2160",
+                    "framesPerSecond": 59,
+                    "audioBitrateKbps": 320
+                  }
+                }
+                """);
+
+            var settings = CreateStore(root).Current;
+
+            Assert.True(settings.StartWithWindows);
+            Assert.False(settings.CloseToTray);
+            Assert.Equal(new RecordingQualitySettings(), settings.RecordingQuality);
         }
         finally
         {

@@ -55,7 +55,7 @@ public sealed class StartupRecoveryCoordinator(
         if (automaticCapture.WasInterrupted && !obsReady)
         {
             progress?.Report("Restarting OBS for interrupted automatic capture...");
-            var setupResult = await obsAutoSetup.SetupAsync(
+            var setupResult = await obsAutoSetup.PrepareAsync(
                 recordingSettings,
                 new Progress<ObsSetupProgress>(update => progress?.Report(update.Message)),
                 cancellationToken);

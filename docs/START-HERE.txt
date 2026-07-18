@@ -1,0 +1,56 @@
+BLACKBOX CAPTURE QUALITY OF LIFE BUILD
+
+1. Extract the entire ZIP to a normal folder.
+2. Double-click Blackbox.App.exe.
+3. Wait for the status to show "OBS is configured and ready."
+
+Blackbox now prepares its private OBS runtime automatically when it starts. It
+checks normal and Steam OBS locations first, including secondary Steam
+libraries. If OBS is already installed, Blackbox prepares its private runtime
+from those local files. Otherwise, it downloads and verifies the official OBS
+Studio package. Administrator access is not required.
+
+Open Settings to control:
+
+- Set up OBS when Blackbox starts
+- Start with Windows
+- Automatic recording at startup
+- Close to notification area
+- Recording resolution
+- Recording frame rate
+- Recording audio quality
+
+Use "Apply recording quality" after changing resolution, FPS, or audio quality.
+"Check OBS" remains available when you want Blackbox to make and validate a
+short setup-check recording.
+
+To use automatic recording:
+
+1. Start the program or game and leave its main window running.
+2. Open Games and select Manage remembered games.
+3. Choose it under Running applications and select Remember as game.
+4. Enable Automatic recording at startup in Settings.
+
+Blackbox watches only applications you choose. When one starts, it binds OBS to
+the live window and process audio, then records automatically. If the window is
+resized, Blackbox reframes the OBS source without stopping the recording.
+
+Recordings are stored under Videos\Blackbox:
+
+- Manual\YYYY-MM-DD for manual recordings
+- Application Name\YYYY-MM-DD for automatic recordings
+
+The Recordings workspace scans those folders recursively and presents segmented
+MKV files as continuous sessions. It can play, mark, protect, and export a
+session as one MKV or MP4.
+
+The private OBS runtime is separate from your normal or Steam OBS profile.
+Blackbox game sources remain dormant until an enabled remembered application is
+running.
+
+Logs: %LOCALAPPDATA%\Blackbox\logs
+
+For troubleshooting, open Diagnostics and select Support bundle. Blackbox shows
+the privacy contents before creating the local ZIP. The bundle excludes
+recordings, screenshots, databases, OBS passwords and settings, microphone
+configuration, saved profiles, executable lists, and application settings.

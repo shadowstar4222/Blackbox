@@ -1,12 +1,15 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Blackbox.Domain;
 
 namespace Blackbox.Infrastructure;
 
-public sealed class UserExperienceSettingsStore
+public sealed class UserExperienceSettingsStore : IRecordingQualitySettingsProvider
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     private readonly string _settingsPath;
@@ -21,10 +24,14 @@ public sealed class UserExperienceSettingsStore
     }
 
     public UserExperienceSettings Current => Volatile.Read(ref _current);
+    RecordingQualitySettings IRecordingQualitySettingsProvider.Current =>
+        Current.RecordingQuality ?? new RecordingQualitySettings();
 
     public void Save(UserExperienceSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(settings.RecordingQuality);
+        settings.RecordingQuality.Validate();
         AtomicFileWriter.WriteAllText(
             _settingsPath,
             JsonSerializer.Serialize(settings, JsonOptions));
@@ -40,9 +47,19 @@ public sealed class UserExperienceSettingsStore
 
         try
         {
-            return JsonSerializer.Deserialize<UserExperienceSettings>(
+            var settings = JsonSerializer.Deserialize<UserExperienceSettings>(
                 File.ReadAllText(path),
                 JsonOptions) ?? new UserExperienceSettings();
+            var quality = settings.RecordingQuality ?? new RecordingQualitySettings();
+            try
+            {
+                quality.Validate();
+                return settings with { RecordingQuality = quality };
+            }
+            catch (InvalidOperationException)
+            {
+                return settings with { RecordingQuality = new RecordingQualitySettings() };
+            }
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {

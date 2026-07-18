@@ -10,9 +10,13 @@ public sealed class RecordingLibraryServiceTests
     public async Task RefreshAsync_indexes_adjacent_files_and_reuses_unchanged_metadata()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        var firstPath = Path.Combine(root, "2026-07-15 12-00-00.mkv");
-        var secondPath = Path.Combine(root, "2026-07-15 12-02-00.mkv");
+        var sessionDirectory = RecordingDirectoryLayout.GetSessionDirectory(
+            root,
+            "Example Game",
+            DateTimeOffset.Parse("2026-07-15T12:00:00Z"));
+        Directory.CreateDirectory(sessionDirectory);
+        var firstPath = Path.Combine(sessionDirectory, "2026-07-15 12-00-00.mkv");
+        var secondPath = Path.Combine(sessionDirectory, "2026-07-15 12-02-00.mkv");
         await File.WriteAllTextAsync(firstPath, "one");
         await File.WriteAllTextAsync(secondPath, "two");
         File.SetLastWriteTimeUtc(firstPath, DateTime.UtcNow.AddSeconds(-2));
@@ -37,6 +41,7 @@ public sealed class RecordingLibraryServiceTests
             var session = Assert.Single(firstRefresh);
             Assert.Equal(2, session.Segments.Count);
             Assert.Equal(TimeSpan.FromMinutes(4), session.Duration);
+            Assert.Equal("Example Game", session.GameTitle);
             Assert.Single(secondRefresh);
             Assert.Equal(2, probe.Calls);
             Assert.Equal(1, provisioner.Calls);

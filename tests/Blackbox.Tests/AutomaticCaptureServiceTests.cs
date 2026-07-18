@@ -190,12 +190,16 @@ public sealed class AutomaticCaptureServiceTests
         public Task ConfigureSegmentedRecordingAsync(
             string recordingDirectory,
             int segmentMinutes,
+            GameCaptureTarget? captureTarget = null,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ConfigureAudioAsync(
             AudioRoutingProfile profile,
             MicrophoneProcessingSettings microphoneSettings,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ConfigureGameCaptureAsync(
+            GameCaptureTarget target,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RefreshGameCaptureAsync(
             GameCaptureTarget target,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<ObsRecordingStatus> GetRecordingStatusAsync(CancellationToken cancellationToken = default) =>
