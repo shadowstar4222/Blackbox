@@ -7,7 +7,7 @@ namespace Blackbox.Export;
 public sealed class FfmpegProvisioner(
     HttpClient httpClient,
     FfmpegOptions options,
-    ILogger<FfmpegProvisioner> logger) : IFfmpegProvisioner
+    ILogger<FfmpegProvisioner> logger) : IFfmpegProvisioner, IDisposable
 {
     private readonly SemaphoreSlim _installationGate = new(1, 1);
 
@@ -188,4 +188,6 @@ public sealed class FfmpegProvisioner(
         {
         }
     }
+
+    public void Dispose() => _installationGate.Dispose();
 }

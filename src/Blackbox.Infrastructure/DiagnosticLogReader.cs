@@ -15,31 +15,56 @@ public sealed partial class DiagnosticLogReader(DiagnosticLogOptions options) : 
             throw new ArgumentOutOfRangeException(nameof(maximumEntries));
         }
 
+        if (options.MaximumFiles is < 1 or > 30)
+        {
+            throw new InvalidOperationException("Diagnostic log file count must be between 1 and 30.");
+        }
+
+        if (options.MaximumBytesPerFile is < 4096 or > 16 * 1024 * 1024)
+        {
+            throw new InvalidOperationException(
+                "Diagnostic log read size must be between 4 KB and 16 MB per file.");
+        }
+
         if (!Directory.Exists(options.LogDirectory))
         {
             return [];
         }
 
         var entries = new List<DiagnosticLogEntry>();
-        var files = Directory
-            .EnumerateFiles(options.LogDirectory, "blackbox-*.log", SearchOption.TopDirectoryOnly)
-            .Select(static path => new FileInfo(path))
-            .OrderByDescending(static file => file.LastWriteTimeUtc)
-            .Take(7);
+        IReadOnlyList<FileInfo> files;
+        try
+        {
+            files = Directory
+                .EnumerateFiles(options.LogDirectory, "blackbox-*.log", SearchOption.TopDirectoryOnly)
+                .Select(static path => new FileInfo(path))
+                .OrderByDescending(static file => file.LastWriteTimeUtc)
+                .Take(options.MaximumFiles)
+                .ToArray();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string[] lines;
+            IReadOnlyList<string> lines;
             try
             {
-                lines = await ReadSharedLinesAsync(file.FullName, cancellationToken);
+                lines = await ReadSharedTailLinesAsync(
+                    file.FullName,
+                    maximumEntries,
+                    options.MaximumBytesPerFile,
+                    cancellationToken);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 continue;
             }
 
-            foreach (var line in lines.TakeLast(maximumEntries))
+            foreach (var line in lines)
             {
                 if (TryParse(line, file.Name, out var entry))
                 {
@@ -59,8 +84,10 @@ public sealed partial class DiagnosticLogReader(DiagnosticLogOptions options) : 
             .ToArray();
     }
 
-    private static async Task<string[]> ReadSharedLinesAsync(
+    private static async Task<IReadOnlyList<string>> ReadSharedTailLinesAsync(
         string path,
+        int maximumLines,
+        long maximumBytes,
         CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(
@@ -70,11 +97,27 @@ public sealed partial class DiagnosticLogReader(DiagnosticLogOptions options) : 
             FileShare.ReadWrite | FileShare.Delete,
             bufferSize: 4096,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var startOffset = Math.Max(0, stream.Length - maximumBytes);
+        if (startOffset > 0)
+        {
+            stream.Seek(startOffset, SeekOrigin.Begin);
+        }
+
         using var reader = new StreamReader(stream);
-        var lines = new List<string>();
+        if (startOffset > 0)
+        {
+            _ = await reader.ReadLineAsync(cancellationToken);
+        }
+
+        var lines = new Queue<string>(maximumLines);
         while (await reader.ReadLineAsync(cancellationToken) is { } line)
         {
-            lines.Add(line);
+            if (lines.Count == maximumLines)
+            {
+                lines.Dequeue();
+            }
+
+            lines.Enqueue(line);
         }
 
         return lines.ToArray();

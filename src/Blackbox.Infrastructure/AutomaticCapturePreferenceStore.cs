@@ -23,18 +23,14 @@ public sealed class AutomaticCapturePreferenceStore : IAutomaticCapturePreferenc
 
     public void Save(bool enabled)
     {
-        Volatile.Write(ref _wasEnabled, enabled ? 1 : 0);
-        if (string.IsNullOrWhiteSpace(_settingsPath))
+        if (!string.IsNullOrWhiteSpace(_settingsPath))
         {
-            return;
+            AtomicFileWriter.WriteAllText(
+                _settingsPath,
+                JsonSerializer.Serialize(new StoredPreference(enabled), JsonOptions));
         }
 
-        var directory = Path.GetDirectoryName(_settingsPath)
-            ?? throw new InvalidOperationException("The automatic-capture settings path has no parent directory.");
-        Directory.CreateDirectory(directory);
-        var temporaryPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(new StoredPreference(enabled), JsonOptions));
-        File.Move(temporaryPath, _settingsPath, true);
+        Volatile.Write(ref _wasEnabled, enabled ? 1 : 0);
     }
 
     private static bool Load(string? settingsPath)

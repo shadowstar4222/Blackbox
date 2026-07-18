@@ -1,5 +1,6 @@
 using Blackbox.Domain;
 using Microsoft.Data.Sqlite;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace Blackbox.Storage;
@@ -9,7 +10,10 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
     private readonly string _connectionString = new SqliteConnectionStringBuilder
     {
         DataSource = databasePath,
-        Mode = SqliteOpenMode.ReadWriteCreate
+        Mode = SqliteOpenMode.ReadWriteCreate,
+        Cache = SqliteCacheMode.Shared,
+        DefaultTimeout = 5,
+        Pooling = true
     }.ToString();
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -19,6 +23,8 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         await connection.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
+            PRAGMA journal_mode=WAL;
+            PRAGMA synchronous=NORMAL;
             CREATE TABLE IF NOT EXISTS game_profiles (
                 executable_path TEXT PRIMARY KEY COLLATE NOCASE,
                 display_name TEXT NOT NULL,
@@ -32,10 +38,10 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
-        await EnsureColumnAsync(connection, "executable_aliases_json", "TEXT NOT NULL DEFAULT '[]'", cancellationToken);
-        await EnsureColumnAsync(connection, "capture_game_audio", "INTEGER NOT NULL DEFAULT 1", cancellationToken);
-        await EnsureColumnAsync(connection, "follow_launcher_handoff", "INTEGER NOT NULL DEFAULT 1", cancellationToken);
-        await EnsureColumnAsync(connection, "prefer_gpu_activity", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+        await EnsureColumnAsync(connection, "executable_aliases_json", cancellationToken);
+        await EnsureColumnAsync(connection, "capture_game_audio", cancellationToken);
+        await EnsureColumnAsync(connection, "follow_launcher_handoff", cancellationToken);
+        await EnsureColumnAsync(connection, "prefer_gpu_activity", cancellationToken);
     }
 
     public async Task<IReadOnlyList<GameProfile>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -131,10 +137,13 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         }
     }
 
+    [SuppressMessage(
+        "Security",
+        "CA2100:Review SQL queries for security vulnerabilities",
+        Justification = "Migration SQL is selected from a closed compile-time allowlist and never includes external input.")]
     private static async Task EnsureColumnAsync(
         SqliteConnection connection,
         string columnName,
-        string definition,
         CancellationToken cancellationToken)
     {
         var inspectCommand = connection.CreateCommand();
@@ -152,7 +161,18 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         }
 
         var alterCommand = connection.CreateCommand();
-        alterCommand.CommandText = $"ALTER TABLE game_profiles ADD COLUMN {columnName} {definition};";
+        alterCommand.CommandText = columnName switch
+        {
+            "executable_aliases_json" =>
+                "ALTER TABLE game_profiles ADD COLUMN executable_aliases_json TEXT NOT NULL DEFAULT '[]';",
+            "capture_game_audio" =>
+                "ALTER TABLE game_profiles ADD COLUMN capture_game_audio INTEGER NOT NULL DEFAULT 1;",
+            "follow_launcher_handoff" =>
+                "ALTER TABLE game_profiles ADD COLUMN follow_launcher_handoff INTEGER NOT NULL DEFAULT 1;",
+            "prefer_gpu_activity" =>
+                "ALTER TABLE game_profiles ADD COLUMN prefer_gpu_activity INTEGER NOT NULL DEFAULT 0;",
+            _ => throw new ArgumentOutOfRangeException(nameof(columnName))
+        };
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 }

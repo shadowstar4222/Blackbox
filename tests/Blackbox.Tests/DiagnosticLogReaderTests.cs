@@ -35,4 +35,34 @@ public sealed class DiagnosticLogReaderTests
             Directory.Delete(root, true);
         }
     }
+
+    [Fact]
+    public async Task GetRecentAsync_bounds_large_files_and_returns_the_newest_entries()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var lines = Enumerable.Range(0, 300)
+                .Select(index =>
+                    $"2026-07-16 12:00:{index % 60:00}.000 -04:00 [INF] Recording event {index:000}.")
+                .ToArray();
+            await File.WriteAllLinesAsync(Path.Combine(root, "blackbox-20260716.log"), lines);
+            var reader = new DiagnosticLogReader(new DiagnosticLogOptions
+            {
+                LogDirectory = root,
+                MaximumBytesPerFile = 4096
+            });
+
+            var entries = await reader.GetRecentAsync(10);
+
+            Assert.Equal(10, entries.Count);
+            Assert.Contains(entries, entry => entry.Message.Contains("event 299", StringComparison.Ordinal));
+            Assert.DoesNotContain(entries, entry => entry.Message.Contains("event 001", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 }

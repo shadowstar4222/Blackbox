@@ -28,6 +28,12 @@
                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button x:Name="ExportSupportBundleButton"
+                        Content="Support bundle"
+                        MinWidth="110"
+                        Height="32"
+                        Margin="0,0,8,0"
+                        Click="ExportSupportBundleButton_Click" />
                 <Button x:Name="OpenLogsButton"
                         Content="Open logs"
                         MinWidth="90"

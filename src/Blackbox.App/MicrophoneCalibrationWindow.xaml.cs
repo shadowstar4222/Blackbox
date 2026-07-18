@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
 using Blackbox.Domain;
@@ -7,6 +8,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Blackbox.App;
 
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The WPF window disposes its cancellation source from its Closed event.")]
 public partial class MicrophoneCalibrationWindow : Window
 {
     private static readonly TimeSpan MeasurementDuration = TimeSpan.FromSeconds(3);

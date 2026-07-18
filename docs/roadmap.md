@@ -83,15 +83,21 @@ Milestone 6C was validated by force-closing Blackbox during a real OBS recording
 
 Milestone 6 is complete. The final live pass measured a running Steam game through Windows GPU counters, persisted its GPU preference, bound OBS with `GpuActivity` corroboration, recorded isolated game audio, and stopped cleanly through automatic capture.
 
-## Planned
-
 ### Milestone 7: Debugging, Hardening, And Optimization
 
-- Add an in-app diagnostics workspace with support-bundle export and privacy review.
-- Profile startup, recording, timeline generation, memory, disk IO, and export performance.
-- Bound caches and background work, reduce unnecessary media probes, and add stress tests.
-- Add long-running reliability, low-disk, device-loss, and failure-injection test passes.
-- Resolve accessibility, usability, and Windows 10 compatibility findings before release.
+- [x] Add an in-app diagnostics workspace with support-bundle export and privacy review.
+- [x] Profile startup, recording, timeline generation, memory, disk IO, and export performance.
+- [x] Bound caches and background work, reduce unnecessary media probes, and add stress tests.
+- [x] Add repeated reliability, low-disk-style, device-loss, cancellation, and failure-injection test passes.
+- [x] Resolve accessibility, usability, and Windows 10 compatibility findings before release.
+
+Milestone 7 is complete. The final pass audited all source and test projects, added bounded diagnostic and timeline storage, removed unnecessary media probes, hardened asynchronous shutdown and native/OBS resource ownership, made settings writes atomic, enabled SQLite WAL concurrency, and added a privacy-reviewed support bundle.
+
+The Release build has zero warnings and errors, all 114 automated tests pass, five final full-suite repetitions passed consecutively, and high-priority production findings from the exhaustive .NET analyzer pass are clear. A live Windows 10 test launched StarVester through Steam, detected its remembered executable and window, configured OBS at the live canvas size, recorded 95.433 seconds of nonblank H.264 video with five AAC tracks, and stopped automatically after the game exited. A separate cold-start run proved one-click OBS setup waits through backend initialization and completes its probe recording.
+
+See `docs/milestone-7-hardening-report.md` for the audit and validation record.
+
+## Planned
 
 ### Milestone 8: OBS Dock Edition
 

@@ -59,12 +59,14 @@ public partial class App : Application
                 {
                     LogDirectory = Path.Combine(appData, "logs")
                 });
+                services.AddSingleton(new SupportBundleOptions());
                 services.AddSingleton(new HttpClient
                 {
                     Timeout = TimeSpan.FromMinutes(20)
                 });
                 services.AddSingleton<IClock, SystemClock>();
                 services.AddSingleton<IDiagnosticLogReader, DiagnosticLogReader>();
+                services.AddSingleton<SupportBundleService>();
                 services.AddSingleton<ISegmentRepository>(_ => new SqliteSegmentRepository(databasePath));
                 services.AddSingleton<IGameProfileRepository>(_ => new SqliteGameProfileRepository(databasePath));
                 services.AddSingleton<ISegmentUsageRegistry, SegmentUsageRegistry>();
@@ -144,7 +146,14 @@ public partial class App : Application
         if (_host is not null)
         {
             await _host.StopAsync(TimeSpan.FromSeconds(5));
-            _host.Dispose();
+            if (_host is IAsyncDisposable asyncHost)
+            {
+                await asyncHost.DisposeAsync();
+            }
+            else
+            {
+                _host.Dispose();
+            }
         }
 
         Log.CloseAndFlush();

@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Blackbox.Domain;
+using Microsoft.Win32;
 using Microsoft.Extensions.Logging;
 
 namespace Blackbox.App;
@@ -36,6 +37,68 @@ public partial class DiagnosticsWindow : Window
     private void OpenLogsButton_Click(object sender, RoutedEventArgs e) => OpenDirectory(_diagnostics.LogDirectory);
 
     private void OpenBackupsButton_Click(object sender, RoutedEventArgs e) => OpenDirectory(_diagnostics.RecoveryBackupDirectory);
+
+    private async void ExportSupportBundleButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            _diagnostics.SupportBundlePrivacyDisclosure + "\n\nCreate this local support bundle?",
+            "Support bundle privacy review",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save Blackbox support bundle",
+            Filter = "Zip archive (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            FileName = $"Blackbox-support-{DateTime.Now:yyyyMMdd-HHmmss}.zip",
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        ExportSupportBundleButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
+        StatusText.Text = "Creating privacy-reviewed support bundle...";
+        try
+        {
+            var result = await _diagnostics.ExportSupportBundleAsync(dialog.FileName);
+            StatusText.Text =
+                $"Support bundle saved with {result.IncludedLogEntries} event(s) and {result.RedactionCount} redaction(s).";
+            MessageBox.Show(
+                this,
+                $"Support bundle saved to:\n{result.FilePath}",
+                "Support bundle ready",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not create the Blackbox support bundle.");
+            StatusText.Text = $"Support bundle failed: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+            ExportSupportBundleButton.IsEnabled = true;
+            RefreshButton.IsEnabled = true;
+        }
+    }
 
     private async Task RefreshAsync()
     {

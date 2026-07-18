@@ -7,7 +7,7 @@ namespace Blackbox.Tests;
 public sealed class RecordingLibraryServiceTests
 {
     [Fact]
-    public async Task RefreshAsync_indexes_adjacent_files_and_revalidates_media_health()
+    public async Task RefreshAsync_indexes_adjacent_files_and_reuses_unchanged_metadata()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -38,8 +38,8 @@ public sealed class RecordingLibraryServiceTests
             Assert.Equal(2, session.Segments.Count);
             Assert.Equal(TimeSpan.FromMinutes(4), session.Duration);
             Assert.Single(secondRefresh);
-            Assert.Equal(4, probe.Calls);
-            Assert.Equal(2, provisioner.Calls);
+            Assert.Equal(2, probe.Calls);
+            Assert.Equal(1, provisioner.Calls);
         }
         finally
         {

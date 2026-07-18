@@ -42,11 +42,18 @@ public sealed class RecordingLibraryService(
             .ToDictionary(
                 static segment => Path.GetFullPath(segment.FilePath),
                 StringComparer.OrdinalIgnoreCase);
-        var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
-            progress?.Report(new RecordingLibraryProgress(
-                update.Message,
-                update.Percent is null ? null : update.Percent * 0.45)));
-        await ffmpegProvisioner.EnsureInstalledAsync(provisionProgress, cancellationToken);
+        var filesRequiringProbe = mediaFiles.Count(file =>
+            !existingSegments.TryGetValue(file.FullName, out var existing) ||
+            existing.FileSizeBytes != file.Length ||
+            existing.IsDamaged);
+        if (filesRequiringProbe > 0)
+        {
+            var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
+                progress?.Report(new RecordingLibraryProgress(
+                    update.Message,
+                    update.Percent is null ? null : update.Percent * 0.45)));
+            await ffmpegProvisioner.EnsureInstalledAsync(provisionProgress, cancellationToken);
+        }
 
         var candidates = new List<MediaCandidate>(mediaFiles.Length);
         for (var index = 0; index < mediaFiles.Length; index++)
@@ -57,6 +64,14 @@ public sealed class RecordingLibraryService(
                 $"Indexing {file.Name}...",
                 45 + (index + 1) * 45d / mediaFiles.Length));
             existingSegments.TryGetValue(file.FullName, out var existing);
+            if (existing is not null &&
+                existing.FileSizeBytes == file.Length &&
+                !existing.IsDamaged)
+            {
+                candidates.Add(MediaCandidate.FromExisting(file, existing));
+                continue;
+            }
+
             try
             {
                 var probe = await mediaProbe.ProbeAsync(file.FullName, cancellationToken);

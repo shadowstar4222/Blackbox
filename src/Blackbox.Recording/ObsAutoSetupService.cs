@@ -20,7 +20,9 @@ public sealed class ObsAutoSetupService(
         IProgress<ObsSetupProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(recordingSettings);
         recordingSettings.Validate();
+        options.Validate();
 
         try
         {
@@ -49,7 +51,11 @@ public sealed class ObsAutoSetupService(
 
             progress?.Report(new ObsSetupProgress(ObsSetupStage.Configuring, "Creating the Blackbox recording profile..."));
             var plan = planner.CreateDefaultPlan(recordingSettings);
-            await obsController.ApplySetupPlanAsync(connectionSettings, plan, cancellationToken);
+            await ApplySetupWhenReadyAsync(
+                connectionSettings,
+                plan,
+                progress,
+                cancellationToken);
 
             progress?.Report(new ObsSetupProgress(ObsSetupStage.TestingRecording, "Running a short recording check..."));
             var probePath = await RunRecordingProbeAsync(cancellationToken);
@@ -92,6 +98,40 @@ public sealed class ObsAutoSetupService(
         return lastStatus ?? ObsConnectionStatus.Failed("No connection attempt was made.");
     }
 
+    private async Task ApplySetupWhenReadyAsync(
+        ObsConnectionSettings connectionSettings,
+        ObsSetupPlan plan,
+        IProgress<ObsSetupProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < options.ConnectionAttempts; attempt++)
+        {
+            try
+            {
+                await obsController.ApplySetupPlanAsync(
+                    connectionSettings,
+                    plan,
+                    cancellationToken);
+                return;
+            }
+            catch (ObsRequestFailedException ex) when (
+                ex.FailedResponses.Count > 0 &&
+                ex.FailedResponses.All(static response => response.Code == 207) &&
+                attempt < options.ConnectionAttempts - 1)
+            {
+                progress?.Report(new ObsSetupProgress(
+                    ObsSetupStage.Connecting,
+                    "OBS is connected and still initializing..."));
+                if (options.ConnectionRetryDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(options.ConnectionRetryDelay, cancellationToken);
+                }
+            }
+        }
+
+        throw new InvalidOperationException("OBS did not become ready for configuration.");
+    }
+
     private async Task<string> RunRecordingProbeAsync(CancellationToken cancellationToken)
     {
         var started = false;
@@ -129,7 +169,7 @@ public sealed class ObsAutoSetupService(
 
     private static ObsConnectionSettings CreateConnectionSettings()
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
         int port;
         try
         {

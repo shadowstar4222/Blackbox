@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -13,6 +14,10 @@ using Microsoft.Win32;
 
 namespace Blackbox.App;
 
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The WPF window cancels and disposes all owned operation tokens from its Closed event.")]
 public partial class RecordingLibraryWindow : Window
 {
     private static readonly IReadOnlyList<ExportPresetOption> ExportPresets =

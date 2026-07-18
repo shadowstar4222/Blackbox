@@ -14,9 +14,11 @@ public sealed class DiagnosticsService(
     RecordingCoordinator recordingCoordinator,
     AutomaticCaptureService automaticCapture,
     StartupRecoveryState recoveryState,
-    DiagnosticLogOptions logOptions)
+    DiagnosticLogOptions logOptions,
+    SupportBundleService supportBundleService)
 {
     public string LogDirectory => logOptions.LogDirectory;
+    public string SupportBundlePrivacyDisclosure => SupportBundleService.PrivacyDisclosure;
     public string RecoveryBackupDirectory =>
         Path.Combine(recordingSettings.RecordingLocation, recoveryOptions.BackupDirectoryName);
 
@@ -44,5 +46,25 @@ public sealed class DiagnosticsService(
             preservedFiles,
             recoverySummary,
             await logReader.GetRecentAsync(cancellationToken: cancellationToken));
+    }
+
+    public async Task<SupportBundleResult> ExportSupportBundleAsync(
+        string destinationPath,
+        CancellationToken cancellationToken = default)
+    {
+        var snapshot = await GetSnapshotAsync(cancellationToken);
+        return await supportBundleService.ExportAsync(
+            destinationPath,
+            new SupportBundleRequest(
+                snapshot.IsRecording,
+                snapshot.IsAutomaticCaptureEnabled,
+                snapshot.IndexedSegments,
+                snapshot.DamagedSegments,
+                snapshot.MissingSegments,
+                snapshot.RecordingBytes,
+                snapshot.PreservedRecoveryFiles,
+                snapshot.RecoverySummary,
+                snapshot.LogEntries),
+            cancellationToken);
     }
 }

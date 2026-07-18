@@ -59,8 +59,8 @@ public sealed class WindowsRunningApplicationCatalog(
             return;
         }
 
-        NativeMethods.GetWindowThreadProcessId(window, out var processId);
-        if (processId == 0)
+        var threadId = NativeMethods.GetWindowThreadProcessId(window, out var processId);
+        if (threadId == 0 || processId == 0)
         {
             return;
         }

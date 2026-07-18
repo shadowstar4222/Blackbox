@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
 using System.Windows.Interop;
@@ -10,6 +11,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Blackbox.App;
 
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The WPF window owns and disposes its cancellation source during the guarded closing lifecycle.")]
 public partial class MainWindow : Window
 {
     private readonly RecordingCoordinator _coordinator;
@@ -33,6 +38,8 @@ public partial class MainWindow : Window
     private bool _obsReady;
     private bool _isSetupBusy;
     private bool _isRecoveryBusy = true;
+    private bool _isShutdownInProgress;
+    private bool _shutdownComplete;
 
     public MainWindow(
         RecordingCoordinator coordinator,
@@ -374,7 +381,22 @@ public partial class MainWindow : Window
 
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        _startupRecoveryCancellation.Cancel();
+        ArgumentNullException.ThrowIfNull(e);
+        if (_shutdownComplete)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
+        e.Cancel = true;
+        if (_isShutdownInProgress)
+        {
+            return;
+        }
+
+        _isShutdownInProgress = true;
+        IsEnabled = false;
+        await _startupRecoveryCancellation.CancelAsync();
         _hotkeyService.Dispose();
         _automaticCaptureService.StatusChanged -= AutomaticCaptureService_StatusChanged;
 
@@ -402,7 +424,8 @@ public partial class MainWindow : Window
             }
         }
 
-        base.OnClosing(e);
         _startupRecoveryCancellation.Dispose();
+        _shutdownComplete = true;
+        Close();
     }
 }

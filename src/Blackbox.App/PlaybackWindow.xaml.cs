@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,6 +12,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Blackbox.App;
 
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "The WPF window synchronously releases VLC, media, leases, and cancellation state from its Closing event.")]
 public partial class PlaybackWindow : Window
 {
     private static readonly IReadOnlyList<PlaybackRateOption> PlaybackRates =

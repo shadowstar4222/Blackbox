@@ -25,18 +25,14 @@ public sealed class MicrophoneConfigurationStore : IMicrophoneConfigurationStore
     public void Save(MicrophoneConfiguration configuration)
     {
         Validate(configuration);
-        Volatile.Write(ref _current, configuration);
-        if (string.IsNullOrWhiteSpace(_settingsPath))
+        if (!string.IsNullOrWhiteSpace(_settingsPath))
         {
-            return;
+            AtomicFileWriter.WriteAllText(
+                _settingsPath,
+                JsonSerializer.Serialize(configuration, JsonOptions));
         }
 
-        var directory = Path.GetDirectoryName(_settingsPath)
-            ?? throw new InvalidOperationException("The microphone settings path has no parent directory.");
-        Directory.CreateDirectory(directory);
-        var temporaryPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(configuration, JsonOptions));
-        File.Move(temporaryPath, _settingsPath, true);
+        Volatile.Write(ref _current, configuration);
     }
 
     private static MicrophoneConfiguration Load(string? settingsPath)

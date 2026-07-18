@@ -8,11 +8,12 @@ public sealed class AutomaticCaptureService(
     AutomaticCaptureController controller,
     IAutomaticCapturePreferenceStore preferenceStore,
     AutomaticCaptureOptions options,
-    ILogger<AutomaticCaptureService> logger)
+    ILogger<AutomaticCaptureService> logger) : IAsyncDisposable
 {
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private CancellationTokenSource? _loopCancellation;
     private Task? _loopTask;
+    private int _isDisposed;
 
     public event Action<AutomaticCaptureStatus>? StatusChanged
     {
@@ -26,6 +27,7 @@ public sealed class AutomaticCaptureService(
 
     public async Task SetEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
@@ -36,29 +38,16 @@ public sealed class AutomaticCaptureService(
 
             if (enabled)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 options.Validate();
                 preferenceStore.Save(true);
                 controller.Enable();
-                _loopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _loopCancellation = new CancellationTokenSource();
                 _loopTask = RunAsync(_loopCancellation.Token);
                 return;
             }
 
-            _loopCancellation?.Cancel();
-            if (_loopTask is not null)
-            {
-                try
-                {
-                    await _loopTask;
-                }
-                catch (OperationCanceledException)
-                {
-                }
-            }
-
-            _loopCancellation?.Dispose();
-            _loopCancellation = null;
-            _loopTask = null;
+            await StopLoopAsync();
             await controller.DisableAsync(cancellationToken);
             preferenceStore.Save(false);
         }
@@ -72,6 +61,7 @@ public sealed class AutomaticCaptureService(
         bool ownsExistingRecording,
         CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
@@ -80,6 +70,7 @@ public sealed class AutomaticCaptureService(
                 return false;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             options.Validate();
             controller.Enable();
             if (ownsExistingRecording)
@@ -87,7 +78,7 @@ public sealed class AutomaticCaptureService(
                 controller.AdoptRecordingOwnership();
             }
 
-            _loopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _loopCancellation = new CancellationTokenSource();
             _loopTask = RunAsync(_loopCancellation.Token);
             return true;
         }
@@ -117,6 +108,59 @@ public sealed class AutomaticCaptureService(
             }
 
             await Task.Delay(options.PollInterval, cancellationToken);
+        }
+    }
+
+    private async Task StopLoopAsync()
+    {
+        var cancellation = _loopCancellation;
+        var task = _loopTask;
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        await cancellation.CancelAsync();
+        if (task is not null)
+        {
+            try
+            {
+                await task;
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
+        }
+
+        cancellation.Dispose();
+        _loopCancellation = null;
+        _loopTask = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
+        {
+            return;
+        }
+
+        await _lifecycleGate.WaitAsync();
+        try
+        {
+            await StopLoopAsync();
+            if (controller.IsEnabled)
+            {
+                await controller.DisableAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Automatic capture cleanup failed during shutdown.");
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+            _lifecycleGate.Dispose();
         }
     }
 }

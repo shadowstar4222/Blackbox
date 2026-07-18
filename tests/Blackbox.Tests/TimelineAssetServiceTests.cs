@@ -26,8 +26,9 @@ public sealed class TimelineAssetServiceTests
                 false);
             var registry = new SegmentUsageRegistry();
             var runner = new AssetWritingRunner(registry, segment.Id);
-            var service = new TimelineAssetService(
-                new FixedProvisioner(root),
+            var provisioner = new FixedProvisioner(root);
+            using var service = new TimelineAssetService(
+                provisioner,
                 runner,
                 registry,
                 new FfmpegOptions
@@ -47,7 +48,60 @@ public sealed class TimelineAssetServiceTests
             Assert.Equal(480, generated.Waveform.Count);
             Assert.True(runner.SawLease);
             Assert.Equal(2, runner.Calls);
+            Assert.Equal(1, provisioner.Calls);
             Assert.False(registry.IsInUse(segment.Id));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task GetOrCreateAsync_serializes_publication_and_prunes_expired_cache()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var sourcePath = Path.Combine(root, "source.mkv");
+        await File.WriteAllTextAsync(sourcePath, "source");
+        var expiredCache = Path.Combine(root, "cache", "expired-session", "expired-signature");
+        Directory.CreateDirectory(expiredCache);
+        await File.WriteAllTextAsync(Path.Combine(expiredCache, "old.jpg"), "old");
+        Directory.SetLastWriteTimeUtc(expiredCache, DateTime.UtcNow.AddDays(-3));
+        try
+        {
+            var segment = TestSegments.Create(sourcePath, duration: TimeSpan.FromSeconds(10));
+            var session = new RecordingSession(
+                segment.SessionId,
+                segment.StartTime,
+                segment.EndTime,
+                "Recording",
+                [segment],
+                false,
+                false);
+            var registry = new SegmentUsageRegistry();
+            var runner = new AssetWritingRunner(registry, segment.Id);
+            using var service = new TimelineAssetService(
+                new FixedProvisioner(root),
+                runner,
+                registry,
+                new FfmpegOptions
+                {
+                    RootDirectory = root,
+                    WorkDirectory = Path.Combine(root, "work"),
+                    TimelineCacheDirectory = Path.Combine(root, "cache"),
+                    TimelineCacheMaximumAge = TimeSpan.FromDays(1)
+                },
+                NullLogger<TimelineAssetService>.Instance);
+
+            var results = await Task.WhenAll(
+                service.GetOrCreateAsync(session),
+                service.GetOrCreateAsync(session));
+
+            Assert.Equal(2, runner.Calls);
+            Assert.Single(results, result => !result.LoadedFromCache);
+            Assert.Single(results, result => result.LoadedFromCache);
+            Assert.False(Directory.Exists(expiredCache));
         }
         finally
         {
@@ -57,10 +111,15 @@ public sealed class TimelineAssetServiceTests
 
     private sealed class FixedProvisioner(string root) : IFfmpegProvisioner
     {
+        public int Calls { get; private set; }
+
         public Task<FfmpegInstallation> EnsureInstalledAsync(
             IProgress<FfmpegProvisionProgress>? progress = null,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe", "ffplay"));
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe", "ffplay"));
+        }
     }
 
     private sealed class AssetWritingRunner(ISegmentUsageRegistry registry, Guid segmentId) : IFfmpegCommandRunner

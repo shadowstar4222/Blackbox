@@ -1,4 +1,4 @@
-BLACKBOX MILESTONE 6 COMPLETE TEST BUILD
+BLACKBOX MILESTONE 7 HARDENED TEST BUILD
 
 1. Extract the entire ZIP to a normal folder.
 2. Double-click Blackbox.App.exe.
@@ -35,3 +35,8 @@ can learn a launcher's final game executable after two matching scans, and the
 Games window lets you review or remove every learned alias.
 
 Logs: %LOCALAPPDATA%\Blackbox\logs
+
+For troubleshooting, open Diagnostics and click Support bundle. Blackbox shows
+the privacy contents before it creates the local ZIP. The bundle excludes all
+recordings, screenshots, databases, OBS passwords and settings, microphone
+configuration, saved game profiles, executable lists, and application settings.

@@ -11,17 +11,34 @@ public sealed class TimelineAssetService(
     IFfmpegCommandRunner commandRunner,
     ISegmentUsageRegistry usageRegistry,
     FfmpegOptions options,
-    ILogger<TimelineAssetService> logger)
+    ILogger<TimelineAssetService> logger) : IDisposable
 {
     private const int WaveformBucketCount = 480;
+    private readonly SemaphoreSlim _cacheGate = new(1, 1);
 
     public async Task<TimelineAssets> GetOrCreateAsync(
         RecordingSession session,
         IProgress<RecordingLibraryProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        await _cacheGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await GetOrCreateCoreAsync(session, progress, cancellationToken);
+        }
+        finally
+        {
+            _cacheGate.Release();
+        }
+    }
+
+    private async Task<TimelineAssets> GetOrCreateCoreAsync(
+        RecordingSession session,
+        IProgress<RecordingLibraryProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         ValidateSession(session);
-        var installation = await ffmpegProvisioner.EnsureInstalledAsync(cancellationToken: cancellationToken);
+        ValidateCacheOptions();
         var sessionCache = Path.Combine(GetCacheRoot(), session.Id.ToString("N"));
         var signature = CreateSignature(session);
         var cacheDirectory = Path.Combine(sessionCache, signature);
@@ -33,6 +50,7 @@ public sealed class TimelineAssetService(
             return cached with { LoadedFromCache = true };
         }
 
+        var installation = await ffmpegProvisioner.EnsureInstalledAsync(cancellationToken: cancellationToken);
         Directory.CreateDirectory(sessionCache);
         Directory.CreateDirectory(options.WorkDirectory);
         var stagingDirectory = Path.Combine(sessionCache, $".partial-{Guid.NewGuid():N}");
@@ -93,6 +111,7 @@ public sealed class TimelineAssetService(
             }
 
             Directory.Move(stagingDirectory, cacheDirectory);
+            PruneCache(cacheDirectory);
             var result = ToAssets(manifest, cacheDirectory, false);
             progress?.Report(new RecordingLibraryProgress("Timeline preview is ready.", 100));
             logger.LogInformation(
@@ -104,6 +123,120 @@ public sealed class TimelineAssetService(
         {
             TryDeleteFile(concatPath);
             TryDeleteDirectory(stagingDirectory);
+        }
+    }
+
+    private void ValidateCacheOptions()
+    {
+        if (options.TimelineCacheMaximumBytes < 1024 * 1024)
+        {
+            throw new InvalidOperationException("Timeline cache size must be at least 1 MB.");
+        }
+
+        if (options.TimelineCacheMaximumAge <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException("Timeline cache age must be greater than zero.");
+        }
+    }
+
+    private void PruneCache(string currentCacheDirectory)
+    {
+        var cacheRoot = GetCacheRoot();
+        if (!Directory.Exists(cacheRoot))
+        {
+            return;
+        }
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            var directories = Directory
+                .EnumerateDirectories(cacheRoot, "*", SearchOption.TopDirectoryOnly)
+                .SelectMany(static sessionDirectory =>
+                    Directory.EnumerateDirectories(sessionDirectory, "*", SearchOption.TopDirectoryOnly))
+                .Where(path =>
+                    !path.Equals(currentCacheDirectory, StringComparison.OrdinalIgnoreCase) &&
+                    !Path.GetFileName(path).StartsWith(".partial-", StringComparison.OrdinalIgnoreCase))
+                .Select(TryInspectCacheDirectory)
+                .OfType<CacheDirectory>()
+                .OrderBy(static directory => directory.LastWriteTimeUtc)
+                .ToList();
+            foreach (var expired in directories
+                         .Where(directory => now - directory.LastWriteTimeUtc > options.TimelineCacheMaximumAge)
+                         .ToArray())
+            {
+                if (TryDeleteCacheDirectory(expired.Path))
+                {
+                    directories.Remove(expired);
+                }
+            }
+
+            var currentBytes = GetDirectorySize(currentCacheDirectory);
+            var totalBytes = currentBytes + directories.Sum(static directory => directory.SizeBytes);
+            foreach (var candidate in directories)
+            {
+                if (totalBytes <= options.TimelineCacheMaximumBytes)
+                {
+                    break;
+                }
+
+                if (TryDeleteCacheDirectory(candidate.Path))
+                {
+                    totalBytes -= candidate.SizeBytes;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(ex, "Could not prune the timeline preview cache.");
+        }
+    }
+
+    private static CacheDirectory? TryInspectCacheDirectory(string path)
+    {
+        try
+        {
+            return new CacheDirectory(
+                path,
+                GetDirectorySize(path),
+                Directory.GetLastWriteTimeUtc(path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static long GetDirectorySize(string path)
+    {
+        if (!Directory.Exists(path))
+        {
+            return 0;
+        }
+
+        long size = 0;
+        foreach (var filePath in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+        {
+            size = checked(size + new FileInfo(filePath).Length);
+        }
+
+        return size;
+    }
+
+    private static bool TryDeleteCacheDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 
@@ -203,9 +336,12 @@ public sealed class TimelineAssetService(
         }
     }
 
+    public void Dispose() => _cacheGate.Dispose();
+
     private sealed record TimelineManifest(
         IReadOnlyList<ThumbnailManifest> Thumbnails,
         IReadOnlyList<double> Waveform);
 
     private sealed record ThumbnailManifest(double OffsetSeconds, string FileName);
+    private sealed record CacheDirectory(string Path, long SizeBytes, DateTime LastWriteTimeUtc);
 }

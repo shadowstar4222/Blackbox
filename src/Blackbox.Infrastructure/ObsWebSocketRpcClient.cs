@@ -164,6 +164,7 @@ public sealed class ObsWebSocketRpcClient(
 
     private sealed class ObsWebSocketSession : IAsyncDisposable
     {
+        private const int MaximumMessageBytes = 4 * 1024 * 1024;
         private readonly ClientWebSocket _socket = new();
 
         private ObsWebSocketSession()
@@ -176,18 +177,26 @@ public sealed class ObsWebSocketRpcClient(
             int? eventSubscriptions = null)
         {
             var session = new ObsWebSocketSession();
-            var uri = new UriBuilder("ws", settings.Host, settings.Port).Uri;
-            await session._socket.ConnectAsync(uri, cancellationToken);
-            var hello = await session.ReceiveAsync(cancellationToken);
-            var identify = BuildIdentifyPayload(settings, hello, eventSubscriptions);
-            await session.SendAsync(identify, cancellationToken);
-            var identified = await session.ReceiveAsync(cancellationToken);
-            if (identified["op"]?.GetValue<int>() != 2)
+            try
             {
-                throw new InvalidOperationException("OBS websocket did not confirm identification.");
-            }
+                var uri = new UriBuilder("ws", settings.Host, settings.Port).Uri;
+                await session._socket.ConnectAsync(uri, cancellationToken);
+                var hello = await session.ReceiveAsync(cancellationToken);
+                var identify = BuildIdentifyPayload(settings, hello, eventSubscriptions);
+                await session.SendAsync(identify, cancellationToken);
+                var identified = await session.ReceiveAsync(cancellationToken);
+                if (identified["op"]?.GetValue<int>() != 2)
+                {
+                    throw new InvalidOperationException("OBS websocket did not confirm identification.");
+                }
 
-            return session;
+                return session;
+            }
+            catch
+            {
+                await session.DisposeAsync();
+                throw;
+            }
         }
 
         public async Task SendAsync(JsonObject payload, CancellationToken cancellationToken)
@@ -236,7 +245,17 @@ public sealed class ObsWebSocketRpcClient(
                     throw new IOException($"OBS websocket closed the connection: {result.CloseStatusDescription ?? "no reason provided"}.");
                 }
 
-                stream.Write(buffer, 0, result.Count);
+                if (result.MessageType != WebSocketMessageType.Text)
+                {
+                    throw new InvalidDataException("OBS websocket returned a non-text message.");
+                }
+
+                if (stream.Length + result.Count > MaximumMessageBytes)
+                {
+                    throw new InvalidDataException("OBS websocket returned an oversized message.");
+                }
+
+                await stream.WriteAsync(buffer.AsMemory(0, result.Count), cancellationToken);
             }
             while (!result.EndOfMessage);
 

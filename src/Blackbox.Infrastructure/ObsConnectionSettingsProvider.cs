@@ -25,8 +25,8 @@ public sealed class ObsConnectionSettingsProvider : IObsConnectionSettingsProvid
     public void Set(ObsConnectionSettings settings)
     {
         settings.Validate();
-        Volatile.Write(ref _current, settings);
         Save(settings);
+        Volatile.Write(ref _current, settings);
     }
 
     private void Save(ObsConnectionSettings settings)
@@ -36,12 +36,9 @@ public sealed class ObsConnectionSettingsProvider : IObsConnectionSettingsProvid
             return;
         }
 
-        var directory = Path.GetDirectoryName(_settingsPath)
-            ?? throw new InvalidOperationException("The OBS connection settings path has no parent directory.");
-        Directory.CreateDirectory(directory);
-        var temporaryPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, JsonOptions));
-        File.Move(temporaryPath, _settingsPath, true);
+        AtomicFileWriter.WriteAllText(
+            _settingsPath,
+            JsonSerializer.Serialize(settings, JsonOptions));
     }
 
     private static ObsConnectionSettings Load(string? settingsPath)

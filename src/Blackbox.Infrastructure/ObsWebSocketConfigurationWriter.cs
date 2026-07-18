@@ -29,7 +29,9 @@ internal static class ObsWebSocketConfigurationWriter
             ServerEnabled: true,
             ServerPassword: settings.Password ?? string.Empty,
             ServerPort: settings.Port);
-        File.WriteAllText(configurationPath, JsonSerializer.Serialize(configuration, JsonOptions));
+        AtomicFileWriter.WriteAllText(
+            configurationPath,
+            JsonSerializer.Serialize(configuration, JsonOptions));
     }
 
     private sealed record WebSocketConfiguration(

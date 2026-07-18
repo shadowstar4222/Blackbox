@@ -10,7 +10,7 @@ public sealed class MicrophoneDeviceMonitor(
     IMicrophoneConfigurationStore configurationStore,
     IClock clock,
     MicrophoneMonitoringOptions options,
-    ILogger<MicrophoneDeviceMonitor> logger) : IMicrophoneDeviceMonitor
+    ILogger<MicrophoneDeviceMonitor> logger) : IMicrophoneDeviceMonitor, IAsyncDisposable
 {
     private readonly object _sync = new();
     private CancellationTokenSource? _monitorCancellation;
@@ -42,10 +42,16 @@ public sealed class MicrophoneDeviceMonitor(
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         Task? monitorTask;
+        CancellationTokenSource? monitorCancellation;
         lock (_sync)
         {
             monitorTask = _monitorTask;
-            _monitorCancellation?.Cancel();
+            monitorCancellation = _monitorCancellation;
+        }
+
+        if (monitorCancellation is not null)
+        {
+            await monitorCancellation.CancelAsync();
         }
 
         if (monitorTask is not null)
@@ -54,16 +60,19 @@ public sealed class MicrophoneDeviceMonitor(
             {
                 await monitorTask.WaitAsync(cancellationToken);
             }
-            catch (OperationCanceledException) when (_monitorCancellation?.IsCancellationRequested == true)
+            catch (OperationCanceledException) when (monitorCancellation?.IsCancellationRequested == true)
             {
             }
         }
 
         lock (_sync)
         {
-            _monitorCancellation?.Dispose();
-            _monitorCancellation = null;
-            _monitorTask = null;
+            if (ReferenceEquals(_monitorTask, monitorTask))
+            {
+                _monitorCancellation?.Dispose();
+                _monitorCancellation = null;
+                _monitorTask = null;
+            }
         }
     }
 
@@ -83,8 +92,7 @@ public sealed class MicrophoneDeviceMonitor(
                     previous.State != MicrophoneConnectionState.Disconnected)
                 {
                     logger.LogWarning(
-                        "Microphone {MicrophoneDeviceId} disconnected; OBS sources remain active to preserve silence and track timing.",
-                        configuration.DeviceId);
+                        "The configured microphone disconnected; OBS sources remain active to preserve silence and track timing.");
                 }
                 else if (current.State == MicrophoneConnectionState.Connected &&
                     previous.State == MicrophoneConnectionState.Disconnected)
@@ -94,8 +102,7 @@ public sealed class MicrophoneDeviceMonitor(
                         configuration.ProcessingSettings,
                         cancellationToken);
                     logger.LogInformation(
-                        "Microphone {MicrophoneDeviceId} reconnected and was restored to both microphone paths.",
-                        configuration.DeviceId);
+                        "The configured microphone reconnected and was restored to both microphone paths.");
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -121,4 +128,6 @@ public sealed class MicrophoneDeviceMonitor(
             }
         }
     }
+
+    public async ValueTask DisposeAsync() => await StopAsync();
 }

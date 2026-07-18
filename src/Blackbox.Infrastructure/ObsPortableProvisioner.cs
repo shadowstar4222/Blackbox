@@ -13,13 +13,29 @@ public sealed class ObsPortableProvisioner(
     HttpClient httpClient,
     ObsProvisioningOptions options,
     IObsInstallationLocator installationLocator,
-    ILogger<ObsPortableProvisioner> logger) : IObsPortableProvisioner
+    ILogger<ObsPortableProvisioner> logger) : IObsPortableProvisioner, IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly SemaphoreSlim _installationGate = new(1, 1);
 
     public async Task<ObsInstallation> EnsureInstalledAsync(
         IProgress<ObsSetupProgress>? progress = null,
         CancellationToken cancellationToken = default)
+    {
+        await _installationGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await EnsureInstalledCoreAsync(progress, cancellationToken);
+        }
+        finally
+        {
+            _installationGate.Release();
+        }
+    }
+
+    private async Task<ObsInstallation> EnsureInstalledCoreAsync(
+        IProgress<ObsSetupProgress>? progress,
+        CancellationToken cancellationToken)
     {
         var executablePath = GetExecutablePath(options.PortableRootDirectory);
         progress?.Report(new ObsSetupProgress(
@@ -119,8 +135,6 @@ public sealed class ObsPortableProvisioner(
         startInfo.ArgumentList.Add("--websocket_ipv4_only");
         startInfo.ArgumentList.Add("--websocket_port");
         startInfo.ArgumentList.Add(connectionSettings.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        startInfo.ArgumentList.Add("--websocket_password");
-        startInfo.ArgumentList.Add(connectionSettings.Password ?? string.Empty);
 
         _ = Process.Start(startInfo) ?? throw new InvalidOperationException("Windows could not start the Blackbox OBS process.");
         logger.LogInformation(
@@ -329,19 +343,33 @@ public sealed class ObsPortableProvisioner(
 
     private static void TryDeleteFile(string path)
     {
-        if (File.Exists(path))
+        try
         {
-            File.Delete(path);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
 
     private static void TryDeleteDirectory(string path)
     {
-        if (Directory.Exists(path))
+        try
         {
-            Directory.Delete(path, true);
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
+
+    public void Dispose() => _installationGate.Dispose();
 
     private sealed record ObsRelease(
         [property: JsonPropertyName("tag_name")] string Version,

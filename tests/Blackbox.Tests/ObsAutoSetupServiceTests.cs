@@ -100,10 +100,44 @@ public sealed class ObsAutoSetupServiceTests
         }
     }
 
+    [Fact]
+    public async Task SetupAsync_retries_configuration_while_obs_reports_not_ready()
+    {
+        var probePath = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllTextAsync(probePath, "probe");
+            var provisioner = new RecordingProvisioner();
+            var provider = new ObsConnectionSettingsProvider();
+            provider.Set(new ObsConnectionSettings { Port = 4567, Password = "saved-password" });
+            var obs = new SetupObsController(
+                ObsConnectionStatus.Connected(),
+                probePath,
+                readinessFailures: 2);
+            var service = CreateService(
+                provisioner,
+                provider,
+                obs,
+                connectionAttempts: 3);
+
+            var result = await service.SetupAsync(
+                new RecordingSettings { RecordingLocation = Path.GetTempPath() });
+
+            Assert.True(result.IsSuccessful);
+            Assert.Equal(3, obs.Calls.Count(call => call == "ApplySetup:5"));
+            Assert.Equal(["Start", "Stop"], obs.Calls.TakeLast(2).ToArray());
+        }
+        finally
+        {
+            File.Delete(probePath);
+        }
+    }
+
     private static ObsAutoSetupService CreateService(
         IObsPortableProvisioner provisioner,
         IObsConnectionSettingsProvider provider,
-        IObsController controller) =>
+        IObsController controller,
+        int connectionAttempts = 1) =>
         new(
             provisioner,
             provider,
@@ -111,7 +145,7 @@ public sealed class ObsAutoSetupServiceTests
             new ObsSetupPlanner(),
             new ObsOnboardingOptions
             {
-                ConnectionAttempts = 1,
+                ConnectionAttempts = connectionAttempts,
                 ConnectionRetryDelay = TimeSpan.Zero,
                 ProbeRecordingDuration = TimeSpan.Zero
             },
@@ -139,8 +173,12 @@ public sealed class ObsAutoSetupServiceTests
         }
     }
 
-    private sealed class SetupObsController(ObsConnectionStatus status, string? probePath) : IObsController
+    private sealed class SetupObsController(
+        ObsConnectionStatus status,
+        string? probePath,
+        int readinessFailures = 0) : IObsController
     {
+        private int _remainingReadinessFailures = readinessFailures;
         public List<string> Calls { get; } = [];
 
         public Task LaunchAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -159,6 +197,12 @@ public sealed class ObsAutoSetupServiceTests
             CancellationToken cancellationToken = default)
         {
             Calls.Add($"ApplySetup:{plan.Sources.Count}");
+            if (Interlocked.Decrement(ref _remainingReadinessFailures) >= 0)
+            {
+                throw new ObsRequestFailedException(
+                [new ObsResponse("GetProfileList", false, 207, "OBS is not ready.")]);
+            }
+
             return Task.CompletedTask;
         }
 

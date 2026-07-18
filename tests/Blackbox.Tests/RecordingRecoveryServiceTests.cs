@@ -6,6 +6,9 @@ namespace Blackbox.Tests;
 
 public sealed class RecordingRecoveryServiceTests
 {
+    private static readonly DateTime StableFileTimeUtc =
+        DateTime.Parse("2026-07-16T12:00:00Z").ToUniversalTime();
+
     [Fact]
     public async Task RecoverAsync_atomically_publishes_valid_repair_and_preserves_original()
     {
@@ -13,7 +16,7 @@ public sealed class RecordingRecoveryServiceTests
         try
         {
             var path = Path.Combine(root, "2026-07-16 12-00-00.mkv");
-            await File.WriteAllTextAsync(path, "broken-original");
+            await WriteStableFileAsync(path, "broken-original");
             var repository = new InMemorySegmentRepository();
             var probe = new RecoveryProbe(path);
             var runner = new RecoveryCommandRunner(succeeds: true);
@@ -42,7 +45,7 @@ public sealed class RecordingRecoveryServiceTests
         try
         {
             var path = Path.Combine(root, "2026-07-16 12-01-00.mkv");
-            await File.WriteAllTextAsync(path, "irreplaceable-broken-data");
+            await WriteStableFileAsync(path, "irreplaceable-broken-data");
             var runner = new RecoveryCommandRunner(succeeds: false);
             var service = CreateService(
                 root,
@@ -71,7 +74,7 @@ public sealed class RecordingRecoveryServiceTests
         try
         {
             var path = Path.Combine(root, "2026-07-16 12-02-00.mkv");
-            await File.WriteAllTextAsync(path, "healthy");
+            await WriteStableFileAsync(path, "healthy");
             var runner = new RecoveryCommandRunner(succeeds: true);
             var provisioner = new RecoveryProvisioner();
             var service = CreateService(
@@ -101,8 +104,8 @@ public sealed class RecordingRecoveryServiceTests
         {
             var damagedPath = Path.Combine(root, "2026-07-16 12-02-30.mkv");
             var healthyPath = Path.Combine(root, "2026-07-16 12-02-31.mkv");
-            await File.WriteAllTextAsync(damagedPath, "broken");
-            await File.WriteAllTextAsync(healthyPath, "healthy");
+            await WriteStableFileAsync(damagedPath, "broken");
+            await WriteStableFileAsync(healthyPath, "healthy");
             var probe = new RecoveryProbe(damagedPath);
             var runner = new RecoveryCommandRunner(succeeds: true);
             var service = CreateService(
@@ -194,6 +197,12 @@ public sealed class RecordingRecoveryServiceTests
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    private static async Task WriteStableFileAsync(string path, string contents)
+    {
+        await File.WriteAllTextAsync(path, contents);
+        File.SetLastWriteTimeUtc(path, StableFileTimeUtc);
     }
 
     private sealed class RecoveryProbe(params string[] damagedPaths) : IMediaProbe

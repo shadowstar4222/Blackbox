@@ -52,17 +52,27 @@ public sealed class SessionPlaybackService(
             startInfo.ArgumentList.Add(argument);
         }
 
-        Process? process = null;
+        Process process;
         try
         {
             process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("Windows could not start the Blackbox player.");
+        }
+        catch
+        {
+            lease.Dispose();
+            TryDeleteFile(concatPath);
+            throw;
+        }
+
+        try
+        {
             progress?.Report(new RecordingLibraryProgress("Playing the continuous recording.", 100));
             _ = MonitorPlaybackAsync(process, lease, concatPath);
         }
         catch
         {
-            process?.Dispose();
+            process.Dispose();
             lease.Dispose();
             TryDeleteFile(concatPath);
             throw;

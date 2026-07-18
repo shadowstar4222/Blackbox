@@ -10,7 +10,7 @@ public sealed class RecordingCoordinator(
     IMicrophoneConfigurationStore microphoneConfigurationStore,
     ISegmentRepository segmentRepository,
     IMicrophoneDeviceMonitor microphoneDeviceMonitor,
-    ILogger<RecordingCoordinator> logger)
+    ILogger<RecordingCoordinator> logger) : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private int _isRecording;
@@ -143,4 +143,6 @@ public sealed class RecordingCoordinator(
             _gate.Release();
         }
     }
+
+    public void Dispose() => _gate.Dispose();
 }

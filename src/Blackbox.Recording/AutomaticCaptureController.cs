@@ -10,7 +10,7 @@ public sealed class AutomaticCaptureController(
     RecordingSettings recordingSettings,
     IClock clock,
     AutomaticCaptureOptions options,
-    ILogger<AutomaticCaptureController> logger)
+    ILogger<AutomaticCaptureController> logger) : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private GameCaptureTarget? _pendingTarget;
@@ -299,4 +299,6 @@ public sealed class AutomaticCaptureController(
         Volatile.Write(ref _status, status);
         StatusChanged?.Invoke(status);
     }
+
+    public void Dispose() => _gate.Dispose();
 }

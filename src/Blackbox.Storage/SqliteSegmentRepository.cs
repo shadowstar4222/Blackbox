@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Blackbox.Domain;
 using Microsoft.Data.Sqlite;
 
@@ -8,7 +9,10 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
     private readonly string _connectionString = new SqliteConnectionStringBuilder
     {
         DataSource = databasePath,
-        Mode = SqliteOpenMode.ReadWriteCreate
+        Mode = SqliteOpenMode.ReadWriteCreate,
+        Cache = SqliteCacheMode.Shared,
+        DefaultTimeout = 5,
+        Pooling = true
     }.ToString();
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -18,6 +22,8 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         await connection.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
+            PRAGMA journal_mode=WAL;
+            PRAGMA synchronous=NORMAL;
             CREATE TABLE IF NOT EXISTS segments (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -55,8 +61,8 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
-        await EnsureColumnAsync(connection, "is_damaged", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
-        await EnsureColumnAsync(connection, "damage_detail", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "is_damaged", cancellationToken);
+        await EnsureColumnAsync(connection, "damage_detail", cancellationToken);
     }
 
     public async Task UpsertAsync(RecordingSegment segment, CancellationToken cancellationToken = default)
@@ -216,7 +222,7 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
-        using var transaction = connection.BeginTransaction();
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
         var updateCommand = connection.CreateCommand();
         updateCommand.Transaction = transaction;
         updateCommand.CommandText = """
@@ -239,7 +245,7 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         insertCommand.Parameters.AddWithValue("$end_time", endTime.ToString("O"));
         insertCommand.Parameters.AddWithValue("$created_at", DateTimeOffset.UtcNow.ToString("O"));
         await insertCommand.ExecuteNonQueryAsync(cancellationToken);
-        transaction.Commit();
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task DeleteByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -316,10 +322,13 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
                 : reader.GetString(reader.GetOrdinal("damage_detail")));
     }
 
+    [SuppressMessage(
+        "Security",
+        "CA2100:Review SQL queries for security vulnerabilities",
+        Justification = "Migration SQL is selected from a closed compile-time allowlist and never includes external input.")]
     private static async Task EnsureColumnAsync(
         SqliteConnection connection,
         string columnName,
-        string definition,
         CancellationToken cancellationToken)
     {
         var inspectCommand = connection.CreateCommand();
@@ -344,7 +353,12 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         }
 
         var alterCommand = connection.CreateCommand();
-        alterCommand.CommandText = $"ALTER TABLE segments ADD COLUMN {columnName} {definition};";
+        alterCommand.CommandText = columnName switch
+        {
+            "is_damaged" => "ALTER TABLE segments ADD COLUMN is_damaged INTEGER NOT NULL DEFAULT 0;",
+            "damage_detail" => "ALTER TABLE segments ADD COLUMN damage_detail TEXT NULL;",
+            _ => throw new ArgumentOutOfRangeException(nameof(columnName))
+        };
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 }
