@@ -43,6 +43,7 @@ public partial class RecordingLibraryWindow : Window
     private CancellationTokenSource? _exportCancellation;
     private IReadOnlyList<ThumbnailItem> _thumbnails = [];
     private IReadOnlyList<AudioTrackRow> _audioTrackRows = [];
+    private PlaybackWindow? _playbackWindow;
     private string? _lastExportPath;
     private bool _isBusy;
     private bool _updatingSelection;
@@ -99,7 +100,7 @@ public partial class RecordingLibraryWindow : Window
         ConfigureSession(session);
         if (session is not null)
         {
-            await LoadTimelineAssetsAsync(session);
+            await LoadTimelineAssetsAsync(session, generateIfMissing: false);
         }
     }
 
@@ -109,6 +110,9 @@ public partial class RecordingLibraryWindow : Window
         _thumbnails = [];
         ThumbnailItemsControl.ItemsSource = null;
         PreviewImage.Source = null;
+        WaveformTimeline.Samples = [];
+        BuildPreviewButton.Visibility = Visibility.Collapsed;
+        BuildPreviewButton.IsEnabled = true;
         _updatingSelection = true;
         _updatingAudio = true;
         try
@@ -158,37 +162,59 @@ public partial class RecordingLibraryWindow : Window
         }
     }
 
-    private async Task LoadTimelineAssetsAsync(RecordingSession session)
+    private async Task LoadTimelineAssetsAsync(RecordingSession session, bool generateIfMissing)
     {
+        _timelineAssetCancellation?.Cancel();
         _timelineAssetCancellation?.Dispose();
         _timelineAssetCancellation = CancellationTokenSource.CreateLinkedTokenSource(_windowCancellation.Token);
         var cancellation = _timelineAssetCancellation;
         if (session.HasMissingSegments || session.HasGaps || session.HasDamagedSegments)
         {
             PreviewStatusText.Text = "Preview unavailable for this session.";
+            BuildPreviewButton.Visibility = Visibility.Collapsed;
             return;
         }
 
         try
         {
-            PreviewStatusText.Text = "Preparing timeline preview...";
+            BuildPreviewButton.IsEnabled = false;
+            PreviewStatusText.Text = generateIfMissing
+                ? "Preparing timeline preview..."
+                : "Loading timeline preview...";
             var progress = new Progress<RecordingLibraryProgress>(update =>
                 PreviewStatusText.Text = update.Message);
-            var assets = await _timelineAssetService.GetOrCreateAsync(session, progress, cancellation.Token);
+            var assets = generateIfMissing
+                ? await _timelineAssetService.GetOrCreateAsync(session, progress, cancellation.Token)
+                : await _timelineAssetService.TryGetCachedAsync(session, cancellation.Token);
             if (SelectedSession?.Id != session.Id || cancellation.IsCancellationRequested)
             {
                 return;
             }
 
-            _thumbnails = assets.Thumbnails
-                .Select(thumbnail => new ThumbnailItem(
-                    thumbnail.Offset,
-                    FormatDuration(thumbnail.Offset),
-                    LoadImage(thumbnail.ImagePath)))
-                .ToArray();
+            if (assets is null)
+            {
+                PreviewStatusText.Text = "Visual preview has not been built.";
+                BuildPreviewButton.Visibility = Visibility.Visible;
+                return;
+            }
+
+            _thumbnails = await Task.Run(
+                () => assets.Thumbnails
+                    .Select(thumbnail => new ThumbnailItem(
+                        thumbnail.Offset,
+                        FormatDuration(thumbnail.Offset),
+                        LoadImage(thumbnail.ImagePath)))
+                    .ToArray(),
+                cancellation.Token);
+            if (SelectedSession?.Id != session.Id || cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
             ThumbnailItemsControl.ItemsSource = _thumbnails;
             WaveformTimeline.Samples = assets.Waveform;
             WaveformTimeline.Refresh();
+            BuildPreviewButton.Visibility = Visibility.Collapsed;
             PreviewStatusText.Text = assets.LoadedFromCache
                 ? "Timeline preview loaded."
                 : "Timeline preview generated.";
@@ -199,8 +225,29 @@ public partial class RecordingLibraryWindow : Window
         }
         catch (Exception ex)
         {
+            if (cancellation.IsCancellationRequested || SelectedSession?.Id != session.Id)
+            {
+                return;
+            }
+
             _logger.LogWarning(ex, "Timeline preview generation failed for session {RecordingSessionId}.", session.Id);
             PreviewStatusText.Text = $"Timeline preview failed: {ex.Message}";
+            BuildPreviewButton.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            if (ReferenceEquals(_timelineAssetCancellation, cancellation))
+            {
+                BuildPreviewButton.IsEnabled = true;
+            }
+        }
+    }
+
+    private async void BuildPreviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedSession is { } session)
+        {
+            await LoadTimelineAssetsAsync(session, generateIfMissing: true);
         }
     }
 
@@ -336,6 +383,14 @@ public partial class RecordingLibraryWindow : Window
             var start = TimeSpan.FromSeconds(Math.Min(
                 PlayheadSlider.Value,
                 Math.Max(0, session.Duration.TotalSeconds - 0.001)));
+            if (_playbackWindow is { } existing && existing.Session.Id == session.Id)
+            {
+                existing.ShowAt(start);
+                StatusText.Text = $"Blackbox player moved to {FormatDuration(start)}.";
+                return;
+            }
+
+            _playbackWindow?.Close();
             var player = new PlaybackWindow(
                 session,
                 start,
@@ -344,6 +399,15 @@ public partial class RecordingLibraryWindow : Window
                 _loggerFactory.CreateLogger<PlaybackWindow>())
             {
                 Owner = this
+            };
+            _playbackWindow = player;
+            player.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_playbackWindow, player))
+                {
+                    _playbackWindow = null;
+                    UpdateControlState();
+                }
             };
             player.MarkersChanged += (_, _) =>
             {
@@ -354,6 +418,7 @@ public partial class RecordingLibraryWindow : Window
                 }
             };
             player.Show();
+            UpdateControlState();
             StatusText.Text = $"Blackbox player opened at {FormatDuration(start)}.";
         }
         catch (Exception ex)
@@ -676,6 +741,7 @@ public partial class RecordingLibraryWindow : Window
         PlayheadSlider.IsEnabled = !_isBusy && healthy;
         ExportPresetComboBox.IsEnabled = !_isBusy && healthy;
         AudioTrackItemsControl.IsEnabled = !_isBusy && healthy;
+        PlayButton.Content = _playbackWindow is null ? "Play from cursor" : "Show player";
     }
 
     private double MinimumSelectionSeconds() => Math.Min(1, SelectionEndSlider.Maximum);
@@ -711,6 +777,7 @@ public partial class RecordingLibraryWindow : Window
         var image = new BitmapImage();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
+        image.DecodePixelWidth = 240;
         image.UriSource = new Uri(path, UriKind.Absolute);
         image.EndInit();
         image.Freeze();
@@ -722,11 +789,16 @@ public partial class RecordingLibraryWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _playbackWindow?.Close();
+        _playbackWindow = null;
         _windowCancellation.Cancel();
         _timelineAssetCancellation?.Cancel();
         _exportCancellation?.Cancel();
         _timelineAssetCancellation?.Dispose();
         _exportCancellation?.Dispose();
+        ThumbnailItemsControl.ItemsSource = null;
+        PreviewImage.Source = null;
+        WaveformTimeline.Samples = [];
         _windowCancellation.Dispose();
     }
 

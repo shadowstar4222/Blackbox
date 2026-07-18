@@ -32,6 +32,30 @@ public sealed class TimelineAssetService(
         }
     }
 
+    public async Task<TimelineAssets?> TryGetCachedAsync(
+        RecordingSession session,
+        CancellationToken cancellationToken = default)
+    {
+        await _cacheGate.WaitAsync(cancellationToken);
+        try
+        {
+            ValidateSession(session);
+            ValidateCacheOptions();
+            var sessionCache = Path.Combine(GetCacheRoot(), session.Id.ToString("N"));
+            var signature = CreateSignature(session);
+            var cacheDirectory = Path.Combine(sessionCache, signature);
+            var cached = await TryLoadAsync(
+                Path.Combine(cacheDirectory, "timeline.json"),
+                cacheDirectory,
+                cancellationToken);
+            return cached is null ? null : cached with { LoadedFromCache = true };
+        }
+        finally
+        {
+            _cacheGate.Release();
+        }
+    }
+
     private async Task<TimelineAssets> GetOrCreateCoreAsync(
         RecordingSession session,
         IProgress<RecordingLibraryProgress>? progress,

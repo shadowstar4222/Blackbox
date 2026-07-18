@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
@@ -48,7 +49,11 @@ public partial class PlaybackWindow : Window
     private bool _fullscreen;
     private bool _markerOperationInFlight;
     private bool _updatingAudioTracks;
+    private bool _frameStepPumpRunning;
+    private bool _frameStepMode;
     private int? _selectedAudioTrackId;
+    private int _queuedFrameSteps;
+    private CancellationTokenSource? _frameStepCancellation;
     private float _playbackRate = 1f;
     private TimeSpan _lastKnownPosition;
     private WindowStyle _restoredWindowStyle;
@@ -98,6 +103,27 @@ public partial class PlaybackWindow : Window
 
     public RecordingSession Session => _session;
     public event EventHandler? MarkersChanged;
+
+    public void ShowAt(TimeSpan offset)
+    {
+        if (_closing)
+        {
+            return;
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Seek(offset, playAfterSeek: true);
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        Activate();
+    }
 
     private void ConfigureSurface()
     {
@@ -365,7 +391,12 @@ public partial class PlaybackWindow : Window
     {
         if (_mediaPlayer.IsPlaying)
         {
+            CancelFrameNavigation();
             _mediaPlayer.SetPause(true);
+        }
+        else if (_frameStepMode)
+        {
+            Seek(_lastKnownPosition, playAfterSeek: true);
         }
         else if (_mediaPlayer.State == VLCState.Paused)
         {
@@ -405,31 +436,206 @@ public partial class PlaybackWindow : Window
 
     private void StepFrame(int direction)
     {
-        var current = CurrentOffset();
-        var frameDuration = CurrentFrameDuration();
-        if (_mediaPlayer.IsPlaying)
+        if (_closing || direction == 0)
         {
-            _mediaPlayer.SetPause(true);
+            return;
         }
 
-        if (direction > 0)
+        _queuedFrameSteps = Math.Clamp(_queuedFrameSteps + Math.Sign(direction), -24, 24);
+        if (!_frameStepPumpRunning)
         {
-            _mediaPlayer.NextFrame();
+            _ = ProcessFrameStepsAsync();
         }
-
-        Seek(current + TimeSpan.FromTicks(frameDuration.Ticks * direction), playAfterSeek: false);
     }
 
-    private void Seek(TimeSpan requestedOffset, bool playAfterSeek)
+    private async Task ProcessFrameStepsAsync()
+    {
+        _frameStepPumpRunning = true;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_windowCancellation.Token);
+        _frameStepCancellation = cancellation;
+        try
+        {
+            if (_mediaPlayer.IsPlaying)
+            {
+                _lastKnownPosition = CurrentOffset();
+                _mediaPlayer.SetPause(true);
+                await WaitForPlayingStateAsync(playing: false, TimeSpan.FromMilliseconds(150), cancellation.Token);
+            }
+
+            _frameStepMode = true;
+            while (_queuedFrameSteps != 0)
+            {
+                cancellation.Token.ThrowIfCancellationRequested();
+                var direction = Math.Sign(_queuedFrameSteps);
+                _queuedFrameSteps -= direction;
+                await StepSingleFrameAsync(direction, cancellation.Token);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            ReportPlaybackFailure(ex);
+        }
+        finally
+        {
+            if (ReferenceEquals(_frameStepCancellation, cancellation))
+            {
+                _frameStepCancellation = null;
+            }
+
+            _frameStepPumpRunning = false;
+            if (!_closing && _queuedFrameSteps != 0)
+            {
+                _ = ProcessFrameStepsAsync();
+            }
+        }
+    }
+
+    private async Task StepSingleFrameAsync(int direction, CancellationToken cancellationToken)
+    {
+        var current = ClampOffset(_lastKnownPosition);
+        var frameDuration = CurrentFrameDuration();
+        var target = ClampOffset(current + TimeSpan.FromTicks(frameDuration.Ticks * direction));
+        if (target == current)
+        {
+            UpdatePositionDisplay(target);
+            return;
+        }
+
+        var targetLocation = RecordingTimeline.LocateSegment(_session, target);
+        var canUseNativeStep =
+            direction > 0 &&
+            targetLocation.SegmentIndex == _activeSegmentIndex &&
+            _activeMedia is not null &&
+            _mediaPlayer.State == VLCState.Paused;
+        if (canUseNativeStep)
+        {
+            _mediaPlayer.NextFrame();
+            _lastKnownPosition = target;
+            UpdatePositionDisplay(target);
+            await Task.Delay(20, cancellationToken);
+            return;
+        }
+
+        await RefreshPausedFrameAsync(target, frameDuration, cancellationToken);
+    }
+
+    private async Task RefreshPausedFrameAsync(
+        TimeSpan target,
+        TimeSpan frameDuration,
+        CancellationToken cancellationToken)
+    {
+        var restoreMute = _mediaPlayer.Mute;
+        _mediaPlayer.Mute = true;
+        try
+        {
+            _lastKnownPosition = target;
+            Seek(
+                target,
+                playAfterSeek: true,
+                preserveFrameNavigation: true,
+                publishPosition: false);
+            var startedAt = Stopwatch.GetTimestamp();
+            long? playbackStartedAt = null;
+            var resumeRetryCount = 0;
+            while (Stopwatch.GetElapsedTime(startedAt) < TimeSpan.FromMilliseconds(350))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_mediaPlayer.IsPlaying)
+                {
+                    playbackStartedAt ??= Stopwatch.GetTimestamp();
+                    var decodedPosition = _activeSegmentIndex < 0 || _mediaPlayer.Time < 0
+                        ? target
+                        : _segmentStarts[_activeSegmentIndex] + TimeSpan.FromMilliseconds(_mediaPlayer.Time);
+                    if (Stopwatch.GetElapsedTime(playbackStartedAt.Value) >= TimeSpan.FromMilliseconds(12) &&
+                        decodedPosition >= target - TimeSpan.FromTicks(frameDuration.Ticks / 3))
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    var elapsed = Stopwatch.GetElapsedTime(startedAt);
+                    if (resumeRetryCount == 0 && elapsed >= TimeSpan.FromMilliseconds(75))
+                    {
+                        _mediaPlayer.SetPause(false);
+                        resumeRetryCount++;
+                    }
+                    else if (resumeRetryCount == 1 && elapsed >= TimeSpan.FromMilliseconds(160))
+                    {
+                        _mediaPlayer.Play();
+                        resumeRetryCount++;
+                    }
+                }
+
+                await Task.Delay(5, cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_mediaPlayer.IsPlaying)
+            {
+                _mediaPlayer.SetPause(true);
+                await WaitForPlayingStateAsync(
+                    playing: false,
+                    TimeSpan.FromMilliseconds(150),
+                    cancellationToken);
+            }
+            else
+            {
+                _pauseWhenReady = true;
+            }
+
+            _lastKnownPosition = target;
+            _frameStepMode = true;
+            UpdatePositionDisplay(target);
+        }
+        finally
+        {
+            if (!_closing)
+            {
+                _mediaPlayer.Mute = restoreMute;
+                UpdateMuteGlyph();
+            }
+        }
+    }
+
+    private async Task WaitForPlayingStateAsync(
+        bool playing,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        while (_mediaPlayer.IsPlaying != playing && Stopwatch.GetElapsedTime(startedAt) < timeout)
+        {
+            await Task.Delay(5, cancellationToken);
+        }
+    }
+
+    private void Seek(
+        TimeSpan requestedOffset,
+        bool playAfterSeek,
+        bool preserveFrameNavigation = false,
+        bool publishPosition = true)
     {
         if (_closing)
         {
             return;
         }
 
+        if (!preserveFrameNavigation)
+        {
+            CancelFrameNavigation();
+        }
+
         var offset = ClampOffset(requestedOffset);
         var location = RecordingTimeline.LocateSegment(_session, offset);
-        _lastKnownPosition = offset;
+        if (publishPosition)
+        {
+            _lastKnownPosition = offset;
+        }
+
         if (location.SegmentIndex != _activeSegmentIndex || _activeMedia is null)
         {
             PlaySegment(location.SegmentIndex, location.SegmentOffset, playAfterSeek);
@@ -455,7 +661,17 @@ public partial class PlaybackWindow : Window
             }
         }
 
-        UpdatePositionDisplay(offset);
+        if (publishPosition)
+        {
+            UpdatePositionDisplay(offset);
+        }
+    }
+
+    private void CancelFrameNavigation()
+    {
+        _queuedFrameSteps = 0;
+        _frameStepMode = false;
+        _frameStepCancellation?.Cancel();
     }
 
     private void PlaySegment(int segmentIndex, TimeSpan segmentOffset, bool playAfterSeek)
@@ -544,12 +760,23 @@ public partial class PlaybackWindow : Window
             return;
         }
 
+        if (_frameStepPumpRunning || (_frameStepMode && !_mediaPlayer.IsPlaying))
+        {
+            UpdatePositionDisplay(_lastKnownPosition);
+            return;
+        }
+
         _lastKnownPosition = CurrentOffset();
         UpdatePositionDisplay(_lastKnownPosition);
     }
 
     private TimeSpan CurrentOffset()
     {
+        if (_frameStepMode && !_mediaPlayer.IsPlaying)
+        {
+            return ClampOffset(_lastKnownPosition);
+        }
+
         if (_activeSegmentIndex < 0 || _mediaPlayer.Time < 0)
         {
             return ClampOffset(_lastKnownPosition);
@@ -737,6 +964,7 @@ public partial class PlaybackWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _closing = true;
+        _frameStepCancellation?.Cancel();
         _windowCancellation.Cancel();
         _positionTimer.Stop();
         PlaybackTimeline.ScrubRequested -= PlaybackTimeline_ScrubRequested;

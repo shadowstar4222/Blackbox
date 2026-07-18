@@ -45,6 +45,9 @@ Implemented:
 - Durable markers and protected ranges plus clear damaged-media and timeline-gap reporting.
 - An embedded Blackbox video player backed by bundled LibVLC codecs.
 - Play/pause, 10-second jumps, segment jumps, frame stepping, speed, loop, volume, mute, audio-track, and fullscreen controls.
+- Serialized, cancelable frame navigation with native forward stepping and bounded reverse-frame refresh.
+- Cache-first timeline previews that run FFmpeg only when `Build preview` is requested.
+- One reusable review window per recordings library, preventing duplicate full-resolution video decoders.
 - Numbered segment bands, live scrubbing, quick tags, manual event markers, marker navigation, and marker removal.
 - Full-session stream-copy export and accurate selected-range export to one MKV or MP4 while preserving readable isolated audio tracks.
 - Per-track mute, solo, volume, WAV-selection controls, and common export presets.
@@ -77,6 +80,8 @@ Implemented:
 - Hardened OBS websocket message limits, native DLL search paths, setup readiness retries, and portable-runtime installation.
 
 Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. Milestone 7D desktop quality-of-life work is complete.
+
+The post-7D playback performance pass is also complete. The Release build has zero warnings and errors, all 122 automated tests pass, and frame navigation plus player memory cleanup were exercised against a real 2880 x 1620, 30 fps Blackbox recording.
 
 ## Build
 

@@ -34,6 +34,10 @@ it as one MKV or MP4. The Blackbox player includes segment-marked scrubbing,
 10-second and segment jumps, frame stepping, speed, loop, audio-track, volume,
 fullscreen, quick tags, and manual event markers.
 
+Timeline thumbnails and waveforms load from the preview cache when available.
+For a recording without a cached preview, click Build preview when you want
+Blackbox to generate those visual assets. Playback does not require a preview.
+
 The private OBS runtime is separate from your normal or Steam OBS profile. Game
 sources remain dormant until an enabled remembered game is running. Blackbox
 can learn a launcher's final game executable after two matching scans, and the

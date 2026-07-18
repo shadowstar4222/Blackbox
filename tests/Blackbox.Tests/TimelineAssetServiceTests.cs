@@ -58,6 +58,55 @@ public sealed class TimelineAssetServiceTests
     }
 
     [Fact]
+    public async Task TryGetCachedAsync_does_not_provision_or_generate_when_cache_is_missing()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var sourcePath = Path.Combine(root, "source.mkv");
+        await File.WriteAllTextAsync(sourcePath, "source");
+        try
+        {
+            var segment = TestSegments.Create(sourcePath, duration: TimeSpan.FromSeconds(10));
+            var session = new RecordingSession(
+                segment.SessionId,
+                segment.StartTime,
+                segment.EndTime,
+                "Recording",
+                [segment],
+                false,
+                false);
+            var registry = new SegmentUsageRegistry();
+            var runner = new AssetWritingRunner(registry, segment.Id);
+            var provisioner = new FixedProvisioner(root);
+            using var service = new TimelineAssetService(
+                provisioner,
+                runner,
+                registry,
+                new FfmpegOptions
+                {
+                    RootDirectory = root,
+                    WorkDirectory = Path.Combine(root, "work"),
+                    TimelineCacheDirectory = Path.Combine(root, "cache")
+                },
+                NullLogger<TimelineAssetService>.Instance);
+
+            var missing = await service.TryGetCachedAsync(session);
+            await service.GetOrCreateAsync(session);
+            var cached = await service.TryGetCachedAsync(session);
+
+            Assert.Null(missing);
+            Assert.NotNull(cached);
+            Assert.True(cached.LoadedFromCache);
+            Assert.Equal(2, runner.Calls);
+            Assert.Equal(1, provisioner.Calls);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task GetOrCreateAsync_serializes_publication_and_prunes_expired_cache()
     {
         var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));

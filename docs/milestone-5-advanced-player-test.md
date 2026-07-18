@@ -14,3 +14,12 @@ Automated and smoke verification on 2026-07-16:
 - 104 automated tests passed.
 - A real 30 fps MKV exposed six audio choices and accepted decode, seek, pause, rate, and audio-track operations through LibVLC.
 - A real three-segment WPF player opened from a non-zero offset, played, rendered at 1280 x 800 and 960 x 620, and closed cleanly.
+
+Playback performance regression verification on 2026-07-18:
+
+- The Release build completed with zero warnings or errors and all 122 automated tests passed.
+- A real 2880 x 1620, 30 fps MKV advanced and reversed by exactly one 33 ms frame per request without sticking.
+- Twelve consecutive reverse-frame requests averaged about 0.14 seconds on the full-resolution recording; forward requests use LibVLC's native frame decoder.
+- Selecting a recording loaded only an existing timeline cache. A cache miss no longer launches FFmpeg until `Build preview` is requested.
+- Repeated `Play from cursor` requests reused one player window instead of stacking full-resolution LibVLC decoders.
+- Closing the player released its native decoder and reduced the measured Blackbox working set from about 500 MB to 228 MB.

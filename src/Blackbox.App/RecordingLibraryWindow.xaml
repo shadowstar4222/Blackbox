@@ -141,12 +141,20 @@
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
                                     <TextBlock x:Name="CursorTimeText" Text="0:00" FontSize="26" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="PreviewStatusText"
-                                               Grid.Row="1"
-                                               Margin="0,6,0,0"
-                                               Text="Timeline preview pending"
-                                               Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
-                                               TextWrapping="Wrap" />
+                                    <StackPanel Grid.Row="1" Margin="0,6,0,0">
+                                        <TextBlock x:Name="PreviewStatusText"
+                                                   Text="Timeline preview pending"
+                                                   Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                                   TextWrapping="Wrap" />
+                                        <Button x:Name="BuildPreviewButton"
+                                                Content="Build preview"
+                                                MinWidth="104"
+                                                Height="28"
+                                                Margin="0,8,0,0"
+                                                HorizontalAlignment="Left"
+                                                Visibility="Collapsed"
+                                                Click="BuildPreviewButton_Click" />
+                                    </StackPanel>
                                     <StackPanel Grid.Row="2" Margin="0,18,0,0">
                                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                             <Rectangle Width="18" Height="10" Fill="#733A8B5A" Margin="0,0,8,0" />
