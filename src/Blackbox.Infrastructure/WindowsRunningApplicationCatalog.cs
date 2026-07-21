@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Blackbox.Infrastructure;
 
 public sealed class WindowsRunningApplicationCatalog(
+    IProcessExecutablePathResolver processPathResolver,
     ILogger<WindowsRunningApplicationCatalog> logger) : IRunningApplicationCatalog
 {
     public Task<IReadOnlyList<RunningApplication>> GetRunningApplicationsAsync(
@@ -60,7 +61,9 @@ public sealed class WindowsRunningApplicationCatalog(
         {
             var title = ReadWindowText(window);
             var windowClass = ReadWindowClass(window);
-            var executablePath = ReadExecutablePath(processId);
+            var processEntry = processTree.GetValueOrDefault((int)processId);
+            var executablePath = ReadExecutablePath(processId) ??
+                processPathResolver.Resolve((int)processId, processEntry?.ExecutableName ?? string.Empty);
             if (string.IsNullOrWhiteSpace(windowClass) ||
                 string.IsNullOrWhiteSpace(executablePath))
             {

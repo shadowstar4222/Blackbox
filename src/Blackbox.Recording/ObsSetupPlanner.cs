@@ -1,4 +1,5 @@
 using Blackbox.Domain;
+using Blackbox.Infrastructure;
 
 namespace Blackbox.Recording;
 
@@ -23,7 +24,13 @@ public sealed class ObsSetupPlanner
             MicrophoneProcessingSettings = microphoneSettings,
             Sources =
             [
-                new ObsSourcePlan("Blackbox Game Capture", "game_capture", AudioCategory.Game, new Dictionary<string, string>()),
+                new ObsSourcePlan("Blackbox Game Capture", "game_capture", AudioCategory.Game, new Dictionary<string, string>
+                {
+                    ["capture_mode"] = ObsGameCaptureSettings.SpecificWindowMode,
+                    ["priority"] = ObsGameCaptureSettings.WindowTitleMustMatchPriority.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture),
+                    ["anti_cheat_hook"] = bool.TrueString
+                }),
                 new ObsSourcePlan("Blackbox Game Audio", "wasapi_process_output_capture", AudioCategory.Game, new Dictionary<string, string>()),
                 new ObsSourcePlan("Blackbox Voice Chat", "wasapi_process_output_capture", AudioCategory.VoiceChat, new Dictionary<string, string>()),
                 new ObsSourcePlan("Blackbox Raw Microphone", "wasapi_input_capture", AudioCategory.RawMicrophone, new Dictionary<string, string>()),

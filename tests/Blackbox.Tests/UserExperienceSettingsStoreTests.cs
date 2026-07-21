@@ -17,6 +17,7 @@ public sealed class UserExperienceSettingsStoreTests
             Assert.True(store.Current.CloseToTray);
             Assert.False(store.Current.WatchRememberedGames);
             Assert.True(store.Current.AutoSetupObsAtStartup);
+            Assert.False(store.Current.HasCompletedTutorial);
             Assert.Equal(new RecordingQualitySettings(), store.Current.RecordingQuality);
         }
         finally
@@ -38,6 +39,7 @@ public sealed class UserExperienceSettingsStoreTests
                 CloseToTray = false,
                 WatchRememberedGames = true,
                 AutoSetupObsAtStartup = false,
+                HasCompletedTutorial = true,
                 RecordingQuality = new RecordingQualitySettings
                 {
                     Resolution = RecordingResolution.UltraHd2160,

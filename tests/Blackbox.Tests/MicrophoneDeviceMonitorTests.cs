@@ -33,6 +33,36 @@ public sealed class MicrophoneDeviceMonitorTests
         Assert.Equal(MicrophoneConnectionState.Connected, monitor.CurrentStatus.State);
     }
 
+    [Fact]
+    public async Task Monitor_reroutes_when_the_Windows_default_microphone_changes()
+    {
+        var controller = new SwitchingMicrophoneController();
+        var store = new InMemoryConfigurationStore(new MicrophoneConfiguration
+        {
+            DeviceId = "old-device",
+            DeviceName = "Old microphone"
+        });
+        var selection = new MicrophoneSelectionService(
+            controller,
+            new FixedDefaultMicrophoneProvider("new-device"),
+            store,
+            NullLogger<MicrophoneSelectionService>.Instance);
+        var monitor = new MicrophoneDeviceMonitor(
+            controller,
+            store,
+            new FixedClock(DateTimeOffset.Parse("2026-07-15T12:00:00Z")),
+            new MicrophoneMonitoringOptions { PollInterval = TimeSpan.FromMilliseconds(1) },
+            NullLogger<MicrophoneDeviceMonitor>.Instance,
+            selection);
+
+        await monitor.StartAsync();
+        await controller.Reconfigured.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await monitor.StopAsync();
+
+        Assert.Equal("new-device", controller.ConfiguredDevice?.Id);
+        Assert.Equal("new-device", store.Current.DeviceId);
+    }
+
     private sealed class InMemoryConfigurationStore(MicrophoneConfiguration configuration)
         : IMicrophoneConfigurationStore
     {
@@ -81,6 +111,56 @@ public sealed class MicrophoneDeviceMonitorTests
 
         public Task SetProcessingEnabledAsync(bool enabled, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class FixedDefaultMicrophoneProvider(string deviceId) : IDefaultMicrophoneProvider
+    {
+        public string? GetDefaultDeviceId() => deviceId;
+    }
+
+    private sealed class SwitchingMicrophoneController : IObsMicrophoneController
+    {
+        public TaskCompletionSource Reconfigured { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public MicrophoneDevice? ConfiguredDevice { get; private set; }
+
+        public Task<IReadOnlyList<MicrophoneDevice>> GetDevicesAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MicrophoneDevice>>(
+            [
+                new("default", "Default"),
+                new("old-device", "Old microphone"),
+                new("new-device", "New microphone")
+            ]);
+
+        public Task<MicrophoneDeviceStatus> GetDeviceStatusAsync(
+            string deviceId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new MicrophoneDeviceStatus(
+                deviceId,
+                MicrophoneConnectionState.Connected,
+                DateTimeOffset.UtcNow));
+
+        public Task ConfigureAsync(
+            MicrophoneDevice device,
+            MicrophoneProcessingSettings processingSettings,
+            CancellationToken cancellationToken = default)
+        {
+            ConfiguredDevice = device;
+            Reconfigured.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AudioLevelSnapshot>> CaptureLevelsAsync(
+            TimeSpan duration,
+            IProgress<AudioLevelSnapshot>? progress = null,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task SetProcessingEnabledAsync(
+            bool enabled,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();

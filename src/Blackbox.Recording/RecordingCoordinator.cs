@@ -10,7 +10,8 @@ public sealed class RecordingCoordinator(
     IMicrophoneConfigurationStore microphoneConfigurationStore,
     ISegmentRepository segmentRepository,
     IMicrophoneDeviceMonitor microphoneDeviceMonitor,
-    ILogger<RecordingCoordinator> logger) : IDisposable
+    ILogger<RecordingCoordinator> logger,
+    MicrophoneSelectionService? microphoneSelectionService = null) : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private int _isRecording;
@@ -54,12 +55,19 @@ public sealed class RecordingCoordinator(
                 AudioRoutingProfile.Default,
                 microphoneConfiguration.ProcessingSettings,
                 cancellationToken);
-            await microphoneController.ConfigureAsync(
-                new MicrophoneDevice(
-                    microphoneConfiguration.DeviceId,
-                    microphoneConfiguration.DeviceName),
-                microphoneConfiguration.ProcessingSettings,
-                cancellationToken);
+            if (microphoneSelectionService is not null)
+            {
+                await microphoneSelectionService.ApplyAsync(cancellationToken);
+            }
+            else
+            {
+                await microphoneController.ConfigureAsync(
+                    new MicrophoneDevice(
+                        microphoneConfiguration.DeviceId,
+                        microphoneConfiguration.DeviceName),
+                    microphoneConfiguration.ProcessingSettings,
+                    cancellationToken);
+            }
             await obsController.StartRecordingAsync(cancellationToken);
             try
             {

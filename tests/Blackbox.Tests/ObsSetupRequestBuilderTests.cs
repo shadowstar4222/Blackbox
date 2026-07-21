@@ -69,6 +69,16 @@ public sealed class ObsSetupRequestBuilderTests
             target.ObsWindowIdentifier,
             inputRequests.Single(request => request.RequestData?["inputName"]?.GetValue<string>() == "Blackbox Game Capture")
                 .RequestData?["inputSettings"]?["window"]?.GetValue<string>());
+        var gameCaptureSettings = inputRequests
+            .Single(request => request.RequestData?["inputName"]?.GetValue<string>() == "Blackbox Game Capture")
+            .RequestData?["inputSettings"];
+        Assert.Equal(
+            ObsGameCaptureSettings.SpecificWindowMode,
+            gameCaptureSettings?["capture_mode"]?.GetValue<string>());
+        Assert.Equal(
+            ObsGameCaptureSettings.WindowTitleMustMatchPriority,
+            gameCaptureSettings?["priority"]?.GetValue<int>());
+        Assert.True(gameCaptureSettings?["anti_cheat_hook"]?.GetValue<bool>());
         Assert.Equal(
             target.ObsWindowIdentifier,
             inputRequests.Single(request => request.RequestData?["inputName"]?.GetValue<string>() == "Blackbox Game Audio")

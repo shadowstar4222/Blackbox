@@ -131,6 +131,19 @@
 
                 <StackPanel Grid.Row="2" Margin="0,0,0,12">
                     <Separator Margin="18,0,18,10" />
+                    <RadioButton x:Name="HelpNavButton"
+                                 GroupName="Navigation"
+                                 Style="{StaticResource NavigationButtonStyle}"
+                                 Checked="HelpNavButton_Click"
+                                 automation:AutomationProperties.Name="Help and tutorial">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Width="26"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="15"
+                                       Text="&#xE897;" />
+                            <TextBlock Text="Help" />
+                        </StackPanel>
+                    </RadioButton>
                     <RadioButton x:Name="SettingsNavButton"
                                  GroupName="Navigation"
                                  Style="{StaticResource NavigationButtonStyle}"
@@ -270,6 +283,7 @@
                                     MinWidth="96"
                                     Margin="0,0,8,0"
                                     IsEnabled="False"
+                                    ToolTip="Stop the current recording"
                                     Style="{StaticResource DangerButtonStyle}"
                                     Click="StopButton_Click"
                                     Content="Stop" />
@@ -277,6 +291,7 @@
                                     Height="38"
                                     MinWidth="116"
                                     IsEnabled="False"
+                                    ToolTip="Start a manual continuous recording"
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     Click="StartButton_Click"
                                     Content="Start recording" />
@@ -338,10 +353,12 @@
                             <Button x:Name="AudioButton"
                                     Margin="0,0,8,0"
                                     IsEnabled="False"
+                                    ToolTip="Refresh track routing and the current microphone"
                                     Click="AudioButton_Click"
                                     Content="Apply audio" />
                             <Button x:Name="ObsSetupButton"
                                     MinWidth="112"
+                                    ToolTip="Install, configure, or verify Blackbox OBS"
                                     Click="ObsSetupButton_Click"
                                     Content="Setup OBS" />
                         </StackPanel>
@@ -393,24 +410,29 @@
                                      Rows="1">
                             <Button x:Name="RecordingLibraryButton"
                                     Margin="0,0,6,0"
+                                    ToolTip="Browse, review, tag, and export recordings"
                                     Click="RecordingLibraryButton_Click"
                                     Content="Recordings" />
                             <Button x:Name="GamesButton"
                                     Margin="3,0"
+                                    ToolTip="Choose taskbar windows and manage remembered games"
                                     Click="GamesButton_Click"
                                     Content="Games" />
                             <Button x:Name="CalibrateButton"
                                     Margin="3,0"
                                     IsEnabled="False"
+                                    ToolTip="Choose microphone routing, exclusions, and calibration"
                                     Click="CalibrateButton_Click"
                                     Content="Microphone" />
                             <Button x:Name="DiagnosticsButton"
                                     Margin="3,0"
+                                    ToolTip="Inspect health, storage, logs, and recovery"
                                     Click="DiagnosticsButton_Click"
                                     Content="Diagnostics" />
                             <Button x:Name="AutoCaptureButton"
                                     Margin="6,0,0,0"
                                     IsEnabled="False"
+                                    ToolTip="Watch remembered games and record them automatically"
                                     Click="AutoCaptureButton_Click"
                                     Content="Enable auto" />
                         </UniformGrid>
@@ -512,7 +534,7 @@
                                     IsEnabled="False"
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     Click="CalibrateButton_Click"
-                                    Content="Open microphone calibration" />
+                                    Content="Open microphone setup" />
                         </StackPanel>
 
                         <StackPanel x:Name="DiagnosticsDrawerContent" Visibility="Collapsed">
@@ -527,6 +549,185 @@
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     Click="OpenDiagnosticsWindowButton_Click"
                                     Content="Open diagnostics workspace" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="HelpDrawerContent" Visibility="Collapsed">
+                            <TextBlock Style="{StaticResource SecondaryTextStyle}"
+                                       Text="QUICK START" />
+                            <TextBlock Margin="0,8,0,18"
+                                       FontSize="15"
+                                       Text="Run these once, then Blackbox can stay in the notification area and record remembered games automatically."
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock FontWeight="SemiBold" Text="1. Prepare OBS" />
+                            <TextBlock Margin="0,4,0,8"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Creates the Blackbox scene, recording tracks, and exact-window game capture source."
+                                       TextWrapping="Wrap" />
+                            <Button Margin="0,0,0,16"
+                                    Click="TutorialSetupObsButton_Click"
+                                    Content="Check OBS setup" />
+
+                            <TextBlock FontWeight="SemiBold" Text="2. Remember a game" />
+                            <TextBlock Margin="0,4,0,8"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Open the game first, refresh the taskbar-window list, select it, and choose Remember selected."
+                                       TextWrapping="Wrap" />
+                            <Button Margin="0,0,0,16"
+                                    Click="TutorialGamesButton_Click"
+                                    Content="Open games" />
+
+                            <TextBlock FontWeight="SemiBold" Text="3. Check your microphone" />
+                            <TextBlock Margin="0,4,0,8"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Blackbox follows the Windows default microphone. Exclude devices you never want it to use."
+                                       TextWrapping="Wrap" />
+                            <Button Margin="0,0,0,16"
+                                    Click="TutorialMicrophoneButton_Click"
+                                    Content="Open microphone setup" />
+
+                            <TextBlock FontWeight="SemiBold" Text="4. Enable automatic capture" />
+                            <TextBlock Margin="0,4,0,8"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Enable auto on Capture. Recording starts when a remembered window appears and stops after it closes."
+                                       TextWrapping="Wrap" />
+                            <Button Margin="0,0,0,22"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Click="CompleteTutorialButton_Click"
+                                    Content="Finish tutorial" />
+
+                            <Separator Margin="0,0,0,20" />
+                            <TextBlock Margin="0,0,0,14"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="BUTTON GUIDE" />
+
+                            <TextBlock FontWeight="SemiBold" Text="Start recording / Stop" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Starts or ends a manual continuous session. Segments are joined in the player and during export."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Protect 5 min" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Keeps the previous five minutes from automatic storage cleanup."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Setup OBS / Check OBS" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Builds or verifies the managed OBS profile without changing your personal OBS scenes."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Apply audio" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Refreshes track assignments and routes the current allowed microphone."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Enable auto / Disable auto" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Starts or stops watching for remembered application windows."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Recordings" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Opens session review, timeline markers, tags, and continuous-video export."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Games" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Lists taskbar windows and controls which remembered apps may auto-record."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Microphone" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Controls automatic selection, exclusions, processing, and calibration."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Diagnostics" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Shows system health and provides recovery and support tools."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Settings" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Controls startup, background behavior, recording quality, and storage cleanup."
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Margin="0,14,0,14"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="REVIEW PLAYER" />
+                            <TextBlock FontWeight="SemiBold" Text="Build preview" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Generates cached timeline thumbnails and a waveform without changing the recording."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Play / Pause and -10 / +10" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Controls playback or jumps ten seconds backward and forward across segment boundaries."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Frame and segment arrows" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Steps one frame at a time or jumps to the previous or next recorded segment."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Loop, mute, track, speed, fullscreen" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Changes review playback only; the source recording and exported tracks remain intact."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Quick tags and Add event" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Adds a labeled marker at the current timeline position for later navigation."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Protect selection and Export" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Keeps the selected range from cleanup or exports the chosen range as one continuous file."
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Margin="0,14,0,14"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="GAME MANAGER" />
+                            <TextBlock FontWeight="SemiBold" Text="Refresh applications" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Rebuilds the list from currently visible taskbar windows."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Remember selected" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Adds the selected running window to the automatic-capture allowlist."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Save profile / Remove profile" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Saves capture preferences for the selected app or removes it from remembered games."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Add alias / Remove alias" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Associates or removes another executable used by the same game or launcher."
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Margin="0,14,0,14"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="MICROPHONE SETUP" />
+                            <TextBlock FontWeight="SemiBold" Text="Apply routing" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Saves automatic selection, exclusions, or the manual microphone and applies it to OBS."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Measure" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Samples room noise, normal speech, or loud speech for processing recommendations."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Apply recommendations / Record comparison" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Saves the measured filters or records before-and-after samples for listening checks."
+                                       TextWrapping="Wrap" />
                         </StackPanel>
 
                         <StackPanel x:Name="SettingsDrawerContent" Visibility="Collapsed">

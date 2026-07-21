@@ -63,6 +63,14 @@ public sealed class MicrophoneConfigurationStore : IMicrophoneConfigurationStore
             throw new InvalidOperationException("A microphone device is required.");
         }
 
+        if (configuration.ExcludedDeviceIds is null ||
+            configuration.ExcludedDeviceIds.Any(string.IsNullOrWhiteSpace) ||
+            configuration.ExcludedDeviceIds.Distinct(StringComparer.OrdinalIgnoreCase).Count() !=
+            configuration.ExcludedDeviceIds.Count)
+        {
+            throw new InvalidOperationException("Microphone exclusions must contain unique device identifiers.");
+        }
+
         configuration.ProcessingSettings.Validate();
     }
 }

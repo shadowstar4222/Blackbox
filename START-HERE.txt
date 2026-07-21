@@ -2,7 +2,8 @@ BLACKBOX DESKTOP EXPERIENCE TEST BUILD
 
 1. Extract the entire ZIP to a normal folder.
 2. Double-click Blackbox.App.exe.
-3. Use Capture > Setup OBS and wait for the ready message.
+3. Follow the first-run Help tutorial, or open Help again from the sidebar later.
+4. Use Capture > Setup OBS and wait for the ready message.
 
 The first setup checks normal and Steam OBS locations first. If OBS is already
 installed, Blackbox prepares its private runtime from those local files without a
@@ -17,6 +18,15 @@ After setup succeeds:
 3. Select the remembered profile to control automatic recording, game audio,
    launcher handoff, GPU preference, and executable aliases.
 4. Open Settings and enable Watch remembered games.
+
+Open Microphone setup to follow the current Windows default microphone. Check
+any device under Automatic exclusions if Blackbox should never select it, or
+turn automatic selection off and choose one microphone manually.
+
+Blackbox configures Game Capture as Capture specific window and uses Window
+title must match whenever it binds a remembered application. Protected Steam
+games such as Helldivers 2 are recovered from Steam's active process tracking
+when anti-cheat prevents the normal executable lookup.
 
 Blackbox remembers that executable for future runs. When the game starts, it
 detects the live window and size, configures OBS game video and process audio,

@@ -10,7 +10,8 @@ public sealed class MicrophoneDeviceMonitor(
     IMicrophoneConfigurationStore configurationStore,
     IClock clock,
     MicrophoneMonitoringOptions options,
-    ILogger<MicrophoneDeviceMonitor> logger) : IMicrophoneDeviceMonitor, IAsyncDisposable
+    ILogger<MicrophoneDeviceMonitor> logger,
+    MicrophoneSelectionService? microphoneSelectionService = null) : IMicrophoneDeviceMonitor, IAsyncDisposable
 {
     private readonly object _sync = new();
     private CancellationTokenSource? _monitorCancellation;
@@ -84,6 +85,16 @@ public sealed class MicrophoneDeviceMonitor(
             try
             {
                 var previous = CurrentStatus;
+                var selectionChanged = false;
+                if (configuration.AutomaticallySelectDevice && microphoneSelectionService is not null)
+                {
+                    var selected = await microphoneSelectionService.ResolveAsync(cancellationToken);
+                    selectionChanged = !configuration.DeviceId.Equals(
+                        selected.Id,
+                        StringComparison.OrdinalIgnoreCase);
+                    configuration = configurationStore.Current;
+                }
+
                 var current = await microphoneController.GetDeviceStatusAsync(
                     configuration.DeviceId,
                     cancellationToken);
@@ -95,14 +106,15 @@ public sealed class MicrophoneDeviceMonitor(
                         "The configured microphone disconnected; OBS sources remain active to preserve silence and track timing.");
                 }
                 else if (current.State == MicrophoneConnectionState.Connected &&
-                    previous.State == MicrophoneConnectionState.Disconnected)
+                    (selectionChanged || previous.State == MicrophoneConnectionState.Disconnected))
                 {
                     await microphoneController.ConfigureAsync(
                         new MicrophoneDevice(configuration.DeviceId, configuration.DeviceName),
                         configuration.ProcessingSettings,
                         cancellationToken);
                     logger.LogInformation(
-                        "The configured microphone reconnected and was restored to both microphone paths.");
+                        "Restored microphone routing to both paths. Reason={RoutingReason}.",
+                        selectionChanged ? "Windows default changed" : "device reconnected");
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

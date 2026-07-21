@@ -61,7 +61,7 @@ public sealed class MicrophoneCalibrationService(
     {
         var processingSettings = result.CreateProcessingSettings();
         await microphoneController.ConfigureAsync(device, processingSettings, cancellationToken);
-        configurationStore.Save(new MicrophoneConfiguration
+        configurationStore.Save(configurationStore.Current with
         {
             DeviceId = device.Id,
             DeviceName = device.Name,

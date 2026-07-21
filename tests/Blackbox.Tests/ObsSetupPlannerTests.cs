@@ -1,4 +1,5 @@
 using Blackbox.Domain;
+using Blackbox.Infrastructure;
 using Blackbox.Recording;
 
 namespace Blackbox.Tests;
@@ -19,6 +20,9 @@ public sealed class ObsSetupPlannerTests
         Assert.Contains(plan.Sources, static source => source.AudioCategory == AudioCategory.VoiceChat);
         Assert.Contains(plan.Sources, static source => source.AudioCategory == AudioCategory.RawMicrophone);
         Assert.Contains(plan.Sources, static source => source.AudioCategory == AudioCategory.ProcessedMicrophone);
+        var gameCapture = Assert.Single(plan.Sources, static source => source.Name == "Blackbox Game Capture");
+        Assert.Equal(ObsGameCaptureSettings.SpecificWindowMode, gameCapture.Settings["capture_mode"]);
+        Assert.Equal("1", gameCapture.Settings["priority"]);
         Assert.Equal(5, plan.Filters.Count);
         Assert.All(plan.Filters, static filter => Assert.Equal("Blackbox Processed Microphone", filter.SourceName));
     }

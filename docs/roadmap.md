@@ -124,6 +124,18 @@ Milestone 7D is complete. The Release build has zero warnings and errors, all 12
 
 Milestone 7E is complete. The Release build has zero warnings and errors, all 138 automated tests pass, and a live startup prepared OBS without creating a probe file. A live manual test produced a 16.05-second 1920 x 1080, 60 fps H.264 recording with five AAC tracks under `Manual\2026-07-18`. See `docs/milestone-7e-capture-qol-test.md`.
 
+### Milestone 7F: Capture Reliability And Onboarding
+
+- [x] Pin every active game capture to `Capture specific window` and `Window title must match`.
+- [x] Preserve OBS anti-cheat compatibility while rebinding the exact live game window.
+- [x] Recover protected Steam game executable paths from active Steam PID tracking.
+- [x] Route the current Windows default microphone during setup and recording start.
+- [x] Add microphone exclusions and an explicit manual-selection mode.
+- [x] Reapply microphone routing when the Windows default endpoint changes.
+- [x] Add a first-run tutorial, permanent Help workspace, guided setup actions, tooltips, and control reference.
+
+Milestone 7F is complete. The Release build has zero warnings and errors and all 144 automated tests pass. The protected-game parser was validated against this machine's real Helldivers 2 Steam process entries, and live startup confirmed exact OBS title matching plus Windows-default microphone routing. See `docs/milestone-7f-reliability-onboarding-test.md`.
+
 ## Planned
 
 ### Milestone 8: OBS Dock Edition

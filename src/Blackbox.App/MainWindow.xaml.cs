@@ -155,6 +155,10 @@ public partial class MainWindow : Window
             _isRecoveryBusy = false;
             SetupProgressBar.Visibility = Visibility.Collapsed;
             UpdateRecordingControls();
+            if (!StartHidden && !_experienceSettingsStore.Current.HasCompletedTutorial)
+            {
+                HelpNavButton.IsChecked = true;
+            }
         }
     }
 
@@ -487,6 +491,44 @@ public partial class MainWindow : Window
         }
     }
 
+    private void HelpNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsLoaded)
+        {
+            ShowDrawer(DrawerSection.Help, "Help");
+        }
+    }
+
+    private async void TutorialSetupObsButton_Click(object sender, RoutedEventArgs e)
+    {
+        HomeNavButton.IsChecked = true;
+        CloseDrawer();
+        await RunObsSetupAsync(runRecordingProbe: true);
+    }
+
+    private void TutorialGamesButton_Click(object sender, RoutedEventArgs e)
+    {
+        HomeNavButton.IsChecked = true;
+        CloseDrawer();
+        OpenGameProfilesWindow();
+    }
+
+    private void TutorialMicrophoneButton_Click(object sender, RoutedEventArgs e)
+    {
+        HomeNavButton.IsChecked = true;
+        CloseDrawer();
+        CalibrateButton_Click(sender, e);
+    }
+
+    private void CompleteTutorialButton_Click(object sender, RoutedEventArgs e)
+    {
+        SaveExperienceSettings(
+            _experienceSettingsStore.Current with { HasCompletedTutorial = true });
+        SetStatus("Tutorial complete");
+        HomeNavButton.IsChecked = true;
+        CloseDrawer();
+    }
+
     private void ShowDrawer(DrawerSection section, string title)
     {
         CurrentViewTitleText.Text = title;
@@ -495,6 +537,7 @@ public partial class MainWindow : Window
             DrawerSection.Games => "Open taskbar windows and remembered profiles",
             DrawerSection.Microphone => "Routing and calibration",
             DrawerSection.Diagnostics => "Recovery, storage, and recent activity",
+            DrawerSection.Help => "Tutorial and control reference",
             DrawerSection.Settings => "Startup and background behavior",
             _ => string.Empty
         };
@@ -505,6 +548,8 @@ public partial class MainWindow : Window
             section == DrawerSection.Microphone ? Visibility.Visible : Visibility.Collapsed;
         DiagnosticsDrawerContent.Visibility =
             section == DrawerSection.Diagnostics ? Visibility.Visible : Visibility.Collapsed;
+        HelpDrawerContent.Visibility =
+            section == DrawerSection.Help ? Visibility.Visible : Visibility.Collapsed;
         SettingsDrawerContent.Visibility =
             section == DrawerSection.Settings ? Visibility.Visible : Visibility.Collapsed;
 
@@ -620,6 +665,13 @@ public partial class MainWindow : Window
             SetStatus(result.Message);
             ObsSetupButton.Content =
                 result.IsSuccessful ? "Check OBS" : "Retry OBS setup";
+            if (result.IsSuccessful)
+            {
+                await _audioConfigurationService.ApplyAsync(
+                    AudioRoutingProfile.Default,
+                    new MicrophoneProcessingSettings());
+            }
+
             return result.IsSuccessful;
         }
         catch (Exception ex)
@@ -1101,6 +1153,7 @@ public partial class MainWindow : Window
         Games,
         Microphone,
         Diagnostics,
+        Help,
         Settings
     }
 

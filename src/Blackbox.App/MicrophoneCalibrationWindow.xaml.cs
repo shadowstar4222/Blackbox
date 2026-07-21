@@ -17,6 +17,7 @@ public partial class MicrophoneCalibrationWindow : Window
     private static readonly TimeSpan MeasurementDuration = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan ComparisonDuration = TimeSpan.FromSeconds(5);
     private readonly MicrophoneCalibrationService _calibrationService;
+    private readonly MicrophoneSelectionService _microphoneSelectionService;
     private readonly IMicrophoneConfigurationStore _configurationStore;
     private readonly ILogger<MicrophoneCalibrationWindow> _logger;
     private readonly CancellationTokenSource _windowCancellation = new();
@@ -30,10 +31,12 @@ public partial class MicrophoneCalibrationWindow : Window
 
     public MicrophoneCalibrationWindow(
         MicrophoneCalibrationService calibrationService,
+        MicrophoneSelectionService microphoneSelectionService,
         IMicrophoneConfigurationStore configurationStore,
         ILogger<MicrophoneCalibrationWindow> logger)
     {
         _calibrationService = calibrationService;
+        _microphoneSelectionService = microphoneSelectionService;
         _configurationStore = configurationStore;
         _logger = logger;
         InitializeComponent();
@@ -51,11 +54,60 @@ public partial class MicrophoneCalibrationWindow : Window
                 throw new InvalidOperationException("OBS did not report any microphone devices.");
             }
 
+            if (_configurationStore.Current.AutomaticallySelectDevice)
+            {
+                await _microphoneSelectionService.ResolveAsync(_windowCancellation.Token);
+            }
+
+            var configuration = _configurationStore.Current;
             DeviceComboBox.ItemsSource = devices;
             DeviceComboBox.SelectedItem = devices.FirstOrDefault(device =>
-                device.Id.Equals(_configurationStore.Current.DeviceId, StringComparison.OrdinalIgnoreCase))
+                device.Id.Equals(configuration.DeviceId, StringComparison.OrdinalIgnoreCase))
                 ?? devices[0];
-            StatusText.Text = "Ready to measure background noise.";
+            AutomaticSelectionCheckBox.IsChecked = configuration.AutomaticallySelectDevice;
+            ExcludedDevicesList.ItemsSource = devices
+                .Where(static device => !device.Id.Equals("default", StringComparison.OrdinalIgnoreCase))
+                .Select(device => new MicrophoneExclusionListItem(
+                    device.Id,
+                    device.Name,
+                    configuration.ExcludedDeviceIds.Contains(
+                        device.Id,
+                        StringComparer.OrdinalIgnoreCase)))
+                .ToArray();
+            StatusText.Text = configuration.AutomaticallySelectDevice
+                ? $"Automatic routing is ready to use {configuration.DeviceName}."
+                : "Manual routing is ready. You can also measure background noise.";
+        });
+    }
+
+    private async void SaveRoutingButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ExecuteAsync("Apply microphone routing", async () =>
+        {
+            var selected = GetSelectedDevice();
+            var automatic = AutomaticSelectionCheckBox.IsChecked == true;
+            var exclusions = ExcludedDevicesList.Items
+                .OfType<MicrophoneExclusionListItem>()
+                .Where(static item => item.IsExcluded)
+                .Select(static item => item.Id)
+                .ToArray();
+            var configuration = _configurationStore.Current with
+            {
+                AutomaticallySelectDevice = automatic,
+                ExcludedDeviceIds = exclusions,
+                DeviceId = automatic ? _configurationStore.Current.DeviceId : selected.Id,
+                DeviceName = automatic ? _configurationStore.Current.DeviceName : selected.Name
+            };
+            _configurationStore.Save(configuration);
+            var applied = await _microphoneSelectionService.ApplyAsync(_windowCancellation.Token);
+            DeviceComboBox.SelectedItem = DeviceComboBox.Items
+                .OfType<MicrophoneDevice>()
+                .FirstOrDefault(device =>
+                    device.Id.Equals(applied.Id, StringComparison.OrdinalIgnoreCase))
+                ?? selected;
+            StatusText.Text = automatic
+                ? $"Following the Windows default microphone: {applied.Name}."
+                : $"Using {applied.Name} until you change it.";
         });
     }
 
@@ -252,6 +304,9 @@ public partial class MicrophoneCalibrationWindow : Window
     {
         var hasDevice = DeviceComboBox.SelectedItem is MicrophoneDevice;
         DeviceComboBox.IsEnabled = !_isBusy && DeviceComboBox.Items.Count > 0;
+        AutomaticSelectionCheckBox.IsEnabled = !_isBusy;
+        ExcludedDevicesList.IsEnabled = !_isBusy;
+        SaveRoutingButton.IsEnabled = !_isBusy && hasDevice;
         BackgroundButton.IsEnabled = !_isBusy && hasDevice;
         NormalButton.IsEnabled = !_isBusy && hasDevice;
         LoudButton.IsEnabled = !_isBusy && hasDevice;
@@ -293,5 +348,15 @@ public partial class MicrophoneCalibrationWindow : Window
     {
         _windowCancellation.Cancel();
         _windowCancellation.Dispose();
+    }
+
+    private sealed class MicrophoneExclusionListItem(
+        string id,
+        string name,
+        bool isExcluded)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public bool IsExcluded { get; set; } = isExcluded;
     }
 }

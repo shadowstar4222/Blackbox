@@ -22,6 +22,8 @@ public sealed class MicrophoneConfigurationStoreTests
             {
                 DeviceId = "device-123",
                 DeviceName = "Test microphone",
+                AutomaticallySelectDevice = true,
+                ExcludedDeviceIds = ["device-unused"],
                 ProcessingSettings = new MicrophoneProcessingSettings { InputGainDb = 4.5 }
             });
 
@@ -29,6 +31,8 @@ public sealed class MicrophoneConfigurationStoreTests
 
             Assert.Equal("device-123", secondStore.Current.DeviceId);
             Assert.Equal("Test microphone", secondStore.Current.DeviceName);
+            Assert.True(secondStore.Current.AutomaticallySelectDevice);
+            Assert.Equal(["device-unused"], secondStore.Current.ExcludedDeviceIds);
             Assert.Equal(4.5, secondStore.Current.ProcessingSettings.InputGainDb);
         }
         finally

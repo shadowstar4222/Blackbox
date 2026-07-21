@@ -114,9 +114,10 @@ public sealed class ObsSetupRequestBuilder
         [
             InputSettings("Blackbox Game Capture", new JsonObject
             {
-                ["capture_mode"] = "window",
+                ["capture_mode"] = ObsGameCaptureSettings.SpecificWindowMode,
                 ["window"] = target.ObsWindowIdentifier,
-                ["priority"] = 1
+                ["priority"] = ObsGameCaptureSettings.WindowTitleMustMatchPriority,
+                ["anti_cheat_hook"] = true
             })
         ];
         if (target.CaptureGameAudio)

@@ -107,9 +107,12 @@ public partial class App : Application
                 services.AddSingleton<IObsController, ObsWebSocketController>();
                 services.AddSingleton(new GpuActivityOptions());
                 services.AddSingleton<IGpuActivityProbe, WindowsGpuActivityProbe>();
+                services.AddSingleton<IProcessExecutablePathResolver, SteamProcessExecutablePathResolver>();
                 services.AddSingleton<IRunningApplicationCatalog, WindowsRunningApplicationCatalog>();
                 services.AddSingleton<IGameProcessDetector, WindowsGameProcessDetector>();
                 services.AddSingleton<IObsMicrophoneController, ObsMicrophoneController>();
+                services.AddSingleton<IDefaultMicrophoneProvider, WindowsDefaultMicrophoneProvider>();
+                services.AddSingleton<MicrophoneSelectionService>();
                 services.AddSingleton(new MicrophoneMonitoringOptions());
                 services.AddSingleton<IMicrophoneDeviceMonitor, MicrophoneDeviceMonitor>();
                 services.AddSingleton<MicrophoneCalibrationAnalyzer>();

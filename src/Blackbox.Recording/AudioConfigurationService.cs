@@ -6,6 +6,7 @@ namespace Blackbox.Recording;
 
 public sealed class AudioConfigurationService(
     IObsController obsController,
+    MicrophoneSelectionService microphoneSelectionService,
     ILogger<AudioConfigurationService> logger)
 {
     public async Task ApplyAsync(
@@ -16,6 +17,9 @@ public sealed class AudioConfigurationService(
         profile.Validate();
         microphoneSettings.Validate();
         await obsController.ConfigureAudioAsync(profile, microphoneSettings, cancellationToken);
-        logger.LogInformation("Applied Blackbox audio routing profile.");
+        var microphone = await microphoneSelectionService.ApplyAsync(cancellationToken);
+        logger.LogInformation(
+            "Applied Blackbox audio routing profile with microphone {MicrophoneName}.",
+            microphone.Name);
     }
 }

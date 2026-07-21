@@ -8,5 +8,6 @@ public sealed record UserExperienceSettings
     public bool CloseToTray { get; init; } = true;
     public bool WatchRememberedGames { get; init; }
     public bool AutoSetupObsAtStartup { get; init; } = true;
+    public bool HasCompletedTutorial { get; init; }
     public RecordingQualitySettings RecordingQuality { get; init; } = new();
 }
