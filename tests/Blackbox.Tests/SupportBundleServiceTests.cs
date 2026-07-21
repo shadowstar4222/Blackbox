@@ -20,9 +20,9 @@ public sealed class SupportBundleServiceTests
                     DiagnosticCategory.Recording,
                     DiagnosticSeverity.Information,
                     index == 7
-                        ? @"OBS password=top-secret wrote C:\Users\shado\Videos\Blackbox\clip.mkv"
+                        ? @"OBS password=top-secret wrote C:\Users\example\Videos\Blackbox\clip.mkv"
                         : $"Recording event {index}.",
-                    @"C:\Users\shado\AppData\Local\Blackbox\logs\blackbox.log"))
+                    @"C:\Users\example\AppData\Local\Blackbox\logs\blackbox.log"))
                 .ToArray();
             var service = new SupportBundleService(
                 new FixedClock(DateTimeOffset.Parse("2026-07-18T13:00:00Z")),
@@ -52,7 +52,7 @@ public sealed class SupportBundleServiceTests
                 '\n',
                 archive.Entries.Select(ReadEntry));
             Assert.DoesNotContain("top-secret", contents, StringComparison.Ordinal);
-            Assert.DoesNotContain(@"C:\Users\shado", contents, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(@"C:\Users\example", contents, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("Recording event 0.", contents, StringComparison.Ordinal);
             Assert.Contains("<redacted>", contents, StringComparison.Ordinal);
             Assert.Contains("%USERPROFILE%", contents, StringComparison.Ordinal);

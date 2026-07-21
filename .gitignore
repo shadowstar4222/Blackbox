@@ -2,6 +2,8 @@ bin/
 obj/
 .vs/
 TestResults/
+artifacts/
+outputs/
 *.user
 *.suo
 *.db

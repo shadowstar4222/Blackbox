@@ -1,137 +1,111 @@
+<p align="center">
+  <img src="src/Blackbox.App/Assets/Blackbox.png" alt="Blackbox application icon" width="112" height="112">
+</p>
+
 # Blackbox
 
-Blackbox is a Windows 10 64-bit continuous background gameplay recorder built with .NET 8, WPF, SQLite, OBS Studio, and FFmpeg.
+Blackbox is a Windows recorder that automatically captures games and application windows through a private OBS Studio backend. It records resilient short segments, shows them as one continuous timeline, and exports them as one video when you are ready.
 
-Minimum supported OS: Windows 10 version 2004, build 19041.
+**Windows 10 or later | 64-bit | Current release: v1.0.0**
 
-## Milestone 7G Active Game Switching Status
+[Download Blackbox v1.0.0](https://github.com/shadowstar4222/Blackbox/releases/tag/v1.0.0)
 
-Implemented:
+## Features
 
-- An OBS-inspired dark capture console with persistent navigation, compact status summaries, and responsive drawer panels.
-- Games, microphone, diagnostics, and settings drawers that keep common actions in the main window.
-- A dedicated Blackbox application icon for the executable, taskbar, title bars, and notification area.
-- Notification-area controls for opening Blackbox, recording, protection, remembered-game watching, recordings, and exit.
-- Optional close-to-notification-area and minimize-to-notification-area behavior.
-- Optional Windows startup through the current-user Run key with a quiet `--background` launch.
-- Optional remembered-game watching that starts the private OBS backend and capture detector after Blackbox launches.
-- Automatic, probe-free OBS preparation at startup so the private backend is ready without creating a throwaway recording.
-- Persisted recording resolution, frame-rate, and audio-quality controls in the Settings drawer.
-- Resolution choices from 720p through 4K plus match-application, 30/60/120 FPS, and 160/256/320 kbps audio.
-- Manual recordings organized under `Manual\YYYY-MM-DD` and automatic recordings under `Application\YYYY-MM-DD`.
-- Recursive recording indexing and recovery across the organized application/date folders.
-- Live OBS reframing when a captured application changes size, without stopping or restarting the active recording.
-- Exact OBS game-capture binding to `Capture specific window` with `Window title must match` and the live game window identifier.
-- Protected Steam-process recovery from Steam's active PID tracking when anti-cheat blocks normal executable-path inspection.
-- Automatic Windows-default microphone routing during OBS setup and every recording start.
-- Persisted microphone exclusions plus a manual-selection fallback in the microphone setup window.
-- A first-run tutorial, permanent Help navigation item, guided setup actions, main-button tooltips, and an in-app control reference.
-- A persistent active-game selector that can switch OBS between simultaneously running remembered games.
-- Live video and isolated game-audio rebinding without interrupting an active recording.
-- Preferred-game ranking above foreground and GPU heuristics, with automatic fallback when that game closes.
-- Atomically persisted desktop preferences with safe recovery from missing, corrupted, or failed writes.
-- Dark themed timeline, game profile, microphone, and diagnostics windows with keyboard focus and 150% scaling fixes.
-- Recording coordination, completed-segment discovery, and SQLite metadata from Milestone 1.
-- Quota pruning, missing-file reconciliation, five-minute protection, and the `Ctrl+Shift+F7` hotkey from Milestone 2.
-- Five-track audio routing, processed microphone filters, and microphone level calculations from Milestone 3.
-- One selected Windows microphone routed to separate raw and processed OBS sources.
-- Live three-phase microphone calibration for room noise, normal voice, and loud voice.
-- Persisted input-gain, expander, compressor, and limiter recommendations with clipping and automatic-gain warnings.
-- Before/after comparison recordings with direct open controls.
-- Recording-time device monitoring that preserves source timing during disconnects and restores the selected device after reconnection.
-- Direct `Open Recordings` access from the main window.
-- One-click OBS provisioning that first detects standard and Steam installations, including secondary Steam libraries.
-- A private portable runtime prepared from local OBS files when available, with the official OBS GitHub release used only as a fallback.
-- SHA-256 package verification when the official release publishes a digest.
-- User-writable portable OBS storage under `%LOCALAPPDATA%\Blackbox\obs-portable`; no administrator access is required.
-- Private localhost websocket authentication on a dynamically selected port.
-- Automatic websocket-server enablement and repair before each private OBS launch.
-- Persisted connection settings so a running Blackbox OBS instance is reused after an app restart.
-- Idempotent creation of the Blackbox profile, scene collection, scene, sources, filters, and track assignments.
-- OBS response validation with readable per-request failure messages.
-- MKV recording, tracks 1 through 5, 48 kHz audio, time-based file splitting configuration, and profile reload after output-mode changes.
-- A short first-run recording probe that must produce a real output file before setup succeeds.
-- WPF setup progress and recording controls that remain disabled until OBS passes setup.
-- Startup database initialization and contained UI command failures so feature errors do not terminate the app.
-- Automated coverage for provisioning, connection reuse, protocol responses, repeat setup, recording configuration, storage, protection, and audio models.
-- A recordings library that backfills completed MKV and MP4 files into SQLite and groups compatible adjacent segments into continuous sessions.
-- An integrated timeline with cached thumbnails, a full-mix waveform, continuous seeking, and playback from the cursor.
-- Durable markers and protected ranges plus clear damaged-media and timeline-gap reporting.
-- An embedded Blackbox video player backed by bundled LibVLC codecs.
-- Play/pause, 10-second jumps, segment jumps, frame stepping, speed, loop, volume, mute, audio-track, and fullscreen controls.
-- Serialized, cancelable frame navigation that batches queued clicks and reopens one decoder at the final requested frame.
-- Cache-first timeline previews that run FFmpeg only when `Build preview` is requested.
-- One reusable review window per recordings library, preventing duplicate full-resolution video decoders.
-- Numbered segment bands, live scrubbing, quick tags, manual event markers, marker navigation, and marker removal.
-- Full-session stream-copy export and accurate selected-range export to one MKV or MP4 while preserving readable isolated audio tracks.
-- Per-track mute, solo, volume, WAV-selection controls, and common export presets.
-- Optional 24-bit PCM WAV export for selected isolated audio tracks.
-- Export progress, cancellation, atomic completion, and source-segment locks that prevent quota deletion during playback and export.
-- A remembered-games manager populated from every visible taskbar application window, including multiple windows from the same program.
-- Persistent per-game automatic-recording enablement keyed by full executable path.
-- Opt-in automatic capture that ignores every executable the user has not remembered.
-- Start-time OBS scene, canvas, game-video, and isolated game-audio rebinding using the live window identifier and client size.
-- A forced source re-hook and short settle delay before recording begins, preventing stale blank captures.
-- Two-sample launch confirmation and a 15-second stop grace period to avoid capture churn during startup and brief focus changes.
-- Recording ownership that prevents automatic capture from stopping a manually started recording.
-- Startup media recovery that probes stable MKV and MP4 files, attempts a lossless FFmpeg remux when needed, and never replaces the original unless the repaired file passes verification.
-- Recovery backups that preserve the original damaged file and any useful failed repair output for manual inspection.
-- Startup reconciliation that imports surviving recordings, marks damaged media clearly, and repairs missing-file database state.
-- Active-file protection that detects changing OBS output and skips it during recovery.
-- Surviving OBS-session adoption after a Blackbox crash, including restoration of the working Stop control without interrupting recording.
-- Persisted automatic-capture intent so an interrupted automatic session can resume after Blackbox restarts.
-- An in-app diagnostics window with recording state, automatic-capture state, indexed-media health, storage use, recovery results, and categorized recent logs.
-- A privacy-reviewed local support bundle with capped diagnostic events and automatic redaction of credentials, user-profile paths, URI credentials, and microphone identifiers.
-- Explicit exclusion of recordings, screenshots, databases, OBS passwords/settings, microphone configuration, game profiles, executable lists, and application settings from support bundles.
-- Migration-safe per-game aliases plus audio, launcher-handoff, and GPU-preference settings.
-- Automatic launcher-child discovery that requires two consecutive detections before remembering the final executable as an alias.
-- Same-process window replacement detection so OBS re-hooks when a launcher changes its capture window without changing executables.
-- Optional Windows GPU activity corroboration that ranks likely game windows without requiring administrator access or process injection.
-- Live GPU utilization in the running-applications picker and removable executable aliases in each remembered profile.
-- Atomic settings writes, bounded diagnostic logs, bounded timeline caches, serialized tool provisioning, and SQLite WAL concurrency.
-- Reduced startup and library work by reusing healthy media metadata and skipping unnecessary FFmpeg provisioning and probes.
-- Deterministic cancellation and shutdown for automatic capture, microphone monitoring, recording, playback leases, hotkeys, and WPF windows.
-- Hardened OBS websocket message limits, native DLL search paths, setup readiness retries, and portable-runtime installation.
+- Automatically records only the games and applications you choose to remember.
+- Sets up and controls a private OBS runtime without changing your personal OBS scenes.
+- Captures exact game windows and adjusts when a window is resized.
+- Switches between multiple open remembered games, even during a recording.
+- Records separate game, voice-chat, raw-microphone, and processed-microphone tracks.
+- Follows the current Windows default microphone with exclusions and manual selection.
+- Presents segmented recordings as one continuous video timeline.
+- Includes playback controls, frame stepping, markers, tags, protected ranges, and segment boundaries.
+- Exports complete sessions or selected ranges as one MKV or MP4.
+- Recovers and diagnoses interrupted recordings while preserving the original files.
+- Runs from the notification area and can start automatically with Windows.
 
-Automatic capture now binds game video and optional isolated game audio only after a remembered game or verified launcher child starts. The Games window can switch the active OBS target whenever multiple remembered games are open. Milestone 7G active game switching is complete.
+## Install
 
-The Release build has zero warnings and errors and all 150 automated tests pass. Live startup prepared OBS, confirmed exact-window title matching, and routed the current Windows default microphone while preserving calibrated processing.
+1. Open the [v1.0.0 release](https://github.com/shadowstar4222/Blackbox/releases/tag/v1.0.0).
+2. Download `Blackbox-v1.0.0-win-x64.zip` and its SHA-256 checksum file.
+3. Extract the entire ZIP to a normal writable folder.
+4. Run `Blackbox.App.exe`.
+5. Wait until Blackbox reports that OBS is configured and ready.
+6. Make a short manual test recording before enabling automatic capture.
 
-## Build
+The package is self-contained and does not require a separate .NET installation. Blackbox uses an existing standard or Steam OBS installation when available, otherwise it downloads an official private runtime. Administrator access is not required.
 
-```powershell
-dotnet restore
-dotnet build
-dotnet test
+Minimum supported system: Windows 10 version 2004, build 19041, on 64-bit Windows.
+
+## First Setup
+
+1. Open **Microphone** and confirm the selected input or exclusions.
+2. Use **Check OBS** to validate the managed OBS setup with a short recording.
+3. Start a game or application and leave its taskbar window open.
+4. Open **Games**, then **Manage remembered games**.
+5. Select the running application and choose **Remember as game**.
+6. Enable automatic capture from the Capture workspace or Settings.
+
+When multiple remembered games are open, select the intended running game and choose **Use for capture**. Blackbox keeps that game preferred until it closes.
+
+## Recordings
+
+Recordings are stored under:
+
+```text
+%USERPROFILE%\Videos\Blackbox
 ```
 
-Run the WPF app:
+Manual recordings use `Manual\YYYY-MM-DD`. Automatic recordings use `Application Name\YYYY-MM-DD`.
+
+Blackbox records short MKV segments for crash resistance and presents compatible segments as one continuous session. The default audio layout is:
+
+| Track | Audio |
+| --- | --- |
+| 1 | Full listening mix |
+| 2 | Game audio |
+| 3 | Voice chat |
+| 4 | Raw microphone |
+| 5 | Processed microphone |
+
+Use **Protect 5 min** or `Ctrl+Shift+F7` to keep recent footage from automatic cleanup.
+
+## Build From Source
+
+Requirements: Windows 10 or later and the .NET 8 SDK.
 
 ```powershell
-dotnet run --project src\Blackbox.App\Blackbox.App.csproj
+dotnet restore Blackbox.sln
+dotnet build Blackbox.sln -c Release --no-restore
+dotnet test Blackbox.sln -c Release --no-build
+dotnet run --project src\Blackbox.App\Blackbox.App.csproj -c Release
 ```
 
-## First Run
+## Privacy
 
-1. Start Blackbox.
-2. Blackbox automatically finds or prepares its private OBS runtime and applies the saved recording quality.
-3. Confirm the status changes to `OBS is configured and ready.`
-4. Use `Check OBS` when you want Blackbox to make and validate a short setup-check recording.
-5. Open the `Microphone` drawer to follow the Windows default microphone, exclude unwanted devices, choose a manual fallback, or calibrate processing.
-6. Use `Start Recording` and `Stop` for recording tests.
-7. Use `Recordings` to browse the visual timeline, open the full Blackbox player from any cursor position, tag moments, select a range, mix tracks, and export one continuous video.
-8. Start a game, open the `Games` drawer and game manager, select it under running applications, and remember it.
-9. When multiple remembered games are open, select one in the running-applications list and use `Use for capture` to switch OBS to it.
-10. Open `Settings` and enable `Automatic recording at startup` to let Blackbox start and stop recording with that game.
-11. Choose the recording resolution, frame rate, and audio quality, then select `Apply recording quality`.
-12. Use `Open Folder` when you need direct access to recordings grouped by application and date.
-13. Open the `Diagnostics` drawer and workspace to inspect recovery results, media health, storage use, and recent recording or detection events.
-14. Use `Support bundle` only when troubleshooting. Review the privacy disclosure, choose a local ZIP destination, and inspect the ZIP before sharing it.
-15. Optionally enable `Start with Windows`; Blackbox then starts quietly in the notification area.
-16. Open `Help` at any time for the guided setup and main-control reference.
+- Recordings and application state stay on the local computer.
+- Blackbox does not require a cloud account or upload recordings.
+- OBS websocket access is authenticated and bound to localhost.
+- Blackbox does not inject code into games, Steam, or voice-chat processes.
+- Support bundles exclude recordings, screenshots, databases, OBS passwords, saved profiles, executable lists, microphone configuration, and settings files.
 
-The OBS onboarding procedure is in `docs/obs-test-setup.md`. The Milestone 4 microphone procedure is in `docs/milestone-4-microphone-test.md`. The continuous-session export procedure is in `docs/milestone-5-continuous-export-test.md`. The complete automatic-capture procedure is in `docs/milestone-6a-automatic-capture-test.md`. The crash-recovery procedure is in `docs/milestone-6c-recovery-diagnostics-test.md`. The Milestone 7 audit is in `docs/milestone-7-hardening-report.md`. Desktop validation is covered by `docs/milestone-7d-desktop-experience-test.md`, `docs/milestone-7e-capture-qol-test.md`, and `docs/milestone-7g-game-switching-test.md`.
+## Help And Documentation
 
-## Current Milestone
+- Use the in-app **Help** and **Diagnostics** workspaces first.
+- Read [`BLACKBOX-DETAILS.txt`](BLACKBOX-DETAILS.txt) for the complete manual, troubleshooting, storage policy, architecture, safety model, and contributor notes.
+- Read [`docs/roadmap.md`](docs/roadmap.md) for completed milestones and planned work.
+- Logs are stored under `%LOCALAPPDATA%\Blackbox\logs`.
 
-Milestone 7G's persistent active-game selection and live OBS target switching are complete. The OBS dock edition remains planned as Milestone 8. See `docs/roadmap.md` for the acceptance criteria.
+## Release Status
+
+Blackbox v1.0.0 has been validated on Windows 10 x64:
+
+- Release build: zero warnings and zero errors.
+- Automated tests: 150 passed, zero failed, zero skipped.
+- Private OBS startup, exact-window capture, automatic microphone routing, continuous playback/export, recovery, and remembered-game switching verified.
+
+The next planned milestone is an OBS dock edition.
+
+## License
+
+No Blackbox project license has been selected yet. See [`src/Blackbox.App/THIRD-PARTY-NOTICES.txt`](src/Blackbox.App/THIRD-PARTY-NOTICES.txt) for bundled LibVLC notices. OBS Studio and FFmpeg remain subject to their respective licenses.
