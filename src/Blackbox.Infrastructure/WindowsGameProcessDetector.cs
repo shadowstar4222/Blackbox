@@ -6,6 +6,7 @@ namespace Blackbox.Infrastructure;
 public sealed class WindowsGameProcessDetector(
     IRunningApplicationCatalog runningApplications,
     IGameProfileRepository gameProfiles,
+    IGameCaptureSelectionStore captureSelectionStore,
     IGpuActivityProbe gpuActivityProbe,
     GpuActivityOptions gpuOptions,
     IClock clock,
@@ -47,12 +48,15 @@ public sealed class WindowsGameProcessDetector(
             }
         }
 
+        var preferred = captureSelectionStore.Current;
         var selected = matches
             .Select(match => match with
             {
                 GpuUtilization = gpuSnapshot.GetUtilization(match.Application.ProcessId)
             })
-            .OrderByDescending(match =>
+            .OrderByDescending(match => IsExactPreferredMatch(match, preferred))
+            .ThenByDescending(match => IsPreferredProfileMatch(match, preferred))
+            .ThenByDescending(match =>
                 match.Profile.PreferGpuActivity &&
                 match.GpuUtilization >= gpuOptions.ActiveThresholdPercent)
             .ThenByDescending(static match => match.Application.IsForeground)
@@ -110,6 +114,18 @@ public sealed class WindowsGameProcessDetector(
             selected.GpuUtilization);
         return target;
     }
+
+    private static bool IsExactPreferredMatch(
+        GameProfileMatch match,
+        GameCaptureSelection? preferred) =>
+        preferred is not null &&
+        match.Profile.Identity == preferred.ProfileIdentity &&
+        match.Application.Identity == preferred.TargetIdentity;
+
+    private static bool IsPreferredProfileMatch(
+        GameProfileMatch match,
+        GameCaptureSelection? preferred) =>
+        preferred is not null && match.Profile.Identity == preferred.ProfileIdentity;
 
     private IReadOnlyList<GameProfileMatch> FindMatches(
         IReadOnlyList<RunningApplication> applications,

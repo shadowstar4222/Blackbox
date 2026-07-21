@@ -136,6 +136,19 @@ Milestone 7E is complete. The Release build has zero warnings and errors, all 13
 
 Milestone 7F is complete. The Release build has zero warnings and errors and all 144 automated tests pass. The protected-game parser was validated against this machine's real Helldivers 2 Steam process entries, and live startup confirmed exact OBS title matching plus Windows-default microphone routing. See `docs/milestone-7f-reliability-onboarding-test.md`.
 
+### Milestone 7G: Active Game Switching
+
+- [x] List the remembered state of every running taskbar application in the Games window.
+- [x] Add an explicit `Use for capture` action for any running remembered game.
+- [x] Persist the preferred remembered profile and exact executable across Blackbox restarts.
+- [x] Rank the preferred game above foreground and GPU heuristics while it remains open.
+- [x] Fall back to another eligible remembered game when the preferred game closes.
+- [x] Rebind OBS video and isolated game audio without stopping an active recording.
+- [x] Prepare the selected OBS target while idle and preserve normal automatic-start confirmation.
+- [x] Show the active and preferred capture state directly in the running-application list.
+
+Milestone 7G is complete. The Release build has zero warnings and errors and all 150 automated tests pass. See `docs/milestone-7g-game-switching-test.md`.
+
 ## Planned
 
 ### Milestone 8: OBS Dock Edition

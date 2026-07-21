@@ -234,6 +234,97 @@ public sealed class AutomaticCaptureControllerTests
         }
     }
 
+    [Fact]
+    public async Task SelectTargetAsync_rebinds_a_manual_recording_without_stopping_it()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            await coordinator.StartAsync(new RecordingSettings { RecordingLocation = root });
+            var controller = CreateController(root, obs, coordinator, clock);
+            var target = CreateTarget() with
+            {
+                ProcessId = 84,
+                ExecutablePath = "C:\\Games\\Second.exe",
+                ExecutableName = "Second.exe",
+                Title = "Second Game",
+                ObsWindowIdentifier = "Second Game:WindowClass:Second.exe"
+            };
+            var callsBeforeSwitch = obs.Calls.Count;
+
+            await controller.SelectTargetAsync(target);
+
+            Assert.True(coordinator.IsRecording);
+            Assert.Equal(["RefreshGame:Second.exe"], obs.Calls.Skip(callsBeforeSwitch));
+            Assert.DoesNotContain("Stop", obs.Calls.Skip(callsBeforeSwitch));
+            Assert.Equal(target, controller.Status.Target);
+            Assert.Equal(AutomaticCaptureState.Recording, controller.Status.State);
+            await coordinator.StopAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SelectTargetAsync_prepares_obs_while_recording_is_stopped()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            var controller = CreateController(root, obs, coordinator, clock);
+            var target = CreateTarget();
+
+            await controller.SelectTargetAsync(target);
+
+            Assert.False(coordinator.IsRecording);
+            Assert.Equal(["ConfigureGame:Example.exe"], obs.Calls);
+            Assert.Equal(AutomaticCaptureState.Disabled, controller.Status.State);
+            Assert.Contains("recording is stopped", controller.Status.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Selected_idle_target_can_start_when_automatic_capture_is_enabled()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var clock = new MutableClock(DateTimeOffset.Parse("2026-07-16T12:00:00Z"));
+            var obs = new AutomaticCaptureObsController();
+            var coordinator = CreateCoordinator(obs);
+            var controller = CreateController(root, obs, coordinator, clock);
+            var target = CreateTarget();
+
+            controller.Enable();
+            await controller.SelectTargetAsync(target);
+            await controller.ProcessDetectionAsync(target);
+            await controller.ProcessDetectionAsync(target);
+
+            Assert.True(coordinator.IsRecording);
+            Assert.Equal(AutomaticCaptureState.Recording, controller.Status.State);
+            Assert.Equal(2, obs.Calls.Count(call => call == "ConfigureGame:Example.exe"));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static AutomaticCaptureController CreateController(
         string recordingPath,
         IObsController obs,

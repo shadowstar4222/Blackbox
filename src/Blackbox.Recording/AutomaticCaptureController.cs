@@ -91,14 +91,17 @@ public sealed class AutomaticCaptureController(
             _lastDetectedAt = clock.UtcNow;
             if (_activeTarget?.CaptureBindingIdentity == target.CaptureBindingIdentity)
             {
-                Publish(new AutomaticCaptureStatus(
-                    AutomaticCaptureState.Recording,
-                    recordingCoordinator.IsRecording
-                        ? $"Recording {target.Title}."
-                        : $"Tracking {target.Title}; recording is currently stopped.",
-                    target,
-                    recordingCoordinator.IsRecording));
-                return;
+                if (recordingCoordinator.IsRecording)
+                {
+                    Publish(new AutomaticCaptureStatus(
+                        AutomaticCaptureState.Recording,
+                        $"Recording {target.Title}.",
+                        target,
+                        true));
+                    return;
+                }
+
+                _activeTarget = null;
             }
 
             if (_activeTarget?.CaptureSourceIdentity == target.CaptureSourceIdentity)
@@ -197,6 +200,59 @@ public sealed class AutomaticCaptureController(
                 _ownsRecording ? $"Recording {target.Title}." : $"Tracking {target.Title} during manual recording.",
                 target,
                 recordingCoordinator.IsRecording));
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task SelectTargetAsync(
+        GameCaptureTarget target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        target.Validate();
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var isRecording = recordingCoordinator.IsRecording;
+            Publish(new AutomaticCaptureStatus(
+                AutomaticCaptureState.Starting,
+                $"Switching OBS capture to {target.Title}...",
+                target,
+                isRecording));
+
+            if (isRecording)
+            {
+                await obsController.RefreshGameCaptureAsync(target, cancellationToken);
+            }
+            else
+            {
+                await obsController.ConfigureGameCaptureAsync(target, cancellationToken);
+            }
+            _activeTarget = target;
+            _pendingTarget = null;
+            _positiveDetections = 0;
+            _lastDetectedAt = clock.UtcNow;
+
+            logger.LogInformation(
+                "Manually selected {GameTitle} as the active OBS capture target. IsRecording={IsRecording}.",
+                target.Title,
+                isRecording);
+            Publish(new AutomaticCaptureStatus(
+                isRecording
+                    ? AutomaticCaptureState.Recording
+                    : IsEnabled
+                        ? AutomaticCaptureState.Watching
+                        : AutomaticCaptureState.Disabled,
+                isRecording
+                    ? $"Recording {target.Title}."
+                    : IsEnabled
+                        ? $"OBS is ready for {target.Title}; automatic capture is watching it."
+                        : $"OBS is ready for {target.Title}; recording is stopped.",
+                target,
+                isRecording));
         }
         finally
         {

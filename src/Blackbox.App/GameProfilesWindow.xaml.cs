@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Blackbox.Domain;
 using Blackbox.Infrastructure;
+using Blackbox.Recording;
 using Microsoft.Extensions.Logging;
 
 namespace Blackbox.App;
@@ -12,6 +13,8 @@ public partial class GameProfilesWindow : Window
 {
     private readonly IRunningApplicationCatalog _runningApplications;
     private readonly IGameProfileRepository _gameProfiles;
+    private readonly IGameCaptureSelectionStore _captureSelectionStore;
+    private readonly AutomaticCaptureService _automaticCaptureService;
     private readonly IGpuActivityProbe _gpuActivityProbe;
     private readonly IClock _clock;
     private readonly ILogger<GameProfilesWindow> _logger;
@@ -23,12 +26,16 @@ public partial class GameProfilesWindow : Window
     public GameProfilesWindow(
         IRunningApplicationCatalog runningApplications,
         IGameProfileRepository gameProfiles,
+        IGameCaptureSelectionStore captureSelectionStore,
+        AutomaticCaptureService automaticCaptureService,
         IGpuActivityProbe gpuActivityProbe,
         IClock clock,
         ILogger<GameProfilesWindow> logger)
     {
         _runningApplications = runningApplications;
         _gameProfiles = gameProfiles;
+        _captureSelectionStore = captureSelectionStore;
+        _automaticCaptureService = automaticCaptureService;
         _gpuActivityProbe = gpuActivityProbe;
         _clock = clock;
         _logger = logger;
@@ -39,8 +46,18 @@ public partial class GameProfilesWindow : Window
         RunningApplicationsList.SelectionChanged += (_, _) => UpdateSelectionState();
         RememberedGamesList.SelectionChanged += (_, _) => LoadSelectedProfile();
         AliasesList.SelectionChanged += (_, _) => UpdateSelectionState();
-        Loaded += async (_, _) => await RefreshAsync();
+        Loaded += Window_Loaded;
+        Closed += Window_Closed;
     }
+
+    private async void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        _automaticCaptureService.StatusChanged += AutomaticCaptureService_StatusChanged;
+        await RefreshAsync();
+    }
+
+    private void Window_Closed(object? sender, EventArgs e) =>
+        _automaticCaptureService.StatusChanged -= AutomaticCaptureService_StatusChanged;
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
 
@@ -116,7 +133,39 @@ public partial class GameProfilesWindow : Window
             profileItem.Profile = updated;
             LoadSelectedProfile();
             RememberedGamesList.Items.Refresh();
+            UpdateRunningProfileStates();
             StatusText.Text = $"Added {selected.Application.ExecutableName} as an alias for {updated.DisplayName}.";
+        });
+    }
+
+    private async void UseForCaptureButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (RunningApplicationsList.SelectedItem is not RunningApplicationListItem
+            {
+                Profile: not null
+            } selected)
+        {
+            return;
+        }
+
+        await ExecuteAsync(async () =>
+        {
+            var profile = selected.Profile;
+            var selection = new GameCaptureSelection(
+                profile.ExecutablePath,
+                selected.Application.ExecutablePath,
+                profile.DisplayName);
+            _captureSelectionStore.Save(selection);
+
+            var target = selected.Application
+                .ToCaptureTarget(GameDetectionSource.ConfiguredExecutable) with
+            {
+                Title = profile.DisplayName,
+                CaptureGameAudio = profile.CaptureGameAudio
+            };
+            await _automaticCaptureService.SelectTargetAsync(target);
+            UpdateRunningProfileStates();
+            StatusText.Text = _automaticCaptureService.Status.Message;
         });
     }
 
@@ -140,6 +189,7 @@ public partial class GameProfilesWindow : Window
             await _gameProfiles.UpsertAsync(updated);
             item.Profile = updated;
             RememberedGamesList.Items.Refresh();
+            UpdateRunningProfileStates();
             StatusText.Text = $"Updated capture settings for {updated.DisplayName}.";
         });
     }
@@ -167,6 +217,7 @@ public partial class GameProfilesWindow : Window
             item.Profile = updated;
             LoadSelectedProfile();
             RememberedGamesList.Items.Refresh();
+            UpdateRunningProfileStates();
             StatusText.Text = $"Removed {Path.GetFileName(selectedAlias)} from {updated.DisplayName}.";
         });
     }
@@ -191,9 +242,15 @@ public partial class GameProfilesWindow : Window
 
         await ExecuteAsync(async () =>
         {
+            if (_captureSelectionStore.Current?.ProfileIdentity == item.Profile.Identity)
+            {
+                _captureSelectionStore.Clear();
+            }
+
             await _gameProfiles.DeleteAsync(item.ExecutablePath);
             _profileItems.Remove(item);
             LoadSelectedProfile();
+            UpdateRunningProfileStates();
             StatusText.Text = $"Removed {item.DisplayName}.";
         });
     }
@@ -213,7 +270,10 @@ public partial class GameProfilesWindow : Window
             {
                 _runningItems.Add(new RunningApplicationListItem(
                     application,
-                    gpuSnapshot.IsAvailable ? gpuSnapshot.GetUtilization(application.ProcessId) : null));
+                    gpuSnapshot.IsAvailable ? gpuSnapshot.GetUtilization(application.ProcessId) : null,
+                    null,
+                    false,
+                    false));
             }
 
             await LoadProfilesAsync();
@@ -235,6 +295,7 @@ public partial class GameProfilesWindow : Window
 
         SelectProfile(selectedIdentity);
         LoadSelectedProfile();
+        UpdateRunningProfileStates();
     }
 
     private void SelectProfile(string? identity)
@@ -275,12 +336,68 @@ public partial class GameProfilesWindow : Window
 
     private void UpdateSelectionState()
     {
-        var runningSelected = RunningApplicationsList.SelectedItem is RunningApplicationListItem;
+        var runningItem = RunningApplicationsList.SelectedItem as RunningApplicationListItem;
+        var runningSelected = runningItem is not null;
         var profileSelected = RememberedGamesList.SelectedItem is GameProfileListItem;
         RememberButton.IsEnabled = !_isBusy && runningSelected;
         AddAliasButton.IsEnabled = !_isBusy && runningSelected && profileSelected;
+        UseForCaptureButton.IsEnabled =
+            !_isBusy &&
+            runningItem?.Profile is not null &&
+            (!_automaticCaptureService.IsEnabled || runningItem.Profile.AutomaticRecordingEnabled);
+        UseForCaptureButton.ToolTip = runningItem?.Profile is null
+            ? "Remember this application before selecting it for capture"
+            : _automaticCaptureService.IsEnabled && !runningItem.Profile.AutomaticRecordingEnabled
+                ? "Enable Record automatically for this game, or turn automatic capture off, before selecting it"
+                : "Switch OBS video and game audio to this remembered application";
         RemoveAliasButton.IsEnabled = !_isBusy && profileSelected && AliasesList.SelectedItem is string;
         SelectedProfilePanel.IsEnabled = !_isBusy && profileSelected;
+    }
+
+    private void AutomaticCaptureService_StatusChanged(AutomaticCaptureStatus status)
+    {
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            UpdateRunningProfileStates();
+            UpdateSelectionState();
+        });
+    }
+
+    private void UpdateRunningProfileStates()
+    {
+        var profiles = _profileItems.Select(static item => item.Profile).ToArray();
+        var preferred = _captureSelectionStore.Current;
+        var active = _automaticCaptureService.Status.Target;
+        for (var index = 0; index < _runningItems.Count; index++)
+        {
+            var current = _runningItems[index];
+            var profile = profiles.FirstOrDefault(candidate =>
+                candidate.MatchesExecutablePath(current.Application.ExecutablePath));
+            var isPreferred = preferred is not null &&
+                profile?.Identity == preferred.ProfileIdentity &&
+                current.Application.Identity == preferred.TargetIdentity;
+            var isActive = active is not null &&
+                active.ProcessId == current.Application.ProcessId &&
+                active.ObsWindowIdentifier.Equals(
+                    current.Application.ObsWindowIdentifier,
+                    StringComparison.OrdinalIgnoreCase);
+            var updated = current with
+            {
+                Profile = profile,
+                IsPreferredForCapture = isPreferred,
+                IsActiveCapture = isActive
+            };
+            if (updated != current)
+            {
+                _runningItems[index] = updated;
+            }
+        }
+
+        ActiveCaptureText.Text = active is not null
+            ? $"Active capture: {active.Title}"
+            : preferred is not null
+                ? $"Preferred capture: {preferred.DisplayName} (not currently active)"
+                : "Active capture: Automatic selection";
     }
 
     private async Task ExecuteAsync(Func<Task> action)
@@ -313,13 +430,25 @@ public partial class GameProfilesWindow : Window
 
 internal sealed record RunningApplicationListItem(
     RunningApplication Application,
-    double? GpuUtilization)
+    double? GpuUtilization,
+    GameProfile? Profile,
+    bool IsPreferredForCapture,
+    bool IsActiveCapture)
 {
     public string Title => Application.Title;
     public string ExecutableName => Application.ExecutableName;
     public string ActivitySummary => GpuUtilization is null
         ? $"{Application.WindowWidth} x {Application.WindowHeight} | GPU unavailable"
         : $"{Application.WindowWidth} x {Application.WindowHeight} | GPU {GpuUtilization:0.0}%";
+    public string CaptureSummary => IsActiveCapture
+        ? "Active OBS capture"
+        : IsPreferredForCapture
+            ? "Preferred capture"
+            : Profile is null
+                ? string.Empty
+                : Profile.AutomaticRecordingEnabled
+                    ? "Remembered"
+                    : "Remembered | automatic recording paused";
 }
 
 internal sealed class GameProfileListItem(GameProfile profile)

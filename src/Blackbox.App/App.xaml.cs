@@ -45,7 +45,8 @@ public partial class App : Application
                     PortableRootDirectory = Path.Combine(appData, "obs-portable"),
                     ConnectionSettingsPath = Path.Combine(appData, "obs-connection.json"),
                     MicrophoneSettingsPath = Path.Combine(appData, "microphone.json"),
-                    AutomaticCaptureSettingsPath = Path.Combine(appData, "automatic-capture.json")
+                    AutomaticCaptureSettingsPath = Path.Combine(appData, "automatic-capture.json"),
+                    GameCaptureSelectionSettingsPath = Path.Combine(appData, "capture-selection.json")
                 });
                 services.AddSingleton(new ObsOnboardingOptions());
                 services.AddSingleton(new FfmpegOptions
@@ -97,6 +98,9 @@ public partial class App : Application
                 services.AddSingleton<AutomaticCapturePreferenceStore>();
                 services.AddSingleton<IAutomaticCapturePreferenceStore>(provider =>
                     provider.GetRequiredService<AutomaticCapturePreferenceStore>());
+                services.AddSingleton<GameCaptureSelectionStore>();
+                services.AddSingleton<IGameCaptureSelectionStore>(provider =>
+                    provider.GetRequiredService<GameCaptureSelectionStore>());
                 services.AddSingleton<IObsInstallationLocator, ObsInstallationLocator>();
                 services.AddSingleton<IObsPortableProvisioner, ObsPortableProvisioner>();
                 services.AddSingleton<ObsWebSocketRpcClient>();

@@ -135,17 +135,71 @@ public sealed class RememberedGameProcessDetectorTests
         Assert.Null(await detector.DetectAsync());
     }
 
+    [Fact]
+    public async Task DetectAsync_keeps_the_preferred_running_game_selected_over_the_foreground_game()
+    {
+        var firstPath = "C:\\Games\\First\\First.exe";
+        var secondPath = "C:\\Games\\Second\\Second.exe";
+        var detector = CreateDetector(
+            [
+                Application(firstPath, foreground: true, processId: 42),
+                Application(secondPath, foreground: false, processId: 84)
+            ],
+            new StubGameProfileRepository(
+            [
+                Profile(firstPath, "First Game"),
+                Profile(secondPath, "Second Game")
+            ]),
+            selection: new GameCaptureSelection(secondPath, secondPath, "Second Game"));
+
+        var target = await detector.DetectAsync();
+
+        Assert.NotNull(target);
+        Assert.Equal(84, target.ProcessId);
+        Assert.Equal("Second Game", target.Title);
+    }
+
+    [Fact]
+    public async Task DetectAsync_falls_back_when_the_preferred_game_is_not_running()
+    {
+        var runningPath = "C:\\Games\\Running\\Running.exe";
+        var closedPath = "C:\\Games\\Closed\\Closed.exe";
+        var detector = CreateDetector(
+            [Application(runningPath, foreground: true)],
+            new StubGameProfileRepository(
+            [
+                Profile(runningPath, "Running Game"),
+                Profile(closedPath, "Closed Game")
+            ]),
+            selection: new GameCaptureSelection(closedPath, closedPath, "Closed Game"));
+
+        var target = await detector.DetectAsync();
+
+        Assert.NotNull(target);
+        Assert.Equal("Running Game", target.Title);
+    }
+
     private static WindowsGameProcessDetector CreateDetector(
         IReadOnlyList<RunningApplication> applications,
         StubGameProfileRepository repository,
-        StubGpuActivityProbe? gpu = null) =>
+        StubGpuActivityProbe? gpu = null,
+        GameCaptureSelection? selection = null) =>
         new(
             new StubRunningApplicationCatalog(applications),
             repository,
+            new StubGameCaptureSelectionStore(selection),
             gpu ?? new StubGpuActivityProbe(),
             new GpuActivityOptions(),
             new FixedClock(Now),
             NullLogger<WindowsGameProcessDetector>.Instance);
+
+    private sealed class StubGameCaptureSelectionStore(GameCaptureSelection? selection)
+        : IGameCaptureSelectionStore
+    {
+        public GameCaptureSelection? Current { get; private set; } = selection;
+        public void Save(GameCaptureSelection value) => Current = value;
+        public void Clear() => Current = null;
+    }
 
     private static GameProfile Profile(string path, string name, bool enabled = true) =>
         new(path, name, enabled, Now.AddDays(-1), Now.AddDays(-1));

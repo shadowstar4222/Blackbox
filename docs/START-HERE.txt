@@ -29,11 +29,15 @@ To use automatic recording:
 1. Start the program or game and leave its main window running.
 2. Open Games and select Manage remembered games.
 3. Choose it under Running applications and select Remember as game.
-4. Enable Automatic recording at startup in Settings.
+4. Select Use for capture whenever multiple remembered games are open and you
+   want to choose which one OBS records.
+5. Enable Automatic recording at startup in Settings.
 
 Blackbox watches only applications you choose. When one starts, it binds OBS to
 the live window and process audio, then records automatically. If the window is
 resized, Blackbox reframes the OBS source without stopping the recording.
+Switching the active game also updates OBS without stopping a recording that is
+already running.
 
 Recordings are stored under Videos\Blackbox:
 

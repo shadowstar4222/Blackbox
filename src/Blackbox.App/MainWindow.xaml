@@ -571,7 +571,7 @@
                             <TextBlock FontWeight="SemiBold" Text="2. Remember a game" />
                             <TextBlock Margin="0,4,0,8"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Open the game first, refresh the taskbar-window list, select it, and choose Remember selected."
+                                       Text="Open the game first, refresh the taskbar-window list, select it, and choose Remember as game. Use for capture chooses between remembered games that are open together."
                                        TextWrapping="Wrap" />
                             <Button Margin="0,0,0,16"
                                     Click="TutorialGamesButton_Click"
@@ -694,10 +694,15 @@
                                        Style="{StaticResource SecondaryTextStyle}"
                                        Text="Rebuilds the list from currently visible taskbar windows."
                                        TextWrapping="Wrap" />
-                            <TextBlock FontWeight="SemiBold" Text="Remember selected" />
+                            <TextBlock FontWeight="SemiBold" Text="Remember as game" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
                                        Text="Adds the selected running window to the automatic-capture allowlist."
+                                       TextWrapping="Wrap" />
+                            <TextBlock FontWeight="SemiBold" Text="Use for capture" />
+                            <TextBlock Margin="0,3,0,12"
+                                       Style="{StaticResource SecondaryTextStyle}"
+                                       Text="Makes the selected running remembered game the active OBS target, whether recording is running or stopped."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Save profile / Remove profile" />
                             <TextBlock Margin="0,3,0,12"

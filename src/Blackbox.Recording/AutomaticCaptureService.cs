@@ -25,6 +25,14 @@ public sealed class AutomaticCaptureService(
     public bool WasInterrupted => preferenceStore.WasEnabled && !IsEnabled;
     public AutomaticCaptureStatus Status => controller.Status;
 
+    public Task SelectTargetAsync(
+        GameCaptureTarget target,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+        return controller.SelectTargetAsync(target, cancellationToken);
+    }
+
     public async Task SetEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);

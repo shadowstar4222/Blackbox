@@ -24,6 +24,11 @@
                 <TextBlock Text="Open taskbar windows and remembered capture profiles"
                            Margin="0,4,0,0"
                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                <TextBlock x:Name="ActiveCaptureText"
+                           Margin="0,7,0,0"
+                           Text="Active capture: Automatic selection"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource AccentBrush}" />
             </StackPanel>
             <Button x:Name="RefreshButton"
                     Grid.Column="1"
@@ -58,6 +63,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Row="1"
@@ -68,12 +74,18 @@
                                            Margin="0,3,0,0"
                                            Text="{Binding ActivitySummary}"
                                            Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                <TextBlock Grid.Row="3"
+                                           Margin="0,3,0,0"
+                                           Text="{Binding CaptureSummary}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource AccentBrush}" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
@@ -91,6 +103,14 @@
                             IsEnabled="False"
                             ToolTip="Associate this running executable with the selected remembered game"
                             Click="AddAliasButton_Click" />
+                    <Button x:Name="UseForCaptureButton"
+                            Grid.Column="2"
+                            Content="Use for capture"
+                            Height="34"
+                            Margin="5,0,0,0"
+                            IsEnabled="False"
+                            ToolTip="Switch OBS video and game audio to this remembered application"
+                            Click="UseForCaptureButton_Click" />
                 </Grid>
             </Grid>
 
