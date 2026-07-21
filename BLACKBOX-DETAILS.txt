@@ -443,7 +443,9 @@ For code changes:
 
 ## License And Third-Party Software
 
-No project license has been selected yet. Until a `LICENSE` file is added, the repository does not grant permission to copy, modify, or redistribute the Blackbox source code beyond rights provided by applicable law.
+Blackbox is free and open-source software licensed under the GNU General Public License version 3 or later (`GPL-3.0-or-later`). You may use, study, modify, and redistribute it under those terms. Distributed modified versions must remain under the GPL, provide corresponding source, preserve the license, copyright, and `NOTICE` attribution, and clearly identify their changes.
+
+The canonical license text is in `LICENSE`. `NOTICE` identifies the original project and author attribution that redistributed copies and modified versions must preserve.
 
 The packaged application includes LibVLCSharp.WPF and the VideoLAN LibVLC Windows runtime under LGPL-2.1-or-later. Their notices and source links are included in [`src/Blackbox.App/THIRD-PARTY-NOTICES.txt`](src/Blackbox.App/THIRD-PARTY-NOTICES.txt).
 

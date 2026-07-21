@@ -1,0 +1,24 @@
+BLACKBOX ATTRIBUTION NOTICE
+
+Blackbox was originally created by shadowstar4222.
+Canonical source: https://github.com/shadowstar4222/Blackbox
+
+Copyright (C) 2026 shadowstar4222 and Blackbox contributors.
+
+Unless a file or third-party notice states otherwise, all first-party
+Blackbox source code and first-party project assets published in the
+canonical repository, including release v1.0.0, are licensed under the
+GNU General Public License, version 3 or (at your option) any later version.
+
+Under sections 4, 5, and 7(b) of GNU GPLv3, distributions of Blackbox and
+modified versions must preserve this reasonable author attribution:
+
+  Blackbox was originally created by shadowstar4222.
+  Original project: https://github.com/shadowstar4222/Blackbox
+
+Modified versions must also state prominently that they were modified and
+give a relevant date. They must not imply that the original project or its
+contributors endorse the modified version.
+
+Third-party software and assets remain under their respective licenses and
+notices. See src/Blackbox.App/THIRD-PARTY-NOTICES.txt.

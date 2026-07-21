@@ -108,4 +108,6 @@ The next planned milestone is an OBS dock edition.
 
 ## License
 
-No Blackbox project license has been selected yet. See [`src/Blackbox.App/THIRD-PARTY-NOTICES.txt`](src/Blackbox.App/THIRD-PARTY-NOTICES.txt) for bundled LibVLC notices. OBS Studio and FFmpeg remain subject to their respective licenses.
+Blackbox is free and open-source software licensed under the [GNU General Public License version 3 or later](LICENSE). You may use, study, modify, and redistribute it under those terms. Distributed modified versions must remain under the GPL, provide corresponding source, preserve the license, copyright, and [original-project attribution](NOTICE), and clearly identify their changes.
+
+Third-party components remain under their own licenses. See [`src/Blackbox.App/THIRD-PARTY-NOTICES.txt`](src/Blackbox.App/THIRD-PARTY-NOTICES.txt) for bundled LibVLC notices. OBS Studio and FFmpeg remain subject to their respective licenses.

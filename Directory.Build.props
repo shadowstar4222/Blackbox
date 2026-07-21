@@ -4,5 +4,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors>nullable</WarningsAsErrors>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/shadowstar4222/Blackbox</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/shadowstar4222/Blackbox</RepositoryUrl>
+    <Copyright>Copyright (C) 2026 shadowstar4222 and Blackbox contributors</Copyright>
   </PropertyGroup>
 </Project>
