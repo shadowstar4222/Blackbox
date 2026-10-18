@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
-    [string]$Version = '2.0.0-preview.17',
+    [string]$Version = '1.0.0',
     [string]$FfmpegDirectory = "$env:LOCALAPPDATA\Blackbox\ffmpeg",
     [string]$VcRuntimeDirectory = "$env:WINDIR\System32"
 )
@@ -53,9 +53,10 @@ Copy-Item -LiteralPath (Join-Path $root 'docs\SETUP-AUTO-RECORD-20261017.txt') -
 Copy-Item -LiteralPath (Join-Path $root 'docs\DIAGNOSTICS-SCROLL-20261017.txt') -Destination $output
 Copy-Item -LiteralPath (Join-Path $root 'docs\CONTROL-THEME-20261017.txt') -Destination $output
 Copy-Item -LiteralPath (Join-Path $root 'docs\TIMELINE-LAYOUT-20261017.txt') -Destination $output
-Copy-Item -LiteralPath (Join-Path $root 'docs\RELEASE-2.0.0-preview.17.txt') -Destination $output
+Copy-Item -LiteralPath (Join-Path $root 'docs\RELEASE-1.0.0-NATIVE.txt') -Destination $output
+Copy-Item -LiteralPath (Join-Path $root 'docs\PLAYBACK-ICONS-20261017.txt') -Destination $output
 if (Test-Path -LiteralPath (Join-Path $output 'Blackbox.Dock.dll')) { throw 'The deferred OBS dock must not be included in the native desktop package.' }
 if (Test-Path -LiteralPath (Join-Path $output 'Microsoft.AspNetCore.dll')) { throw 'The native desktop package unexpectedly includes the dock web framework.' }
 & (Join-Path $worker 'Blackbox.Capture.Worker.exe') --probe
 if ($LASTEXITCODE -ne 0) { throw 'Packaged recorder prerequisite check failed.' }
-Write-Output "Native preview built: $output"
+Write-Output "Native Blackbox $Version built: $output"

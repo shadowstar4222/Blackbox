@@ -1,5 +1,5 @@
-BLACKBOX NATIVE RECORDER PREVIEW
-October 17, 2026 - 2.0.0-preview.17 - local testing build
+BLACKBOX 1.0.0 - NATIVE RECORDER
+October 17, 2026 - Windows x64 release
 
 START
 1. Exit the older Blackbox from its system tray icon.
@@ -66,7 +66,7 @@ WHAT CHANGED
 - Obsolete video-tool downloads and no-op startup/dock controls were removed.
 
 AUDIO
-This preview records one stereo AAC mix, not the older five-track OBS layout.
+This release records one stereo AAC mix, not the older five-track OBS layout.
 Windows 10 records the default system-output mix plus the chosen microphone.
 Windows builds 20348+ support process-tree audio capture instead of system mix.
 On Windows 10, other audible applications can be included in the system mix.
@@ -76,7 +76,7 @@ high-pass filtering, SpeexDSP noise suppression, an expander, two-band voice EQ,
 compression, de-essing, and a final limiter. Natural, Broadcast, Strong noise
 removal, and calibrated Custom profiles can be selected globally or per game.
 Isolated voice-chat tracks and live per-source audio/automatic highlight
-analysis remain disabled in this preview.
+analysis remain disabled in this release.
 Native AAC choices are 160 and 192 kbps. Legacy 256/320 settings map to 192 kbps.
 
 PERFORMANCE AND LIMITS
@@ -87,7 +87,7 @@ Encode activity and test under your normal game load before relying on it.
 Protected, exclusive-fullscreen, or capture-blocking games may remain unavailable.
 Borderless/windowed mode is recommended. This build does not bypass anti-cheat
 or Windows capture protections. Helldivers 2 has not been revalidated live yet.
-OBS-specific crop and encoder controls are unavailable in this preview.
+OBS-specific crop and encoder controls are unavailable in this release.
 Black/frozen preview warnings require attention; force-resetting a native source
 is not automated yet. Restore the window or stop and restart the recording.
 

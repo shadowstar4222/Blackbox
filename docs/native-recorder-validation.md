@@ -1,12 +1,24 @@
 # Native Recorder Validation
 
-Validation history for the native preview, updated October 17, 2026.
-Preview.17 is the current GitHub pre-release; older counts below record the
-tests at each earlier stopping point, not the current total.
+Validation history for the native recorder, updated October 17, 2026.
+Native Blackbox 1.0.0 promotes the functionality validated through preview.18.
+The previous OBS-based release is preserved as v1.0.0-obs-legacy. Older counts
+below record the tests at each earlier stopping point, not the current total.
 
-## Preview.17 Publication
+## Native 1.0.0
 
-The current suite passes 369 main tests and 54 native-capture tests (423 total).
+The current suite passes 378 main tests and 54 native-capture tests (432 total).
+The latest controls use distinct single-frame, filmstrip, timed-skip, and
+recording-boundary pictograms. Packaged checks verify glyphs, accessible action
+names, fixed hit targets, nonblank toolbar captures, and compact-window fit.
+Existing playback, pause-stable frame stepping, decoder reuse, scrolling, and
+24 timeline resize/content cases remain covered. See [current release details](RELEASE-1.0.0-NATIVE.txt)
+and [control validation](PLAYBACK-ICONS-20261017.txt). Version promotion does not
+remove the documented hardware/game and long-duration validation limits.
+
+## Historical Preview.17 Publication
+
+At preview.17 publication, 369 main tests and 54 native-capture tests passed (423 total).
 Packaged UI checks cover all pages at 1240x780 and 1024x680, including embedded
 playback, frame stepping, and virtualized diagnostics scrolling. Timeline layout
 checks add 24 content/resize combinations up to 1920x1080, with 0, 3, and 200

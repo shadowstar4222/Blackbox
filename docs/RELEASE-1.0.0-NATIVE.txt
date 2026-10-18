@@ -1,0 +1,96 @@
+BLACKBOX 1.0.0
+October 17, 2026 - Windows x64 native release
+
+This is the built-in native recorder, promoted from preview.18 as Blackbox 1.0.0.
+The previous OBS-based release is preserved as v1.0.0-obs-legacy. OBS and a separate
+VLC installation are not required. The version reset does not remove documented
+limits; no universal game support or lowest-recording-overhead claim is made.
+
+DOWNLOAD AND START
+Download Blackbox-v1.0.0-win-x64.zip from this tag's GitHub release.
+Extract the entire archive and run Blackbox.App.exe. Keep all files together.
+The adjacent .sha256.txt asset verifies the downloaded ZIP.
+Open Games, select the real application window, Remember it, then Capture.
+Press Record or Enable auto. Configure your microphone and voice preset in
+Microphone, then Apply. Review, clips, and exports stay inside Blackbox.
+
+HIGHLIGHTS OVER THE PREVIOUS OBS VERSION
+- Native Windows Graphics Capture by exact HWND/process identity.
+- Separate capture worker with Media Foundation H.264/AAC, bounded compressed
+  transport, and stream-copy MKV segmentation instead of a second video encode.
+- Remembered applications, improved window discovery and target switching,
+  resize handling, and checks for unavailable or minimized targets.
+- Automatic microphone routing, exclusions, calibration, and native high-pass,
+  noise suppression, expansion, voice EQ, compression, de-essing, and limiting.
+- Embedded review, frame navigation, seek coalescing, markers, notes, clips,
+  session export, and completed-segment time-shift.
+- Continuous compatible MKV input without copying a full recording or reopening
+  the decoder at each boundary. Other formats/time-shift retain per-file paths.
+- Capture-clock video timestamps to address growing audio/video drift in new
+  recordings. Previously encoded drift cannot automatically be repaired.
+- Clear single-frame and filmstrip icons, curved 10s arrows, highlighted
+  Play/Pause, hover descriptions, and accessible transport action names.
+- Compact in-place pages, themed controls/tray menu, capture-health/audio
+  feedback, smoother diagnostics scrolling, and a compact recording timeline.
+- An opt-in capturable recording-setup window with looping test video, original
+  music, and the applied recording settings overlaid in the saved capture.
+
+SETUP-SCENE WARNING
+The optional diagnostic scene contains bright, high-contrast colors and motion
+that may trigger seizures or discomfort. Confirmation is required before it
+starts. Still bars are not guaranteed safe. Nothing plays on ordinary startup.
+
+KNOWN LIMITATIONS
+- Windows 10 build 19041+ or Windows 11, x64; Windows Media Foundation required.
+  Windows N editions may require the Media Feature Pack.
+- Windows 10 captures system-output audio, including other audible apps, plus
+  the selected microphone. Newer supported Windows builds can use process-tree
+  audio. The native output is one stereo mix, not isolated audio tracks.
+- Hardware encoding is requested but can fall back to software. The recorder
+  library does not expose the chosen encoder. Test under normal game load.
+- Protected, exclusive-fullscreen, or capture-blocking applications may not be
+  capturable. Blackbox does not inject into games or bypass anti-cheat.
+- Helldivers 2, other GPU vendors, and multi-hour sessions need broader testing.
+- Time-shift waits for finalized segments; it is not a zero-delay live feed.
+- Seamless MKV review cannot repair black frames or missing media already in
+  the source. Unsupported layouts and other containers use per-file playback.
+- Automatic highlight analysis, isolated voice-chat control, OBS-specific
+  cropping/encoder controls, and the deferred OBS dock are not in this package.
+
+UPDATING AND LOCAL DATA
+Exit Blackbox through its tray menu before replacing the portable folder.
+Recordings remain in %USERPROFILE%\Videos\Blackbox\Application\YYYY-MM-DD.
+Settings, library metadata, and logs remain in %LOCALAPPDATA%\Blackbox.
+Keep the stable executable path when replacing a build so an existing Windows
+startup entry continues to work. Keep old software together in one clearly
+labeled folder for manual deletion. Do not delete recordings or settings.
+The public package contains no personal settings, recordings, databases, or logs.
+
+BUILD FROM SOURCE
+Use Windows and the .NET 8 SDK. Build/test with:
+  dotnet build Blackbox.sln -c Release
+  dotnet test Blackbox.sln -c Release
+Publish with:
+  .\scripts\Publish-Native.ps1 -OutputDirectory C:\Builds\Blackbox-Native-1.0.0
+The output directory must not already exist. The script expects FFmpeg/ffprobe
+under %LOCALAPPDATA%\Blackbox\ffmpeg\bin, with LICENSE and README.txt one level
+above bin; use -FfmpegDirectory to specify another verified local distribution.
+Unmodified x64 Visual C++ runtime DLLs are copied from Windows System32 by
+default; -VcRuntimeDirectory selects another local source of those DLLs.
+The portable package includes the .NET runtime and required video dependencies.
+Source contains the deferred OBS/dock implementation for compatibility tests;
+the native desktop package does not include the dock or its web framework.
+The test videos are reproducible with scripts/Build-RecordingSetupAssets.ps1.
+
+VALIDATION
+378 main tests plus 54 native-capture tests (432 total). The packaged recorder
+probe, all-page WPF checks, in-app playback/frame/seek regressions, diagnostics
+scrolling, and 24 timeline resize/content cases passed. Earlier notes document
+the audio-clock fixture, continuous-stream checks, and setup auto-record tests.
+See docs/native-recorder-validation.md and the dated validation files.
+Short local checks are not a guarantee for every game, codec, or hardware load.
+
+LICENSE
+Blackbox is GPL-3.0-or-later. Dependency licenses, upstream source links, and
+notices are included in LICENSE, NOTICE, THIRD-PARTY-NOTICES.txt, licenses/,
+and tools/ffmpeg/. Libraries are distributed without modification.

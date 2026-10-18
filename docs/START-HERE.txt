@@ -1,5 +1,5 @@
-BLACKBOX 2.0 NATIVE PREVIEW
-Current release: 2.0.0-preview.17
+BLACKBOX 1.0.0 - NATIVE RECORDER
+Current release: 1.0.0 (native; includes preview.18 controls)
 
 1. Extract the complete Windows x64 ZIP.
 2. Run Blackbox.App.exe. OBS and an external video player are not needed.
@@ -16,7 +16,7 @@ The optional Diagnostics recording-setup window is a capturable test scene with
 music and recording-settings overlays. Its bright colors and motion may trigger
 seizures or discomfort. Read and confirm its warning before starting.
 
-IMPORTANT PREVIEW LIMITS
+IMPORTANT LIMITS
 Windows 10 captures system-output audio plus the microphone into one stereo mix;
 other audible applications can be included. Isolated tracks are not available.
 Hardware encoding is requested but may fall back to software. Capture-blocking
@@ -30,6 +30,7 @@ Keep the full portable folder together. Exit Blackbox before replacing it.
 Settings and recordings live outside that folder and should not be removed.
 Keep superseded builds together in one clearly labeled deletable folder.
 
-More details in docs/NATIVE-RECORDER.txt and docs/RELEASE-2.0.0-preview.17.txt.
-The packaged copies are START-HERE.txt and RELEASE-2.0.0-preview.17.txt.
-BLACKBOX-DETAILS.txt documents the legacy OBS-based v1.0 release only.
+More details in docs/NATIVE-RECORDER.txt and docs/RELEASE-1.0.0-NATIVE.txt.
+The packaged copies are START-HERE.txt and RELEASE-1.0.0-NATIVE.txt.
+BLACKBOX-DETAILS.txt documents the previous OBS-based version only.
+That older release is preserved under the v1.0.0-obs-legacy tag on GitHub.

@@ -5,11 +5,12 @@ timeline, and export sessions or clips as one video. **OBS is not required.**
 
 **Windows 10 (build 19041+) and Windows 11, 64-bit.**
 
-[Download preview.17](https://github.com/shadowstar4222/Blackbox/releases/download/v2.0.0-preview.17/Blackbox-v2.0.0-preview.17-win-x64.zip)
-| [Release notes](https://github.com/shadowstar4222/Blackbox/releases/tag/v2.0.0-preview.17)
+[Download Blackbox 1.0.0](https://github.com/shadowstar4222/Blackbox/releases/download/v1.0.0/Blackbox-v1.0.0-win-x64.zip)
+| [Release notes](https://github.com/shadowstar4222/Blackbox/releases/tag/v1.0.0)
 
-This is a **2.0 testing preview**, not a stable release. The older v1.0.0 download
-uses OBS; choose preview.17 for the built-in recorder.
+**1.0.0 is the native-recorder release**, including the clearer playback controls
+from preview.18. The [previous OBS version](https://github.com/shadowstar4222/Blackbox/releases/tag/v1.0.0-obs-legacy)
+is preserved separately. Test under your normal workload before relying on a long recording.
 
 ## Get Started
 
@@ -27,7 +28,7 @@ Closing to the tray keeps Blackbox running; use its tray menu to exit.
 - Built-in window capture with hardware-requested H.264 recording and recoverable MKV segments.
 - Remembered applications, window switching, and automatic recording.
 - Microphone routing, exclusions, calibration, noise reduction, EQ, compression, and limiting.
-- In-app review with frame stepping, 10-second jumps, markers, speed, loop, and volume controls.
+- In-app review with pictorial frame/segment controls, 10-second jumps, markers, speed, loop, and volume controls.
 - Continuous review of compatible completed MKVs, one-video export, and buffered time-shift.
 - Compact themed controls, recording health/audio feedback, and an optional recording-setup window.
 
@@ -51,7 +52,7 @@ dotnet build Blackbox.sln -c Release
 dotnet test Blackbox.sln -c Release
 ```
 
-See the [native guide](docs/NATIVE-RECORDER.txt), [current release details](docs/RELEASE-2.0.0-preview.17.txt),
+See the [native guide](docs/NATIVE-RECORDER.txt), [current release details](docs/RELEASE-1.0.0-NATIVE.txt),
 [validation history](docs/native-recorder-validation.md), and [roadmap](docs/roadmap.md).
 The release-details file covers packaging requirements and known limitations.
 

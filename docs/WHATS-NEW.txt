@@ -1,5 +1,13 @@
-BLACKBOX NATIVE PREVIEW
-October 17, 2026 - 2.0.0-preview.17 - local testing build
+BLACKBOX 1.0.0 - NATIVE RECORDER
+October 17, 2026 - Windows x64 release
+
+NATIVE 1.0.0
+The current native recorder is now Blackbox 1.0.0. It includes the clearer
+controls from preview.18 and the recording/playback/UI improvements documented
+below. The earlier OBS-based 1.0.0 is the previous version, preserved separately
+as v1.0.0-obs-legacy. This is an intentional version reset, not an OBS rollback.
+Known capture, audio, and hardware limits remain documented in START-HERE.txt
+and RELEASE-1.0.0-NATIVE.txt. No settings or recordings are reset by this naming.
 
 NEW BUILD
 Run Blackbox.App.exe in this folder.
@@ -7,6 +15,13 @@ Exit any older Blackbox instance from its tray menu first.
 Keep the complete preview folder together. OBS is not required.
 This build is in Blackbox-NATIVE-NEXT. Its executable path is unchanged, so an
 existing Windows startup entry for this folder does not need to be recreated.
+
+CLEARER REVIEW CONTROLS
+Review now uses larger, themed pictograms instead of ambiguous text symbols:
+a single-frame icon for frame steps, filmstrip icons for segment jumps,
+curved 10s arrows for time skips, and standard start/end icons. Play/Pause is
+highlighted, with its tooltip and accessible name following the current action.
+All nine actions retain their existing handlers and keyboard behavior.
 
 COMPACT RECORDING TIMELINE
 The empty marker list no longer becomes a large gray block when the window is

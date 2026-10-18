@@ -2,9 +2,9 @@
 
 ## Current Priority: Self-Contained Native Recording
 
-The native recorder supersedes the OBS backend for current development. Earlier
+Native Blackbox 1.0.0 supersedes the previous OBS version (v1.0.0-obs-legacy). Earlier
 completed milestones describe the legacy backend, not a promise that all of its
-audio/DSP capabilities exist in the native preview.
+audio/DSP capabilities exist in the native version.
 
 - [x] Isolated Windows capture worker and bundled video tools; no OBS startup.
 - [x] Exact window identity, cached taskbar discovery, encoded-progress checks.
@@ -29,7 +29,9 @@ audio/DSP capabilities exist in the native preview.
 - [ ] Game-load benchmarks and confirmed encoder reporting across NVIDIA/AMD/Intel.
 - [ ] Live Helldivers 2 capture validation, protected-window and device-loss matrix.
 - [ ] Native isolated audio tracks and automatic audio markers.
-- [ ] Long-duration soak testing and public-release packaging review.
+- [x] Themed pictorial seek controls, compact timeline layout, and pixel scrolling.
+- [x] Fresh-source build/tests, portable ZIP integrity, and public-release packaging review.
+- [ ] Long-duration soak testing across game and hardware configurations.
 
 See [native recorder notes](NATIVE-RECORDER.txt) and the
 [current-workload benchmark report](BENCHMARK-20261013.txt). OBS dock work

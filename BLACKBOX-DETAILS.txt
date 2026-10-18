@@ -1,8 +1,8 @@
-BLACKBOX LEGACY OBS GUIDE (v1.0.0)
+BLACKBOX PREVIOUS VERSION - OBS GUIDE (v1.0.0-obs-legacy)
 =======================
 
-This manual describes the older OBS-based v1.0.0 release, not the current
-2.0 native recorder. For current installation and usage, see README.md and
+This manual describes the previous OBS-based release, preserved under the
+v1.0.0-obs-legacy tag, not the current native Blackbox 1.0.0. See README.md and
 docs/NATIVE-RECORDER.txt. OBS setup and isolated-track instructions below do
 not apply to the native preview.
 
