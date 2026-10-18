@@ -1,0 +1,32 @@
+BLACKBOX CLEARER REVIEW CONTROLS
+October 17, 2026 - 2.0.0-preview.18 - local testing build
+
+The review transport no longer uses ambiguous ASCII bar/arrow combinations.
+Start/end use standard media-boundary icons; segment jumps use a filmstrip;
+single-frame steps show one outlined frame with a direction arrow and "1";
+10-second jumps show curved direction arrows and "10s". The larger 36x34 hit
+targets retain Blackbox's dark surfaces, focus border, and interaction states.
+The central Play/Pause button uses the existing cyan accent.
+
+Hover descriptions name the exact action. Screen-reader names follow those
+descriptions, and Play/Pause updates both its icon and action name. Button
+handlers, keyboard shortcuts, capture, seeking, and decoder behavior are unchanged.
+No new icon/font dependency, raster downloads, or animation timers were added.
+Core glyphs use the existing Segoe MDL2 Assets family supplied with Windows;
+the frame and filmstrip details are lightweight WPF layout primitives.
+Glyph reference: https://learn.microsoft.com/en-us/windows/apps/design/iconography/segoe-ui-symbol-font
+
+Validation: artifacts/playback-icons-20261017. Nine new source regressions cover
+the eight seek-handler/template pairs plus theme inheritance and accessible
+names. Packaged WPF checks validate all nine buttons, glyph availability, hit
+targets, accessible names, non-overlap with audio/speed options, and nonblank
+toolbar snapshots at both normal and compact widths. The existing native video
+decode, forward/reverse frame-step, paused-frame stability, decoder reuse, and
+seek-coalescing checks are retained. No live recording or microphone capture
+is required; playback uses isolated neutral fixture media with muted output.
+
+PASSED
+378 main tests and 54 native-capture tests (432 total), the packaged recorder
+probe, and full WPF page/playback regressions at 1240x780 and 1024x680. Transport
+screenshots at 1048- and 832-pixel page widths passed pixel-content checks and
+visual inspection. Seek actions fit without overlap and retained their labels.

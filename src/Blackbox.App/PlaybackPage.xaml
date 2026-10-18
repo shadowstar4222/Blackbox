@@ -16,8 +16,41 @@
             <Setter Property="Margin" Value="0,0,7,7" />
             <Setter Property="FontSize" Value="12" />
         </Style>
-
-
+        <Style x:Key="SeekButtonStyle" TargetType="Button" BasedOn="{StaticResource ToolbarButtonStyle}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+        </Style>
+        <DataTemplate x:Key="BoundarySeekIcon">
+            <TextBlock FontFamily="Segoe MDL2 Assets" Text="{Binding}" FontSize="18" VerticalAlignment="Center" />
+        </DataTemplate>
+        <DataTemplate x:Key="FrameSeekIcon">
+            <Grid Width="24" Height="24" IsHitTestVisible="False" SnapsToDevicePixels="True">
+                <Border Width="22" Height="16" BorderBrush="{StaticResource TextSecondaryBrush}" BorderThickness="1" CornerRadius="2" />
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="{Binding}" FontSize="11" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="4,0,0,0" />
+                <TextBlock Text="1" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="SegmentSeekIcon">
+            <Grid Width="24" Height="24" IsHitTestVisible="False" SnapsToDevicePixels="True">
+                <Border Height="19" BorderBrush="{StaticResource TextSecondaryBrush}" BorderThickness="1" CornerRadius="2">
+                    <Grid>
+                        <Border BorderBrush="{StaticResource TextSecondaryBrush}" BorderThickness="0,2,0,2" Margin="0,2" />
+                        <Border BorderBrush="{StaticResource TextSecondaryBrush}" BorderThickness="1,0" Width="8" />
+                    </Grid>
+                </Border>
+                <Border Width="13" Height="13" Background="{StaticResource ControlBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="2">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="{Binding}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="TimedSeekIcon">
+            <Grid Width="26" Height="27" IsHitTestVisible="False">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="{Binding}" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Top" />
+                <TextBlock Text="10s" FontSize="9" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" />
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -176,38 +209,28 @@
                 <TextBlock x:Name="DurationText" Grid.Column="2" Text="0:00.000" TextAlignment="Right" Foreground="{StaticResource TextSecondaryBrush}" />
             </Grid>
 
-            <Grid Grid.Row="2" Margin="12,8,12,12">
+            <Grid x:Name="PlaybackToolbar" Grid.Row="2" Margin="12,8,12,12" Background="{StaticResource SidebarBrush}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="|&lt;" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Start of recording" Click="StartButton_Click" />
-                    <Button Content="|&#x25C0;" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Previous segment" Click="PreviousSegmentButton_Click" />
-                    <Button Content="&lt;|" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Previous frame" Click="PreviousFrameButton_Click" />
-                    <Button Style="{StaticResource ToolbarButtonStyle}" ToolTip="Back 10 seconds" Click="BackTenButton_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72B;" Margin="0,0,2,0" />
-                            <TextBlock Text="10" FontSize="11" />
-                        </StackPanel>
+                <StackPanel x:Name="SeekControls" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="StartSeekButton" Content="&#xE892;" ContentTemplate="{StaticResource BoundarySeekIcon}" Style="{StaticResource SeekButtonStyle}" ToolTip="Jump to the start of the recording" Click="StartButton_Click" />
+                    <Button x:Name="PreviousSegmentSeekButton" Content="&#xE76B;" ContentTemplate="{StaticResource SegmentSeekIcon}" Style="{StaticResource SeekButtonStyle}" ToolTip="Jump to the previous segment" Click="PreviousSegmentButton_Click" />
+                    <Button x:Name="PreviousFrameSeekButton" Content="&#xE76B;" ContentTemplate="{StaticResource FrameSeekIcon}" Style="{StaticResource SeekButtonStyle}" ToolTip="Step back one frame (pauses playback)" Click="PreviousFrameButton_Click" />
+                    <Button x:Name="BackTenSeekButton" Content="&#xE7A7;" ContentTemplate="{StaticResource TimedSeekIcon}" Style="{StaticResource SeekButtonStyle}" Width="40" ToolTip="Skip back 10 seconds" Click="BackTenButton_Click" />
+                    <Button x:Name="PlayPauseButton" Width="42" Style="{StaticResource SeekButtonStyle}" Background="{StaticResource AccentBrush}" BorderBrush="{StaticResource AccentBrush}" ToolTip="Play" Click="PlayPauseButton_Click">
+                        <TextBlock x:Name="PlayPauseGlyph" FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="18" />
                     </Button>
-                    <Button x:Name="PlayPauseButton" Width="36" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Play or pause" Click="PlayPauseButton_Click">
-                        <TextBlock x:Name="PlayPauseGlyph" FontFamily="Segoe MDL2 Assets" Text="&#xE768;" FontSize="17" />
-                    </Button>
-                    <Button Style="{StaticResource ToolbarButtonStyle}" ToolTip="Forward 10 seconds" Click="ForwardTenButton_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="10" FontSize="11" Margin="0,0,2,0" />
-                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72A;" />
-                        </StackPanel>
-                    </Button>
-                    <Button Content="|&gt;" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Next frame" Click="NextFrameButton_Click" />
-                    <Button Content="&#x25B6;|" Style="{StaticResource ToolbarButtonStyle}" ToolTip="Next segment" Click="NextSegmentButton_Click" />
-                    <Button Content="&gt;|" Style="{StaticResource ToolbarButtonStyle}" ToolTip="End of recording" Click="EndButton_Click" />
+                    <Button x:Name="ForwardTenSeekButton" Content="&#xE7A6;" ContentTemplate="{StaticResource TimedSeekIcon}" Style="{StaticResource SeekButtonStyle}" Width="40" ToolTip="Skip forward 10 seconds" Click="ForwardTenButton_Click" />
+                    <Button x:Name="NextFrameSeekButton" Content="&#xE76C;" ContentTemplate="{StaticResource FrameSeekIcon}" Style="{StaticResource SeekButtonStyle}" ToolTip="Step forward one frame (pauses playback)" Click="NextFrameButton_Click" />
+                    <Button x:Name="NextSegmentSeekButton" Content="&#xE76C;" ContentTemplate="{StaticResource SegmentSeekIcon}" Style="{StaticResource SeekButtonStyle}" ToolTip="Jump to the next segment" Click="NextSegmentButton_Click" />
+                    <Button x:Name="EndSeekButton" Content="&#xE893;" ContentTemplate="{StaticResource BoundarySeekIcon}" Style="{StaticResource SeekButtonStyle}" ToolTip="Jump to the end of the recording" Click="EndButton_Click" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel x:Name="PlaybackOptions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <ComboBox x:Name="AudioTrackComboBox"
                               Width="90"
                               Height="30"

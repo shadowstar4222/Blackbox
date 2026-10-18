@@ -919,7 +919,9 @@ public partial class PlaybackPage : UserControl, IAsyncDisposable
             return;
         }
 
-        PlayPauseGlyph.Text = _mediaPlayer.IsPlaying || _waitingForMore ? "\uE769" : "\uE768";
+        var playing = _mediaPlayer.IsPlaying || _waitingForMore;
+        PlayPauseGlyph.Text = playing ? "\uE769" : "\uE768";
+        PlayPauseButton.ToolTip = playing ? "Pause" : "Play";
         PlaybackStatusText.Text = _mediaPlayer.IsPlaying
             ? $"Playing at {_playbackRate:0.##}x"
             : _mediaPlayer.State == VLCState.Paused

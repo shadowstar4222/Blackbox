@@ -28,6 +28,7 @@ public partial class PlaybackPage
         _mediaPlayer.Mute = true;
         await WaitUntilAsync(() => _mediaPlayer.IsPlaying && _mediaPlayer.Time > 150 &&
             _activeMedia?.Statistics.DisplayedPictures > 2, "first decoded frames");
+        await ValidateTransportUiAsync(directory);
         if (_mediaPlayer.Hwnd == IntPtr.Zero) throw new InvalidOperationException("Playback is not attached to the in-app video surface.");
         var process = Process.GetCurrentProcess();
         var cpuStart = process.TotalProcessorTime;
@@ -139,6 +140,46 @@ public partial class PlaybackPage
             ScrubRequests = 100, ScrubDispatches = 1, CursorUpdates = 30, StaticLayerRebuilds = 0,
             FinalizedSegmentFollow = true, HiddenPlaybackPaused = true
         }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private async Task ValidateTransportUiAsync(string directory)
+    {
+        await Dispatcher.InvokeAsync(UpdateLayout, DispatcherPriority.ApplicationIdle);
+        var buttons = SeekControls.Children.OfType<System.Windows.Controls.Button>().ToArray();
+        if (buttons.Length != 9) throw new InvalidOperationException("The review transport lost a seek action.");
+        var typeface = new System.Windows.Media.Typeface("Segoe MDL2 Assets");
+        if (!typeface.TryGetGlyphTypeface(out var glyphs)) throw new InvalidOperationException("The transport icon font is unavailable.");
+        foreach (var button in buttons)
+        {
+            var label = System.Windows.Automation.AutomationProperties.GetName(button);
+            if (string.IsNullOrWhiteSpace(label) || label != button.ToolTip?.ToString())
+                throw new InvalidOperationException("A pictorial seek button is missing its accessible action name.");
+            if (button.ActualWidth < 36 || Math.Abs(button.ActualHeight - 34) > 1)
+                throw new InvalidOperationException("A seek icon has an unstable or undersized hit target.");
+            if (button.Content is string icon && (icon.Length != 1 || !glyphs.CharacterToGlyphMap.ContainsKey(icon[0])))
+                throw new InvalidOperationException("A seek button contains a missing glyph or legacy text symbol.");
+        }
+        var seekEdge = SeekControls.TransformToAncestor(PlaybackToolbar).Transform(new Point(SeekControls.ActualWidth, 0)).X;
+        var optionsEdge = PlaybackOptions.TransformToAncestor(PlaybackToolbar).Transform(new Point()).X;
+        if (optionsEdge - seekEdge < 8 || PlaybackOptions.ActualWidth + optionsEdge > PlaybackToolbar.ActualWidth + 1)
+            throw new InvalidOperationException("Seek icons overlap the audio/speed controls at this window size.");
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(PlaybackToolbar.ActualWidth),
+            (int)Math.Ceiling(PlaybackToolbar.ActualHeight), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        var visual = new System.Windows.Media.DrawingVisual();
+        using (var drawing = visual.RenderOpen())
+            drawing.DrawRectangle(new System.Windows.Media.VisualBrush(PlaybackToolbar), null,
+                new Rect(0, 0, bitmap.PixelWidth, bitmap.PixelHeight));
+        bitmap.Render(visual);
+        var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
+        bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
+        var accent = ((System.Windows.Media.SolidColorBrush)FindResource("AccentBrush")).Color;
+        var accentPixels = 0;
+        for (var index = 0; index < pixels.Length; index += 4)
+            if (pixels[index] == accent.B && pixels[index + 1] == accent.G && pixels[index + 2] == accent.R && pixels[index + 3] == accent.A) accentPixels++;
+        if (accentPixels < 100) throw new InvalidOperationException("The transport snapshot is blank or lost its themed Play button.");
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file = File.Create(Path.Combine(directory, $"playback-transport-{(int)ActualWidth}.png"));
+        encoder.Save(file);
     }
 
     private async Task<string> SnapshotHashAsync(string directory, string label)

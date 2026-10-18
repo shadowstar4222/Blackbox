@@ -52,6 +52,40 @@ public sealed class ControlThemeTests
         Assert.Contains(page.Descendants(), element => element.Name.LocalName == "VideoView" && (string?)element.Attribute("Background") == "Black");
     }
 
+    [Theory]
+    [InlineData("StartButton_Click", "BoundarySeekIcon")]
+    [InlineData("PreviousSegmentButton_Click", "SegmentSeekIcon")]
+    [InlineData("PreviousFrameButton_Click", "FrameSeekIcon")]
+    [InlineData("BackTenButton_Click", "TimedSeekIcon")]
+    [InlineData("ForwardTenButton_Click", "TimedSeekIcon")]
+    [InlineData("NextFrameButton_Click", "FrameSeekIcon")]
+    [InlineData("NextSegmentButton_Click", "SegmentSeekIcon")]
+    [InlineData("EndButton_Click", "BoundarySeekIcon")]
+    public void Seek_buttons_use_pictograms_without_changing_actions(string action, string template)
+    {
+        var page = Load("PlaybackPage.xaml");
+        var button = Assert.Single(page.Descendants().Where(element => element.Name.LocalName == "Button" && (string?)element.Attribute("Click") == action));
+        Assert.Equal($"{{StaticResource {template}}}", (string?)button.Attribute("ContentTemplate"));
+        Assert.Equal("{StaticResource SeekButtonStyle}", (string?)button.Attribute("Style"));
+        Assert.False(string.IsNullOrWhiteSpace((string?)button.Attribute("ToolTip")));
+        var content = (string?)button.Attribute("Content");
+        Assert.NotNull(content);
+        Assert.Single(content);
+        Assert.InRange((int)content[0], 0xE700, 0xEFFF);
+    }
+
+    [Fact]
+    public void Seek_controls_share_the_theme_and_name_actions_for_accessibility()
+    {
+        var page = Load("PlaybackPage.xaml");
+        var style = Assert.Single(page.Descendants().Where(element => (string?)element.Attribute(Xaml + "Key") == "SeekButtonStyle"));
+        Assert.Equal("{StaticResource ToolbarButtonStyle}", (string?)style.Attribute("BasedOn"));
+        Assert.Contains(style.Elements(), setter => (string?)setter.Attribute("Property") == "AutomationProperties.Name" &&
+            ((string?)setter.Attribute("Value"))?.Contains("ToolTip", StringComparison.Ordinal) == true);
+        foreach (var key in new[] { "BoundarySeekIcon", "FrameSeekIcon", "SegmentSeekIcon", "TimedSeekIcon" })
+            Assert.Single(page.Descendants().Where(element => element.Name.LocalName == "DataTemplate" && (string?)element.Attribute(Xaml + "Key") == key));
+    }
+
     private static XElement ImplicitStyle(string type) => Assert.Single(Load(Path.Combine("Themes", "BlackboxTheme.xaml"))
         .Root!.Elements().Where(element => element.Name.LocalName == "Style" && element.Attribute(Xaml + "Key") is null &&
             (string?)element.Attribute("TargetType") == $"{{x:Type {type}}}"));
