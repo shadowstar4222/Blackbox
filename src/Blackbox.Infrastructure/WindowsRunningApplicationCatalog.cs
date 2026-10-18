@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Blackbox.Domain;
@@ -7,123 +6,249 @@ using Microsoft.Extensions.Logging;
 
 namespace Blackbox.Infrastructure;
 
-public sealed class WindowsRunningApplicationCatalog(
-    IProcessExecutablePathResolver processPathResolver,
-    ILogger<WindowsRunningApplicationCatalog> logger) : IRunningApplicationCatalog
+public sealed class WindowsRunningApplicationCatalog : IRunningApplicationCatalog
 {
-    public Task<IReadOnlyList<RunningApplication>> GetRunningApplicationsAsync(
+    internal static readonly TimeSpan CacheDuration = TimeSpan.FromMilliseconds(500);
+    private readonly IProcessExecutablePathResolver _processPathResolver;
+    private readonly ILogger<WindowsRunningApplicationCatalog> _logger;
+    private readonly IWindowCatalogNativeAccess _native;
+    private readonly TimeProvider _timeProvider;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private IReadOnlyList<CatalogEntry> _cached = [];
+    private long? _refreshedAt;
+
+    public WindowsRunningApplicationCatalog(
+        IProcessExecutablePathResolver processPathResolver,
+        ILogger<WindowsRunningApplicationCatalog> logger)
+        : this(processPathResolver, logger, new NativeWindowCatalogAccess(), TimeProvider.System)
+    {
+    }
+
+    internal WindowsRunningApplicationCatalog(
+        IProcessExecutablePathResolver processPathResolver,
+        ILogger<WindowsRunningApplicationCatalog> logger,
+        IWindowCatalogNativeAccess native,
+        TimeProvider timeProvider)
+    {
+        _processPathResolver = processPathResolver;
+        _logger = logger;
+        _native = native;
+        _timeProvider = timeProvider;
+    }
+
+    public async Task<IReadOnlyList<RunningApplication>> GetRunningApplicationsAsync(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!OperatingSystem.IsWindows())
+        if (!_native.IsSupported)
         {
-            return Task.FromResult<IReadOnlyList<RunningApplication>>([]);
+            return [];
         }
 
-        var applications = new List<RunningApplication>();
-        var foregroundWindow = NativeMethods.GetForegroundWindow();
-        var processTree = ReadProcessTree();
-
-        NativeMethods.EnumWindows((window, _) =>
+        await _refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return false;
-            }
-
-            TryAddWindow(applications, window, foregroundWindow, processTree);
-            return true;
-        }, IntPtr.Zero);
-
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(TaskbarWindowCatalogRules.Order(applications));
+            // Native discovery and optional log I/O must never run on the caller's UI thread.
+            return await Task.Run(() => ReadApplications(cancellationToken), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
     }
 
-    private void TryAddWindow(
-        ICollection<RunningApplication> applications,
-        IntPtr window,
-        IntPtr foregroundWindow,
-        IReadOnlyDictionary<int, ProcessTreeEntry> processTree)
+    public async Task<RunningApplication?> GetRunningApplicationAsync(
+        long windowHandle,
+        CancellationToken cancellationToken = default)
     {
-        var snapshot = NativeMethods.ReadTaskbarWindowSnapshot(window);
-        if (!TaskbarWindowCatalogRules.IsEligible(snapshot))
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_native.IsSupported || windowHandle == 0)
         {
-            return;
+            return null;
         }
 
-        var threadId = NativeMethods.GetWindowThreadProcessId(window, out var processId);
-        if (threadId == 0 || processId == 0 || processId == Environment.ProcessId)
+        await _refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return;
+            return await Task.Run(() =>
+            {
+                var window = _native.ReadWindow(windowHandle);
+                if (window is null)
+                {
+                    return null;
+                }
+
+                var tree = _native.ReadProcessTree(cancellationToken);
+                var entry = CreateEntry(window, tree, new Dictionary<int, string?>(), explicitWindow: true);
+                cancellationToken.ThrowIfCancellationRequested();
+                return entry is null ? null : Revalidate(entry, _native.GetForegroundWindow());
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    private IReadOnlyList<RunningApplication> ReadApplications(CancellationToken cancellationToken)
+    {
+        if (_refreshedAt is null ||
+            _timeProvider.GetElapsedTime(_refreshedAt.Value) >= CacheDuration)
+        {
+            try
+            {
+                var handles = _native.EnumerateWindows(cancellationToken);
+                var tree = _native.ReadProcessTree(cancellationToken);
+                var paths = new Dictionary<int, string?>();
+                var entries = new List<CatalogEntry>();
+                foreach (var handle in handles.Distinct())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var window = _native.ReadWindow(handle);
+                    if (window is not null && CreateEntry(window, tree, paths) is { } entry)
+                    {
+                        entries.Add(entry);
+                    }
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                _cached = entries;
+            }
+            catch (Win32Exception ex)
+            {
+                _logger.LogDebug(ex, "Window discovery failed; revalidating the previous snapshot.");
+            }
+
+            _refreshedAt = _timeProvider.GetTimestamp();
+        }
+
+        var foreground = _native.GetForegroundWindow();
+        var applications = new List<RunningApplication>(_cached.Count);
+        foreach (var entry in _cached)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Revalidate(entry, foreground) is { } application)
+            {
+                applications.Add(application);
+            }
+        }
+
+        return TaskbarWindowCatalogRules.Order(applications);
+    }
+
+    private CatalogEntry? CreateEntry(
+        WindowCatalogSnapshot window,
+        IReadOnlyDictionary<int, ProcessTreeEntry> processTree,
+        Dictionary<int, string?> paths,
+        bool explicitWindow = false)
+    {
+        if (window.ProcessId <= 0 || window.ProcessId == Environment.ProcessId ||
+            !window.Taskbar.IsVisible || window.Taskbar.IsCloaked || !window.IsTopLevel ||
+            string.IsNullOrWhiteSpace(window.WindowClass))
+        {
+            return null;
         }
 
         try
         {
-            var title = ReadWindowText(window);
-            var windowClass = ReadWindowClass(window);
-            var processEntry = processTree.GetValueOrDefault((int)processId);
-            var executablePath = ReadExecutablePath(processId) ??
-                processPathResolver.Resolve((int)processId, processEntry?.ExecutableName ?? string.Empty);
-            if (string.IsNullOrWhiteSpace(windowClass) ||
-                string.IsNullOrWhiteSpace(executablePath))
+            if (!paths.TryGetValue(window.ProcessId, out var executablePath))
             {
-                return;
+                var nameHint = processTree.GetValueOrDefault(window.ProcessId)?.ExecutableName ?? string.Empty;
+                executablePath = _native.ReadExecutablePath(window.ProcessId) ??
+                    _processPathResolver.Resolve(window.ProcessId, nameHint);
+                paths[window.ProcessId] = executablePath;
+            }
+
+            if (string.IsNullOrWhiteSpace(executablePath) || !Path.IsPathFullyQualified(executablePath))
+            {
+                return null;
             }
 
             executablePath = Path.GetFullPath(executablePath);
             var executableName = Path.GetFileName(executablePath);
-            if (executableName.Equals("Blackbox.App.exe", StringComparison.OrdinalIgnoreCase) ||
-                !NativeMethods.GetClientRect(window, out var bounds))
+            if (executableName.Equals("Blackbox.App.exe", StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                return null;
             }
 
-            var normalBounds = NativeMethods.ReadNormalWindowBounds(window);
-            var (width, height) = TaskbarWindowCatalogRules.ResolveWindowSize(
-                bounds.Right - bounds.Left,
-                bounds.Bottom - bounds.Top,
-                normalBounds.Right - normalBounds.Left,
-                normalBounds.Bottom - normalBounds.Top);
+            var detectionSources = GameCandidateSelector.Classify(
+                window.ProcessId,
+                executablePath,
+                isForeground: false,
+                processTree);
+            if (GameCandidateSelector.IsIgnoredExecutable(executableName) ||
+                executableName.Equals("HD2Arsenal.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                detectionSources = GameDetectionSource.None;
+            }
 
-            title = string.IsNullOrWhiteSpace(title)
-                ? Path.GetFileNameWithoutExtension(executableName)
-                : title;
-            var isForeground = window == foregroundWindow;
-            applications.Add(new RunningApplication(
-                (int)processId,
+            if (!explicitWindow && !TaskbarWindowCatalogRules.IsEligible(window.Taskbar) &&
+                !TaskbarWindowCatalogRules.IsLikelyVisibleGameSurface(
+                    window.Taskbar,
+                    !string.IsNullOrWhiteSpace(window.Title),
+                    window.ClientWidth,
+                    window.ClientHeight,
+                    detectionSources))
+            {
+                return null;
+            }
+
+            return new CatalogEntry(window, new RunningApplication(
+                window.ProcessId,
                 executablePath,
                 executableName,
-                title,
-                $"{title}:{windowClass}:{executableName}",
-                width,
-                height,
-                isForeground,
-                GameCandidateSelector.Classify((int)processId, executablePath, isForeground, processTree))
+                window.Title,
+                string.Empty,
+                window.ClientWidth,
+                window.ClientHeight,
+                false,
+                detectionSources)
             {
-                AncestorExecutableNames = GetAncestorExecutableNames((int)processId, processTree)
+                WindowHandle = window.Handle,
+                AncestorExecutableNames = GetAncestorExecutableNames(window.ProcessId, processTree)
             });
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
         {
-            logger.LogDebug(ex, "Could not inspect window for process {ProcessId}.", processId);
+            _logger.LogDebug(ex, "Could not inspect window for process {ProcessId}.", window.ProcessId);
+            return null;
         }
     }
 
-    private static string? ReadExecutablePath(uint processId)
+    private RunningApplication? Revalidate(CatalogEntry entry, long foreground)
     {
-        try
+        var window = _native.ReadWindow(entry.Window.Handle);
+        if (window is null || window.ProcessId != entry.Window.ProcessId ||
+            window.WindowClass != entry.Window.WindowClass || !window.IsTopLevel ||
+            !window.Taskbar.IsVisible || window.Taskbar.IsCloaked)
         {
-            using var process = Process.GetProcessById((int)processId);
-            var mainModulePath = process.MainModule?.FileName;
-            if (!string.IsNullOrWhiteSpace(mainModulePath))
-            {
-                return mainModulePath;
-            }
-        }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
-        {
+            return null;
         }
 
+        var title = string.IsNullOrWhiteSpace(window.Title)
+            ? Path.GetFileNameWithoutExtension(entry.Application.ExecutableName)
+            : window.Title;
+        var (width, height) = TaskbarWindowCatalogRules.ResolveWindowSize(
+            window.ClientWidth, window.ClientHeight, window.RestoredWidth, window.RestoredHeight);
+        return entry.Application with
+        {
+            Title = title,
+            ObsWindowIdentifier = $"{title}:{window.WindowClass}:{entry.Application.ExecutableName}",
+            WindowWidth = width,
+            WindowHeight = height,
+            IsForeground = window.Handle == foreground,
+            DetectionSources = entry.Application.DetectionSources |
+                (window.Handle == foreground ? GameDetectionSource.ForegroundWindow : GameDetectionSource.None),
+            IsMinimized = window.IsMinimized,
+            IsCapturable = !window.IsMinimized && window.ClientWidth > 0 && window.ClientHeight > 0
+        };
+    }
+
+    private sealed record CatalogEntry(WindowCatalogSnapshot Window, RunningApplication Application);
+
+    private static string? ReadExecutablePath(uint processId)
+    {
         var processHandle = NativeMethods.OpenProcess(NativeMethods.ProcessQueryLimitedInformation, false, processId);
         if (processHandle == IntPtr.Zero)
         {
@@ -144,7 +269,7 @@ public sealed class WindowsRunningApplicationCatalog(
         }
     }
 
-    private static IReadOnlyDictionary<int, ProcessTreeEntry> ReadProcessTree()
+    private static IReadOnlyDictionary<int, ProcessTreeEntry> ReadProcessTree(CancellationToken cancellationToken)
     {
         var entries = new Dictionary<int, ProcessTreeEntry>();
         var snapshot = NativeMethods.CreateToolhelp32Snapshot(NativeMethods.Th32csSnapProcess, 0);
@@ -166,13 +291,14 @@ public sealed class WindowsRunningApplicationCatalog(
 
             do
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 entries[(int)entry.ProcessId] = new ProcessTreeEntry(
                     (int)entry.ProcessId,
                     (int)entry.ParentProcessId,
                     entry.ExecutableFile);
                 entry.Size = (uint)Marshal.SizeOf<NativeMethods.ProcessEntry32>();
             }
-            while (NativeMethods.Process32Next(snapshot, ref entry));
+            while (entries.Count < 65_536 && NativeMethods.Process32Next(snapshot, ref entry));
 
             return entries;
         }
@@ -212,8 +338,7 @@ public sealed class WindowsRunningApplicationCatalog(
 
     private static string ReadWindowText(IntPtr window)
     {
-        var length = NativeMethods.GetWindowTextLength(window);
-        var buffer = new StringBuilder(Math.Max(1, length + 1));
+        var buffer = new StringBuilder(4096);
         _ = NativeMethods.GetWindowText(window, buffer, buffer.Capacity);
         return buffer.ToString().Trim();
     }
@@ -225,19 +350,89 @@ public sealed class WindowsRunningApplicationCatalog(
         return buffer.ToString().Trim();
     }
 
+    private sealed class NativeWindowCatalogAccess : IWindowCatalogNativeAccess
+    {
+        public bool IsSupported => OperatingSystem.IsWindows();
+
+        public long GetForegroundWindow() => NativeMethods.GetForegroundWindow().ToInt64();
+
+        public IReadOnlyList<long> EnumerateWindows(CancellationToken cancellationToken)
+        {
+            var handles = new List<long>();
+            var completed = NativeMethods.EnumWindows((window, _) =>
+            {
+                if (cancellationToken.IsCancellationRequested || handles.Count >= 16_384)
+                {
+                    return false;
+                }
+
+                handles.Add(window.ToInt64());
+                return true;
+            }, IntPtr.Zero);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!completed && handles.Count < 16_384)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+
+            return handles;
+        }
+
+        public WindowCatalogSnapshot? ReadWindow(long handle)
+        {
+            var window = new IntPtr(handle);
+            var thread = NativeMethods.GetWindowThreadProcessId(window, out var processId);
+            if (thread == 0 || processId == 0 || processId == Environment.ProcessId ||
+                !NativeMethods.IsWindowVisible(window))
+            {
+                return null;
+            }
+
+            var snapshot = NativeMethods.ReadTaskbarWindowSnapshot(window);
+            if (snapshot.IsCloaked)
+            {
+                return null;
+            }
+
+            var title = ReadWindowText(window);
+            var windowClass = ReadWindowClass(window);
+            _ = NativeMethods.GetClientRect(window, out var client);
+            var minimized = NativeMethods.IsIconic(window);
+            var normal = minimized || client.Right <= client.Left || client.Bottom <= client.Top
+                ? NativeMethods.ReadNormalWindowBounds(window)
+                : default;
+            var isTopLevel = NativeMethods.IsTopLevel(window);
+            if (NativeMethods.GetWindowThreadProcessId(window, out var finalProcessId) != thread ||
+                finalProcessId != processId)
+            {
+                return null;
+            }
+
+            return new WindowCatalogSnapshot(
+                handle, (int)processId, title, windowClass, snapshot,
+                client.Right - client.Left, client.Bottom - client.Top,
+                normal.Right - normal.Left, normal.Bottom - normal.Top, minimized, isTopLevel);
+        }
+
+        public string? ReadExecutablePath(int processId) =>
+            WindowsRunningApplicationCatalog.ReadExecutablePath((uint)processId);
+
+        public IReadOnlyDictionary<int, ProcessTreeEntry> ReadProcessTree(CancellationToken cancellationToken) =>
+            WindowsRunningApplicationCatalog.ReadProcessTree(cancellationToken);
+    }
+
     private static class NativeMethods
     {
         public const uint Th32csSnapProcess = 0x00000002;
         public const uint ProcessQueryLimitedInformation = 0x1000;
         private const uint DwmWindowAttributeCloaked = 14;
         private const uint GetWindowOwner = 4;
-        private const uint GetAncestorRootOwner = 3;
         private const int ExtendedWindowStyle = -20;
         public static readonly IntPtr InvalidHandleValue = new(-1);
 
         public delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
 
@@ -249,13 +444,14 @@ public sealed class WindowsRunningApplicationCatalog(
         public static extern bool IsWindowVisible(IntPtr window);
 
         [DllImport("user32.dll")]
-        private static extern IntPtr GetWindow(IntPtr window, uint command);
+        public static extern IntPtr GetWindow(IntPtr window, uint command);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsIconic(IntPtr window);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetAncestor(IntPtr window, uint flags);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetLastActivePopup(IntPtr window);
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
         private static extern int GetWindowLong32(IntPtr window, int index);
@@ -283,9 +479,6 @@ public sealed class WindowsRunningApplicationCatalog(
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern int GetWindowText(IntPtr window, StringBuilder text, int maximumCount);
-
-        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        public static extern int GetWindowTextLength(IntPtr window);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern int GetClassName(IntPtr window, StringBuilder className, int maximumCount);
@@ -332,37 +525,11 @@ public sealed class WindowsRunningApplicationCatalog(
             return new TaskbarWindowSnapshot(
                 isVisible,
                 isCloaked,
-                IsRootOwnerLastActivePopup(window),
                 GetWindow(window, GetWindowOwner) != IntPtr.Zero,
                 extendedStyle);
         }
 
-        private static bool IsRootOwnerLastActivePopup(IntPtr window)
-        {
-            var current = GetAncestor(window, GetAncestorRootOwner);
-            if (current == IntPtr.Zero)
-            {
-                current = window;
-            }
-
-            while (true)
-            {
-                var candidate = GetLastActivePopup(current);
-                if (candidate == current)
-                {
-                    break;
-                }
-
-                if (IsWindowVisible(candidate))
-                {
-                    break;
-                }
-
-                current = candidate;
-            }
-
-            return current == window;
-        }
+        public static bool IsTopLevel(IntPtr window) => GetAncestor(window, 2) == window;
 
         public static Rect ReadNormalWindowBounds(IntPtr window)
         {
@@ -420,3 +587,26 @@ public sealed class WindowsRunningApplicationCatalog(
         }
     }
 }
+
+internal interface IWindowCatalogNativeAccess
+{
+    bool IsSupported { get; }
+    long GetForegroundWindow();
+    IReadOnlyList<long> EnumerateWindows(CancellationToken cancellationToken);
+    WindowCatalogSnapshot? ReadWindow(long handle);
+    string? ReadExecutablePath(int processId);
+    IReadOnlyDictionary<int, ProcessTreeEntry> ReadProcessTree(CancellationToken cancellationToken);
+}
+
+internal sealed record WindowCatalogSnapshot(
+    long Handle,
+    int ProcessId,
+    string Title,
+    string WindowClass,
+    TaskbarWindowSnapshot Taskbar,
+    int ClientWidth,
+    int ClientHeight,
+    int RestoredWidth = 0,
+    int RestoredHeight = 0,
+    bool IsMinimized = false,
+    bool IsTopLevel = true);

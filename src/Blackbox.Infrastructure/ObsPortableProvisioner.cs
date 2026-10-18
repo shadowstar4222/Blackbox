@@ -13,10 +13,13 @@ public sealed class ObsPortableProvisioner(
     HttpClient httpClient,
     ObsProvisioningOptions options,
     IObsInstallationLocator installationLocator,
-    ILogger<ObsPortableProvisioner> logger) : IObsPortableProvisioner, IDisposable
+    ILogger<ObsPortableProvisioner> logger,
+    IEnumerable<IObsPortableConfigurationContributor>? configurationContributors = null) : IObsPortableProvisioner, IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim _installationGate = new(1, 1);
+    private readonly IReadOnlyList<IObsPortableConfigurationContributor> _configurationContributors =
+        configurationContributors?.ToArray() ?? [];
 
     public async Task<ObsInstallation> EnsureInstalledAsync(
         IProgress<ObsSetupProgress>? progress = null,
@@ -327,7 +330,7 @@ public sealed class ObsPortableProvisioner(
     private static string GetExecutablePath(string rootDirectory) =>
         Path.Combine(rootDirectory, "bin", "64bit", "obs64.exe");
 
-    private static void PreparePortableConfiguration(string rootDirectory)
+    private void PreparePortableConfiguration(string rootDirectory)
     {
         File.WriteAllText(Path.Combine(rootDirectory, "portable_mode.txt"), string.Empty);
         var configurationDirectory = Path.Combine(rootDirectory, "config", "obs-studio");
@@ -338,6 +341,21 @@ public sealed class ObsPortableProvisioner(
             File.WriteAllText(
                 userConfigurationPath,
                 "[General]\r\nFirstRun=true\r\n\r\n[BasicWindow]\r\nSysTrayEnabled=true\r\nSysTrayWhenStarted=true\r\nPreviewEnabled=false\r\n");
+        }
+
+        foreach (var contributor in _configurationContributors)
+        {
+            try
+            {
+                contributor.Apply(rootDirectory);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Could not apply portable OBS configuration contributor {ContributorType}.",
+                    contributor.GetType().Name);
+            }
         }
     }
 

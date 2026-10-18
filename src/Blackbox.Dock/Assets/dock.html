@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blackbox Controls</title>
+  <link rel="stylesheet" href="dock.css">
+  <script src="dock.js" defer></script>
+</head>
+<body>
+  <main class="dock" aria-live="polite">
+    <header class="topbar">
+      <div class="brand">
+        <img src="blackbox.png" alt="" width="28" height="28">
+        <div>
+          <strong>BLACKBOX</strong>
+          <span>CAPTURE DOCK</span>
+        </div>
+      </div>
+      <span id="connection" class="connection offline">OFFLINE</span>
+    </header>
+
+    <section class="recording" aria-label="Recording status">
+      <div class="recording-row">
+        <span id="recording-dot" class="recording-dot"></span>
+        <span id="recording-label">STANDBY</span>
+        <time id="elapsed">00:00:00</time>
+      </div>
+      <p id="game" title="Current game">No game detected</p>
+      <p id="status" class="status">Connecting to Blackbox...</p>
+    </section>
+
+    <section class="transport" aria-label="Recording controls">
+      <button type="button" data-command="StartRecording" id="start" title="Start a manual recording">
+        <span class="button-icon start-icon" aria-hidden="true"></span>
+        Start
+      </button>
+      <button type="button" data-command="StopRecording" id="stop" title="Stop the current recording">
+        <span class="button-icon stop-icon" aria-hidden="true"></span>
+        Stop
+      </button>
+    </section>
+
+    <label class="toggle-row" title="Watch remembered games and record them automatically">
+      <span>
+        <strong>Automatic capture</strong>
+        <small>Remembered games</small>
+      </span>
+      <input id="automatic" type="checkbox" role="switch">
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+
+    <section class="actions" aria-label="Capture actions">
+      <button type="button" data-command="ProtectRecent" id="protect" title="Keep the previous five minutes from storage cleanup">
+        <span aria-hidden="true">&#x1F512;</span>
+        Protect 5m
+      </button>
+      <button type="button" data-command="AddMarker" id="marker" title="Add a marker at the current recording time">
+        <span aria-hidden="true">&#x2691;</span>
+        Marker
+      </button>
+      <button type="button" data-command="OpenTimeline" id="timeline" title="Open the Blackbox recording timeline">
+        <span aria-hidden="true">&#x25B6;</span>
+        Timeline
+      </button>
+      <button type="button" data-command="OpenMicrophone" id="microphone" title="Open Blackbox microphone controls">
+        <span aria-hidden="true">&#x1F399;</span>
+        Microphone
+      </button>
+    </section>
+
+    <footer>
+      <span class="local-dot" aria-hidden="true"></span>
+      Local control only
+    </footer>
+  </main>
+</body>
+</html>

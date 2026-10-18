@@ -1,0 +1,37 @@
+BLACKBOX AUTOMATIC DIAGNOSTIC SETUP RECORDING
+October 17, 2026 - 2.0.0-preview.14
+
+The game watcher is temporarily isolated from setup so another remembered game
+cannot take its capture target. Auto mode is now handed over to the setup
+monitor rather than behaving as if automatic recording were disabled.
+
+With auto enabled, the setup window says Start scene & record. Recording waits
+until the warning is dismissed and the helper reports a started, ready scene.
+A failed/not-yet-open video cannot trigger automatic capture of a blank scene.
+Readiness must come from the current helper process in its unique session folder.
+Opening setup alone does not record its warning or play music/video.
+
+The footer/tray/command auto controls affect setup while it is open; enabling
+auto no longer closes setup. This supersedes preview.13's return-to-watcher
+behavior. Closing setup still restores the normal game watcher when requested.
+Manual and automatic setup captures use the ordinary native recorder, selected
+recording quality, audio routing, and microphone settings.
+
+Auto start is one-shot. Stop saves the test and does not immediately start a new
+file while the scene continues. Re-enable auto after switching it off to re-arm,
+or press Record manually. A failed start is also not retried in a tight loop.
+Disabling auto stops only a setup recording owned by automatic mode; an existing
+manual setup recording continues until Stop. Remembered games are unchanged.
+
+Validation: artifacts/setup-auto-record-20261017. Native regression captures use
+only the setup window's still scene/warning, with system audio and microphone
+explicitly disabled. No user audio is required for these tests.
+
+PASSED
+356 main tests and 54 capture tests (410 total), packaged prerequisite probe,
+and the packaged setup-auto regression. Regression coverage includes warning
+gating, current-helper readiness IPC, enabled-mode handoff into setup, auto start,
+re-arming, Stop without restart, disabling owned auto capture, preservation of
+manual captures, clearing the temporary target, restoring normal game watching,
+busy-operation guards, and persisted startup preferences. The warning screenshot
+also confirms the Start scene & record label and automatic-recording disclosure.

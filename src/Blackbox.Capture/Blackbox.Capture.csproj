@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Blackbox.Infrastructure\Blackbox.Infrastructure.csproj" />
+    <ProjectReference Include="..\Blackbox.Capture.Protocol\Blackbox.Capture.Protocol.csproj" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="SpeexDSPSharp" Version="1.3.0" />
+  </ItemGroup>
+</Project>

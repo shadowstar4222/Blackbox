@@ -325,6 +325,88 @@ public sealed class AutomaticCaptureControllerTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Native_game_switch_starts_a_separate_session_and_preserves_ownership(bool automatic)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        var clock = new MutableClock(DateTimeOffset.UtcNow);
+        var native = new NativeCaptureController { Target = CreateTarget() };
+        using var coordinator = CreateCoordinator(native);
+        using var controller = CreateController(root, native, coordinator, clock);
+        try
+        {
+            if (automatic)
+            {
+                controller.Enable();
+                await controller.ProcessDetectionAsync(CreateTarget());
+                await controller.ProcessDetectionAsync(CreateTarget());
+            }
+            else await coordinator.TryStartAsync(new RecordingSettings { RecordingLocation = root }, CreateTarget());
+            var next = CreateTarget() with { ExecutablePath = "C:\\Games\\Second.exe", ExecutableName = "Second.exe", Title = "Second Game" };
+            var before = native.Calls.Count;
+            await controller.SelectTargetAsync(next);
+            Assert.Equal(["Stop", "ConfigureGame:Second.exe", "Launch", "ConfigureSegments", "ConfigureAudio", "Start"], native.Calls.Skip(before));
+            Assert.Equal(RecordingDirectoryLayout.GetSessionDirectory(root, next.Title, clock.UtcNow), native.RecordingDirectories.Last());
+            Assert.True(coordinator.IsRecording);
+            await controller.DisableAsync();
+            Assert.Equal(!automatic, coordinator.IsRecording);
+        }
+        finally { await coordinator.TryStopAsync(); Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task Native_window_closure_keeps_automatic_capture_enabled_and_can_start_again()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        var native = new NativeCaptureController { Target = CreateTarget() };
+        using var coordinator = CreateCoordinator(native);
+        using var controller = CreateController(root, native, coordinator, new MutableClock(DateTimeOffset.UtcNow));
+        try
+        {
+            controller.Enable();
+            await controller.ProcessDetectionAsync(CreateTarget());
+            await controller.ProcessDetectionAsync(CreateTarget());
+            native.CloseTarget();
+            Assert.False(coordinator.IsRecording);
+            Assert.True(controller.IsEnabled);
+            await controller.ProcessDetectionAsync(null);
+            await controller.ProcessDetectionAsync(CreateTarget());
+            await controller.ProcessDetectionAsync(CreateTarget());
+            Assert.True(coordinator.IsRecording);
+            Assert.Equal(2, native.Calls.Count(call => call == "Start"));
+        }
+        finally { await controller.DisableAsync(); Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task Native_same_game_window_switch_does_not_restart_recording()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        var native = new NativeCaptureController { Target = CreateTarget() };
+        using var coordinator = CreateCoordinator(native);
+        using var controller = CreateController(root, native, coordinator, new MutableClock(DateTimeOffset.UtcNow));
+        try
+        {
+            await coordinator.TryStartAsync(new RecordingSettings { RecordingLocation = root }, CreateTarget());
+            var before = native.Calls.Count;
+            await controller.SelectTargetAsync(CreateTarget() with { WindowHandle = 1234 });
+            Assert.Equal(["RefreshGame:Example.exe"], native.Calls.Skip(before));
+            Assert.True(coordinator.IsRecording);
+        }
+        finally { await coordinator.TryStopAsync(); Directory.Delete(root, true); }
+    }
+
+    private sealed class NativeCaptureController : AutomaticCaptureObsController, INativeRecorderController
+    {
+        public GameCaptureTarget? Target { get; set; }
+        public string Description => "Native test recorder";
+        public event Action<string>? RecordingFailed { add { } remove { } }
+        public event Action? TargetClosed;
+        public void CloseTarget() => TargetClosed?.Invoke();
+    }
+
     private static AutomaticCaptureController CreateController(
         string recordingPath,
         IObsController obs,
@@ -412,7 +494,7 @@ public sealed class AutomaticCaptureControllerTests
             Task.FromResult(false);
     }
 
-    private sealed class AutomaticCaptureObsController : IObsController
+    private class AutomaticCaptureObsController : IObsController
     {
         public List<string> Calls { get; } = [];
         public List<string> RecordingDirectories { get; } = [];

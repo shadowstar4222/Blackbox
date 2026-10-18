@@ -4,6 +4,23 @@ namespace Blackbox.Tests;
 
 public sealed class FfprobeOutputParserTests
 {
+    [Theory]
+    [InlineData("BLACKBOX_NOMINAL_FPS", "30", 30)]
+    [InlineData("blackbox_nominal_fps", "60", 60)]
+    [InlineData("BLACKBOX_NOMINAL_FPS", "120", 120)]
+    [InlineData("BLACKBOX_NOMINAL_FPS", "0", 25)]
+    [InlineData("BLACKBOX_NOMINAL_FPS", "121", 25)]
+    [InlineData("BLACKBOX_NOMINAL_FPS", "invalid", 25)]
+    public void Parse_uses_valid_native_nominal_rate_without_changing_media_timestamps(string key, string value, int expected)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            streams = new[] { new { codec_type = "video", avg_frame_rate = "25/1", tags = new Dictionary<string, string> { [key] = value } } },
+            format = new { duration = "120" }
+        });
+        Assert.Equal(expected, FfprobeOutputParser.Parse(json).FrameRate);
+    }
+
     [Fact]
     public void Parse_reads_duration_video_properties_and_named_audio_tracks()
     {

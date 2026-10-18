@@ -146,7 +146,7 @@ public sealed class SessionExportServiceTests
         public Task<FfmpegInstallation> EnsureInstalledAsync(
             IProgress<FfmpegProvisionProgress>? progress = null,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe", "ffplay"));
+            Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe"));
     }
 
     private sealed class WritingCommandRunner(ISegmentUsageRegistry registry, Guid segmentId) : IFfmpegCommandRunner

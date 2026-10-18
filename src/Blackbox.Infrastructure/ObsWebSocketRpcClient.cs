@@ -57,6 +57,16 @@ public sealed class ObsWebSocketRpcClient(
         IReadOnlyList<ObsRequest> requests,
         CancellationToken cancellationToken = default)
     {
+        var responses = await SendBatchAllowFailuresAsync(settings, requests, cancellationToken);
+        ObsProtocolParser.EnsureSuccessful(responses);
+        return responses;
+    }
+
+    public async Task<IReadOnlyList<ObsResponse>> SendBatchAllowFailuresAsync(
+        ObsConnectionSettings settings,
+        IReadOnlyList<ObsRequest> requests,
+        CancellationToken cancellationToken = default)
+    {
         settings.Validate();
         if (requests.Count == 0)
         {
@@ -92,8 +102,10 @@ public sealed class ObsWebSocketRpcClient(
                 ?? throw new InvalidOperationException("OBS returned an invalid result in a batch response.")))
             .ToArray();
 
-        ObsProtocolParser.EnsureSuccessful(responses);
-        logger.LogInformation("OBS accepted a websocket batch containing {RequestCount} request(s).", requests.Count);
+        logger.LogDebug(
+            "OBS completed a websocket batch containing {RequestCount} request(s); {FailureCount} failed.",
+            requests.Count,
+            responses.Count(static response => !response.IsSuccessful));
         return responses;
     }
 

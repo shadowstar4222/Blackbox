@@ -108,10 +108,36 @@ public sealed class ObsPortableProvisionerTests
         }
     }
 
+    [Fact]
+    public async Task EnsureInstalledAsync_applies_managed_configuration_contributors()
+    {
+        var testRoot = CreateTestRoot();
+        try
+        {
+            var executable = Path.Combine(testRoot, "bin", "64bit", "obs64.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(executable)!);
+            await File.WriteAllTextAsync(executable, "test");
+            var contributor = new RecordingConfigurationContributor();
+            var provisioner = CreateProvisioner(
+                testRoot,
+                new ReleaseHandler([], string.Empty),
+                configurationContributors: [contributor]);
+
+            await provisioner.EnsureInstalledAsync();
+
+            Assert.Equal(testRoot, Assert.Single(contributor.AppliedRoots));
+        }
+        finally
+        {
+            Directory.Delete(Directory.GetParent(testRoot)!.FullName, true);
+        }
+    }
+
     private static ObsPortableProvisioner CreateProvisioner(
         string testRoot,
         HttpMessageHandler handler,
-        IObsInstallationLocator? installationLocator = null) =>
+        IObsInstallationLocator? installationLocator = null,
+        IEnumerable<IObsPortableConfigurationContributor>? configurationContributors = null) =>
         new(
             new HttpClient(handler),
             new ObsProvisioningOptions
@@ -120,7 +146,8 @@ public sealed class ObsPortableProvisionerTests
                 LatestReleaseApiUri = new Uri("https://api.example.test/latest")
             },
             installationLocator ?? new StubInstallationLocator(null),
-            NullLogger<ObsPortableProvisioner>.Instance);
+            NullLogger<ObsPortableProvisioner>.Instance,
+            configurationContributors);
 
     private static string CreateTestRoot() =>
         Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"), "obs-portable");
@@ -186,5 +213,13 @@ public sealed class ObsPortableProvisionerTests
     private sealed class StubInstallationLocator(ObsInstallation? installation) : IObsInstallationLocator
     {
         public ObsInstallation? FindExistingInstallation() => installation;
+    }
+
+    private sealed class RecordingConfigurationContributor : IObsPortableConfigurationContributor
+    {
+        public List<string> AppliedRoots { get; } = [];
+
+        public void Apply(string portableRootDirectory) =>
+            AppliedRoots.Add(portableRootDirectory);
     }
 }

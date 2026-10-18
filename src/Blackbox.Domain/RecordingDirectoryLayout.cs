@@ -5,6 +5,7 @@ public static class RecordingDirectoryLayout
     public const string ManualRecordingName = "Manual";
     public const string SetupCheckName = "Blackbox Setup Checks";
     public const string RecoveryBackupName = "Blackbox Recovery Backups";
+    public const string InstantClipName = "Blackbox Clips";
 
     public static string GetSessionDirectory(
         string recordingRoot,
@@ -41,7 +42,8 @@ public static class RecordingDirectoryLayout
     {
         var applicationName = GetApplicationName(recordingRoot, path);
         return applicationName.Equals(SetupCheckName, StringComparison.OrdinalIgnoreCase) ||
-            applicationName.Equals(RecoveryBackupName, StringComparison.OrdinalIgnoreCase);
+            applicationName.Equals(RecoveryBackupName, StringComparison.OrdinalIgnoreCase) ||
+            applicationName.Equals(InstantClipName, StringComparison.OrdinalIgnoreCase);
     }
 
     public static string SanitizeApplicationName(string? applicationName)

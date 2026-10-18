@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Blackbox.Capture\Blackbox.Capture.csproj" />
     <ProjectReference Include="..\Blackbox.Domain\Blackbox.Domain.csproj" />
     <ProjectReference Include="..\Blackbox.Infrastructure\Blackbox.Infrastructure.csproj" />
     <ProjectReference Include="..\Blackbox.Recording\Blackbox.Recording.csproj" />
@@ -21,6 +22,8 @@
     <None Update="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\Blackbox.png" />
     <Resource Include="Assets\Blackbox.ico" />
+    <None Update="Assets\RecordingSetup\*.mp4" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets\RecordingSetup\*.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
@@ -35,4 +38,10 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <Target Name="CopyRecordingSetupBuildHost" AfterTargets="Build" Condition="Exists('$(TargetDir)$(AssemblyName).exe')">
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).exe" DestinationFiles="$(TargetDir)Blackbox.SetupTarget.exe" />
+  </Target>
+  <Target Name="CopyRecordingSetupPublishHost" AfterTargets="Publish" Condition="Exists('$(PublishDir)$(AssemblyName).exe')">
+    <Copy SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PublishDir)Blackbox.SetupTarget.exe" />
+  </Target>
 </Project>

@@ -1,39 +1,78 @@
 using System.Runtime.Versioning;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
 namespace Blackbox.Infrastructure;
 
-public sealed partial class SteamProcessExecutablePathResolver(
-    ILogger<SteamProcessExecutablePathResolver> logger) : IProcessExecutablePathResolver
+public sealed partial class SteamProcessExecutablePathResolver : IProcessExecutablePathResolver
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan RootCacheDuration = TimeSpan.FromMinutes(1);
+    internal const int MaximumReadBytes = 1024 * 1024;
+    private const int MaximumLineBytes = 64 * 1024;
+    private const int MaximumActivePaths = 16_384;
+    private readonly ILogger<SteamProcessExecutablePathResolver> _logger;
+    private readonly TimeProvider _timeProvider;
+    private readonly Func<IEnumerable<string>> _getLogPaths;
     private readonly object _sync = new();
     private Dictionary<int, string> _activePaths = [];
-    private Dictionary<string, SteamLogSignature> _logSignatures =
-        new(StringComparer.OrdinalIgnoreCase);
-    private DateTimeOffset _refreshedAt = DateTimeOffset.MinValue;
+    private readonly Dictionary<string, SteamLogState> _logs = new(StringComparer.OrdinalIgnoreCase);
+    private string[] _logPaths = [];
+    private long? _refreshedAt;
+    private long? _rootsRefreshedAt;
 
-    public string? Resolve(int processId, string executableName)
+    public SteamProcessExecutablePathResolver(ILogger<SteamProcessExecutablePathResolver> logger)
+        : this(logger, TimeProvider.System, () => GetSteamRoots()
+            .Select(static root => Path.Combine(root, "logs", "gameprocess_log.txt")))
     {
-        if (!OperatingSystem.IsWindows() || processId <= 0 || string.IsNullOrWhiteSpace(executableName))
+    }
+
+    internal SteamProcessExecutablePathResolver(
+        ILogger<SteamProcessExecutablePathResolver> logger,
+        TimeProvider timeProvider,
+        Func<IEnumerable<string>> getLogPaths)
+    {
+        _logger = logger;
+        _timeProvider = timeProvider;
+        _getLogPaths = getLogPaths;
+    }
+
+    public string? Resolve(int processId, string executableName, bool forceRefresh = false)
+    {
+        if (processId <= 0)
         {
             return null;
         }
 
         lock (_sync)
         {
+            // A miss (including a legacy forced request) cannot trigger repeated disk scans.
             RefreshIfNeeded();
-            if (!_activePaths.TryGetValue(processId, out var path) ||
-                !Path.GetFileName(path).Equals(executableName, StringComparison.OrdinalIgnoreCase) ||
-                !File.Exists(path))
-            {
-                return null;
-            }
-
-            return path;
+            return SelectActiveProcessPath(
+                _activePaths,
+                processId,
+                executableName,
+                File.Exists);
         }
+    }
+
+    internal static string? SelectActiveProcessPath(
+        IReadOnlyDictionary<int, string> activePaths,
+        int processId,
+        string executableName,
+        Func<string, bool> fileExists)
+    {
+        if (!activePaths.TryGetValue(processId, out var path) ||
+            (!string.IsNullOrWhiteSpace(executableName) &&
+             !Path.GetFileName(path).Equals(executableName, StringComparison.OrdinalIgnoreCase)) ||
+            !fileExists(path))
+        {
+            return null;
+        }
+
+        return path;
     }
 
     internal static IReadOnlyDictionary<int, string> ParseActiveProcessPaths(IEnumerable<string> lines)
@@ -41,85 +80,155 @@ public sealed partial class SteamProcessExecutablePathResolver(
         var activePaths = new Dictionary<int, string>();
         foreach (var line in lines)
         {
-            var added = ProcessAddedRegex().Match(line);
-            if (added.Success &&
-                int.TryParse(added.Groups["pid"].Value, out var processId))
-            {
-                activePaths[processId] = added.Groups["path"].Value;
-                continue;
-            }
-
-            var removed = ProcessRemovedRegex().Match(line);
-            if (removed.Success &&
-                int.TryParse(removed.Groups["pid"].Value, out processId))
-            {
-                activePaths.Remove(processId);
-            }
+            ApplyLine(activePaths, line);
         }
 
         return activePaths;
     }
 
-    private void RefreshIfNeeded()
+    private static void ApplyLine(Dictionary<int, string> activePaths, string line)
     {
-        var now = DateTimeOffset.UtcNow;
-        if (now - _refreshedAt < CacheDuration)
+        if (line.Length > MaximumLineBytes)
         {
             return;
         }
 
-        var logPaths = GetSteamRoots()
-            .Select(static steamRoot => Path.Combine(steamRoot, "logs", "gameprocess_log.txt"))
-            .Where(File.Exists)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        var observedSignatures = new Dictionary<string, SteamLogSignature>(
-            StringComparer.OrdinalIgnoreCase);
-        foreach (var logPath in logPaths)
+        var added = ProcessAddedRegex().Match(line);
+        if (added.Success &&
+            int.TryParse(added.Groups["pid"].Value, out var processId) && processId > 0)
+        {
+            if (activePaths.Count >= MaximumActivePaths && !activePaths.ContainsKey(processId))
+            {
+                activePaths.Remove(activePaths.Keys.First());
+            }
+
+            activePaths[processId] = added.Groups["path"].Value;
+            return;
+        }
+
+        var removed = ProcessRemovedRegex().Match(line);
+        if (removed.Success &&
+            int.TryParse(removed.Groups["pid"].Value, out processId))
+        {
+            activePaths.Remove(processId);
+        }
+    }
+
+    private void RefreshIfNeeded()
+    {
+        if (_refreshedAt is { } refreshed && _timeProvider.GetElapsedTime(refreshed) < CacheDuration)
+        {
+            return;
+        }
+
+        _refreshedAt = _timeProvider.GetTimestamp();
+        if (_rootsRefreshedAt is null ||
+            _timeProvider.GetElapsedTime(_rootsRefreshedAt.Value) >= RootCacheDuration)
+        {
+            _logPaths = _getLogPaths().Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToArray();
+            _rootsRefreshedAt = _timeProvider.GetTimestamp();
+            foreach (var obsolete in _logs.Keys.Except(_logPaths, StringComparer.OrdinalIgnoreCase).ToArray())
+            {
+                _logs.Remove(obsolete);
+            }
+        }
+
+        foreach (var logPath in _logPaths)
         {
             try
             {
                 var file = new FileInfo(logPath);
-                observedSignatures[logPath] = new SteamLogSignature(
-                    file.Length,
-                    file.LastWriteTimeUtc);
+                if (!file.Exists)
+                {
+                    _logs.Remove(logPath);
+                    continue;
+                }
+
+                var signature = new SteamLogSignature(file.Length, file.LastWriteTimeUtc, file.CreationTimeUtc);
+                if (_logs.TryGetValue(logPath, out var state) && state.Signature == signature)
+                {
+                    continue;
+                }
+
+                using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+                var length = stream.Length;
+                var reset = state is null || length < state.Offset ||
+                    signature.CreationTimeUtc != state.Signature.CreationTimeUtc ||
+                    length == state.Offset || !AnchorMatches(stream, state);
+                if (reset || length - state!.Offset > MaximumReadBytes)
+                {
+                    // Start at a bounded tail on startup/rotation; never replay an unbounded history.
+                    state = new SteamLogState { Offset = Math.Max(0, length - MaximumReadBytes) };
+                    state.DiscardPartialLine = state.Offset > 0;
+                }
+
+                stream.Position = state!.Offset;
+                var bytes = new byte[(int)Math.Min(MaximumReadBytes, length - state.Offset)];
+                stream.ReadExactly(bytes);
+                ConsumeBytes(state, bytes);
+                state.Offset += bytes.Length;
+                stream.Position = Math.Max(0, state.Offset - 128);
+                state.Anchor = new byte[(int)(state.Offset - stream.Position)];
+                stream.ReadExactly(state.Anchor);
+                state.Signature = signature;
+                _logs[logPath] = state;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                logger.LogDebug(ex, "Could not inspect Steam process tracking at {SteamLogPath}.", logPath);
+                _logs.Remove(logPath);
+                _logger.LogDebug(ex, "Could not read Steam process tracking at {SteamLogPath}.", logPath);
             }
-        }
-        if (_logSignatures.Count == observedSignatures.Count &&
-            observedSignatures.All(entry =>
-                _logSignatures.TryGetValue(entry.Key, out var previous) && previous == entry.Value))
-        {
-            _refreshedAt = now;
-            return;
         }
 
         var paths = new Dictionary<int, string>();
-        var successfulSignatures = new Dictionary<string, SteamLogSignature>(
-            StringComparer.OrdinalIgnoreCase);
-        foreach (var logPath in observedSignatures.Keys)
+        foreach (var state in _logs.Values)
         {
-            try
+            foreach (var (processId, executablePath) in state.ActivePaths)
             {
-                foreach (var (processId, executablePath) in ParseActiveProcessPaths(File.ReadLines(logPath)))
-                {
-                    paths[processId] = executablePath;
-                }
-
-                successfulSignatures[logPath] = observedSignatures[logPath];
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                logger.LogDebug(ex, "Could not read Steam process tracking from {SteamLogPath}.", logPath);
+                paths[processId] = executablePath;
             }
         }
 
         _activePaths = paths;
-        _logSignatures = successfulSignatures;
-        _refreshedAt = now;
+    }
+
+    private static bool AnchorMatches(FileStream stream, SteamLogState state)
+    {
+        stream.Position = state.Offset - state.Anchor.Length;
+        var anchor = new byte[state.Anchor.Length];
+        stream.ReadExactly(anchor);
+        return anchor.AsSpan().SequenceEqual(state.Anchor);
+    }
+
+    private static void ConsumeBytes(SteamLogState state, byte[] bytes)
+    {
+        var combined = new byte[state.PendingLine.Length + bytes.Length];
+        state.PendingLine.CopyTo(combined, 0);
+        bytes.CopyTo(combined, state.PendingLine.Length);
+        var start = 0;
+        for (var index = 0; index < combined.Length; index++)
+        {
+            if (combined[index] != (byte)'\n')
+            {
+                continue;
+            }
+
+            if (!state.DiscardPartialLine && index - start <= MaximumLineBytes)
+            {
+                ApplyLine(state.ActivePaths, Encoding.UTF8.GetString(combined, start, index - start));
+            }
+
+            state.DiscardPartialLine = false;
+            start = index + 1;
+        }
+
+        if (combined.Length - start > MaximumLineBytes)
+        {
+            state.DiscardPartialLine = true;
+        }
+
+        state.PendingLine = state.DiscardPartialLine ? [] : combined[start..];
     }
 
     private static HashSet<string> GetSteamRoots()
@@ -170,5 +279,15 @@ public sealed partial class SteamProcessExecutablePathResolver(
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ProcessRemovedRegex();
 
-    private readonly record struct SteamLogSignature(long Length, DateTime LastWriteTimeUtc);
+    private readonly record struct SteamLogSignature(long Length, DateTime LastWriteTimeUtc, DateTime CreationTimeUtc);
+
+    private sealed class SteamLogState
+    {
+        public SteamLogSignature Signature { get; set; }
+        public long Offset { get; set; }
+        public byte[] Anchor { get; set; } = [];
+        public byte[] PendingLine { get; set; } = [];
+        public bool DiscardPartialLine { get; set; }
+        public Dictionary<int, string> ActivePaths { get; } = [];
+    }
 }

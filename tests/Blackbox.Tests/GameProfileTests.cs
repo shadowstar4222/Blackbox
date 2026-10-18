@@ -28,6 +28,17 @@ public sealed class GameProfileTests
         Assert.Throws<InvalidOperationException>(profile.Validate);
     }
 
+    [Fact]
+    public void Validate_rejects_invalid_recording_overrides()
+    {
+        var profile = CreateProfile() with
+        {
+            Overrides = new GameProfileOverrides { FramesPerSecond = 59 }
+        };
+
+        Assert.Throws<InvalidOperationException>(profile.Validate);
+    }
+
     private static GameProfile CreateProfile() => new(
         "C:\\Games\\Example\\Launcher.exe",
         "Example",

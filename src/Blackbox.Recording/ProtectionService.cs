@@ -6,7 +6,8 @@ namespace Blackbox.Recording;
 public sealed class ProtectionService(
     ISegmentRepository repository,
     IClock clock,
-    ILogger<ProtectionService> logger)
+    ILogger<ProtectionService> logger,
+    IRecordingTimelineClock? timelineClock = null)
 {
     public Task ProtectPreviousFiveMinutesAsync(CancellationToken cancellationToken = default)
     {
@@ -20,7 +21,7 @@ public sealed class ProtectionService(
             throw new ArgumentOutOfRangeException(nameof(duration), "Protection duration must be greater than zero.");
         }
 
-        var endTime = clock.UtcNow;
+        var endTime = timelineClock?.RecordingTime ?? clock.UtcNow;
         var startTime = endTime - duration;
         await repository.MarkProtectedRangeAsync(startTime, endTime, cancellationToken);
         logger.LogInformation(

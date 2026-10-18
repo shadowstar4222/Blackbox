@@ -13,9 +13,28 @@ public sealed class RecordingRecoveryService(
     RecordingRecoveryOptions options,
     ILogger<RecordingRecoveryService> logger)
 {
+    private readonly SemaphoreSlim _recoveryGate = new(1, 1);
+    private readonly Dictionary<string, (RecordingFileState State, RecordingRecoveryFileResult Result)> _checkedFiles =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public async Task<RecordingRecoveryResult> RecoverAsync(
         IProgress<RecordingRecoveryProgress>? progress = null,
         CancellationToken cancellationToken = default)
+    {
+        await _recoveryGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await RecoverCoreAsync(progress, cancellationToken);
+        }
+        finally
+        {
+            _recoveryGate.Release();
+        }
+    }
+
+    private async Task<RecordingRecoveryResult> RecoverCoreAsync(
+        IProgress<RecordingRecoveryProgress>? progress,
+        CancellationToken cancellationToken)
     {
         recordingSettings.Validate();
         options.Validate();
@@ -24,16 +43,19 @@ public sealed class RecordingRecoveryService(
         await segmentRepository.InitializeAsync(cancellationToken);
 
         progress?.Report(new RecordingRecoveryProgress("Reconciling the recording database...", 5));
-        var missingCount = (await segmentRepository.GetAllAsync(cancellationToken))
-            .Count(static segment => !File.Exists(segment.FilePath));
+        var indexed = (await segmentRepository.GetAllAsync(cancellationToken))
+            .ToDictionary(static segment => Path.GetFullPath(segment.FilePath), StringComparer.OrdinalIgnoreCase);
+        var missingCount = indexed.Values.Count(static segment => !File.Exists(segment.FilePath));
         await segmentRepository.ReconcileMissingFilesAsync(cancellationToken);
 
-        var firstSnapshots = EnumerateCandidates(recordingSettings.RecordingLocation)
-            .Select(FileSnapshot.Capture)
+        var firstSnapshots = RecordingFileState.Enumerate(recordingSettings.RecordingLocation, includeActive: true)
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .Select(RecordingFileState.Capture)
             .Where(static snapshot => snapshot is not null)
-            .Cast<FileSnapshot>()
+            .Cast<RecordingFileState>()
             .ToArray();
-        if (options.StabilityObservationDelay > TimeSpan.Zero && firstSnapshots.Length > 0)
+        if (options.StabilityObservationDelay > TimeSpan.Zero &&
+            firstSnapshots.Any(snapshot => GetKnownResult(snapshot, indexed) is null))
         {
             await Task.Delay(options.StabilityObservationDelay, cancellationToken);
         }
@@ -44,11 +66,18 @@ public sealed class RecordingRecoveryService(
         {
             cancellationToken.ThrowIfCancellationRequested();
             var snapshot = firstSnapshots[index];
+            if (GetKnownResult(snapshot, indexed) is { } known)
+            {
+                results.Add(known);
+                _checkedFiles[snapshot.Path] = (snapshot, known);
+                continue;
+            }
+
             var percent = 10 + (index + 1) * 85d / Math.Max(1, firstSnapshots.Length);
             progress?.Report(new RecordingRecoveryProgress(
                 $"Checking {Path.GetFileName(snapshot.Path)}...",
                 percent));
-            var current = FileSnapshot.Capture(snapshot.Path);
+            var current = RecordingFileState.Capture(snapshot.Path);
             if (current is null ||
                 current.Length != snapshot.Length ||
                 current.LastWriteTimeUtc != snapshot.LastWriteTimeUtc ||
@@ -61,10 +90,34 @@ public sealed class RecordingRecoveryService(
                 continue;
             }
 
+            var native = NativeRecordingFile.TryParse(snapshot.Path);
+            using var sessionLease = native is { IsActive: true } ? TryAcquireSessionLease(native.LockPath) : null;
+            using var readLease = RecordingFileState.TryOpenReadLease(snapshot.Path);
+            var finalizedPath = native is { IsActive: true }
+                ? snapshot.Path[..^".active.mkv".Length] + ".mkv"
+                : snapshot.Path;
+            if (readLease is null || native is { IsActive: true } && sessionLease is null ||
+                RecordingFileState.Capture(snapshot.Path) != snapshot ||
+                native is { IsActive: true } && File.Exists(finalizedPath))
+            {
+                results.Add(new RecordingRecoveryFileResult(snapshot.Path,
+                    RecordingRecoveryFileStatus.SkippedActive,
+                    "The recording is in use or its finalized name already exists; the original was left untouched."));
+                continue;
+            }
+
             try
             {
                 await mediaProbe.ProbeAsync(snapshot.Path, cancellationToken);
-                results.Add(new RecordingRecoveryFileResult(snapshot.Path, RecordingRecoveryFileStatus.Healthy));
+                if (native is { IsActive: true })
+                {
+                    File.Move(snapshot.Path, finalizedPath);
+                }
+
+                var healthy = new RecordingRecoveryFileResult(finalizedPath,
+                    native is { IsActive: true } ? RecordingRecoveryFileStatus.Recovered : RecordingRecoveryFileStatus.Healthy);
+                results.Add(healthy);
+                Remember(finalizedPath, healthy);
                 continue;
             }
             catch (Exception probeException) when (probeException is not OperationCanceledException)
@@ -78,6 +131,7 @@ public sealed class RecordingRecoveryService(
                     installation ??= await ffmpegProvisioner.EnsureInstalledAsync(cancellationToken: cancellationToken);
                     results.Add(await RecoverFileAsync(
                         snapshot.Path,
+                        finalizedPath,
                         probeException,
                         installation,
                         cancellationToken));
@@ -94,6 +148,14 @@ public sealed class RecordingRecoveryService(
                         $"Initial read failed: {probeException.Message} Recovery tools failed: {provisioningException.Message}"));
                 }
             }
+
+            Remember(snapshot.Path, results[^1]);
+        }
+
+        var presentPaths = firstSnapshots.Select(static snapshot => snapshot.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in _checkedFiles.Keys.Where(path => !presentPaths.Contains(path)).ToArray())
+        {
+            _checkedFiles.Remove(path);
         }
 
         var completedAt = clock.UtcNow;
@@ -113,6 +175,7 @@ public sealed class RecordingRecoveryService(
 
     private async Task<RecordingRecoveryFileResult> RecoverFileAsync(
         string originalPath,
+        string finalizedPath,
         Exception probeException,
         FfmpegInstallation installation,
         CancellationToken cancellationToken)
@@ -140,13 +203,22 @@ public sealed class RecordingRecoveryService(
             var backupPath = Path.Combine(
                 backupDirectory,
                 $"{Path.GetFileNameWithoutExtension(originalPath)}.unrecovered-{clock.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{extension}");
-            File.Replace(temporaryPath, originalPath, backupPath, ignoreMetadataErrors: true);
+            if (originalPath.Equals(finalizedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Replace(temporaryPath, originalPath, backupPath, ignoreMetadataErrors: true);
+            }
+            else
+            {
+                // Publish without overwriting anything. Keep the orphan's original bytes in place.
+                File.Move(temporaryPath, finalizedPath);
+                backupPath = originalPath;
+            }
             logger.LogInformation(
                 "Recovered recording {RecordingPath}; the original was preserved at {BackupPath}.",
                 originalPath,
                 backupPath);
             return new RecordingRecoveryFileResult(
-                originalPath,
+                finalizedPath,
                 RecordingRecoveryFileStatus.Recovered,
                 "The media container was rebuilt and validated.",
                 backupPath);
@@ -217,32 +289,50 @@ public sealed class RecordingRecoveryService(
         outputPath
     ];
 
-    private static IEnumerable<string> EnumerateCandidates(string directory) =>
-        Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
-            .Where(path =>
-                !RecordingDirectoryLayout.IsInternalPath(directory, path) &&
-                !path.Contains(".partial", StringComparison.OrdinalIgnoreCase) &&
-                !path.Contains(".active", StringComparison.OrdinalIgnoreCase) &&
-                (Path.GetExtension(path).Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
-                 Path.GetExtension(path).Equals(".mp4", StringComparison.OrdinalIgnoreCase)))
-            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase);
-
-    private sealed record FileSnapshot(string Path, long Length, DateTimeOffset LastWriteTimeUtc)
+    private RecordingRecoveryFileResult? GetKnownResult(
+        RecordingFileState snapshot,
+        IReadOnlyDictionary<string, RecordingSegment> indexed)
     {
-        public static FileSnapshot? Capture(string path)
+        if (NativeRecordingFile.TryParse(snapshot.Path) is { IsActive: true })
         {
-            try
-            {
-                var file = new FileInfo(path);
-                file.Refresh();
-                return file.Exists && file.Length > 0
-                    ? new FileSnapshot(file.FullName, file.Length, file.LastWriteTimeUtc)
+            return _checkedFiles.TryGetValue(snapshot.Path, out var active) &&
+                active.State == snapshot && active.Result.Status == RecordingRecoveryFileStatus.Damaged
+                    ? active.Result
                     : null;
-            }
-            catch (IOException)
-            {
-                return null;
-            }
+        }
+
+        if (_checkedFiles.TryGetValue(snapshot.Path, out var cached))
+        {
+            return cached.State == snapshot ? cached.Result : null;
+        }
+
+        return indexed.TryGetValue(snapshot.Path, out var segment) &&
+            !segment.IsDamaged && segment.FileSizeBytes == snapshot.Length
+                ? new RecordingRecoveryFileResult(snapshot.Path, RecordingRecoveryFileStatus.Healthy,
+                    "Unchanged indexed recording; no media probe was needed.")
+                : null;
+    }
+
+    private void Remember(string path, RecordingRecoveryFileResult result)
+    {
+        if (RecordingFileState.Capture(path) is { } state)
+        {
+            _checkedFiles[path] = (state, result.Status == RecordingRecoveryFileStatus.Recovered
+                ? new RecordingRecoveryFileResult(path, RecordingRecoveryFileStatus.Healthy)
+                : result);
+        }
+    }
+
+    private static FileStream? TryAcquireSessionLease(string path)
+    {
+        try
+        {
+            return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None,
+                1, FileOptions.DeleteOnClose);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 }

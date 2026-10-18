@@ -25,4 +25,23 @@ public sealed class MicrophoneProcessingSettingsTests
 
         Assert.Throws<InvalidOperationException>(settings.Validate);
     }
+
+    [Fact]
+    public void Validate_rejects_non_finite_filter_values()
+    {
+        var settings = new MicrophoneProcessingSettings { NoiseSuppressionDb = double.NaN };
+
+        Assert.Throws<InvalidOperationException>(settings.Validate);
+    }
+
+    [Fact]
+    public void Strong_noise_removal_is_more_aggressive_than_broadcast()
+    {
+        var broadcast = MicrophoneProcessingSettings.ForPreset(MicrophoneVoicePreset.Broadcast);
+        var strong = MicrophoneProcessingSettings.ForPreset(MicrophoneVoicePreset.StrongNoiseRemoval);
+
+        Assert.True(strong.NoiseSuppressionDb < broadcast.NoiseSuppressionDb);
+        Assert.True(strong.HighPassCutoffHz > broadcast.HighPassCutoffHz);
+        Assert.True(strong.ExpanderRatio > broadcast.ExpanderRatio);
+    }
 }

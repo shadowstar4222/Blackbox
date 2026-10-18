@@ -1,0 +1,237 @@
+BLACKBOX PERFORMANCE AND DEEP VALIDATION
+October 13, 2026 - 2.0.0-preview.5 - local Windows test
+
+SCOPE AND CONDITIONS
+Intel i5-10400F, 6 cores / 12 logical processors; NVIDIA RTX 3060 12 GB;
+16 GB RAM; Windows 10 build 19045; NVIDIA driver 610.88; 1920 x 1080 display.
+Blender, multiple Unity editors, and the user's existing Blackbox stayed open.
+Background GPU encoding was already active. No unrelated application was closed.
+
+These are current-workload measurements, not a clean-room comparison with OBS
+or other recorders. No real-game FPS-impact or cross-vendor claim is made.
+The animated capture window was approximately 1600 x 900. Higher output sizes
+exercise GPU scaling and encoding, not native 1440p/4K gameplay. Color bars,
+moving shapes, and a clock are less complex than many real game scenes.
+
+CPU values in raw JSON are percent of ONE logical CPU. Divide by 12 for this
+machine's normalized total CPU capacity. GPU video-encode and 3D engine counters
+are reported separately; adding engine percentages is not overall GPU usage.
+Per-process GPU counters avoid attributing other applications' work to Blackbox.
+
+RECORDING MATRIX
+Each phase: two runs per preset; encoded-output verification, three-second
+warmup, then 15 one-second samples. Video-only, five-second MKV segments,
+H.264 hardware encoding requested, fixed frame rate, no per-frame CPU preview.
+The worker and stream-copy muxer are measured separately from the animated
+source/benchmark observer. Main-app detection/guardian overhead is not included
+in this worker-only matrix. Frame callbacks are not a dropped-frame counter.
+
+Preset     Before CPU*  After CPU*  After callback FPS  Mean resident WS**
+720p30        0.91%       0.78%          29.99               119.9 MiB
+1080p60       1.38%       0.99%          59.86               121.3 MiB
+1440p60       1.11%       1.11%          59.90               124.9 MiB
+4K30          0.93%       0.70%          30.05               130.6 MiB
+* Normalized total CPU capacity, mean of two runs, worker plus muxer only.
+** Sum of worker and muxer working sets, excluding main UI and source/observer.
+   Not total committed memory; see the native-memory finding below.
+
+After-change worker VideoEncode engine means: 2.50%, 10.65%, 18.27%, 20.37%.
+Worker 3D engine activity was approximately 2.6-5.0%. The muxer averaged only
+0.0-0.2% of one CPU in the video-only matrix. Hardware encoder activity was
+observed, but the native library does not expose the selected encoder identity.
+
+The two-run CPU samples are noisy, with material within-preset variation.
+Do not interpret the table as proof of a particular whole-recorder speedup.
+Ready-after-verified-output startup was about 2.8-5.9 seconds; stop/finalization
+was about 0.1-0.3 seconds. Startup latency remains worth investigating.
+
+IMPLEMENTED OPTIMIZATIONS
+1. Compressed output uses Channel.TryWrite when capacity is available. A linked
+   cancellation source/deadline is allocated only when the producer must wait.
+   The queue stays bounded at 64 chunks and retains its five-second deadline.
+   Pooled buffers are rented for actual chunk size, up to 64 KiB, rather than
+   renting 64 KiB for every tiny native write.
+2. Segment CSV polling reuses its read buffer and avoids reads when the file
+   has not grown. CSV truncation now produces an explicit failure instead of
+   silently skipping later rows. Partial-row, sequential-index, and no-overwrite
+   validation remain intact.
+3. Heap-root analysis found disposed native video hosts retained through WPF's
+   HwndSourceKeyboardInputSite registry. Disposal now unregisters the host's
+   keyboard input site before destroying it. A test-only weak-reference/GC gate
+   checks closed page collection; ordinary use never forces garbage collection.
+4. Opt-in status memory diagnostics expose managed heap, GC commitment,
+   allocation totals, and collection counts. Default wire messages omit these
+   fields, and ordinary status updates do not collect runtime statistics.
+5. Video-only timeline previews no longer start an impossible audio-waveform
+   extraction. Thumbnails and an empty waveform are cached normally. Before the
+   fix, the failed audio job discarded thumbnails and caused repeated work on
+   subsequent visits. Audio-containing sessions keep their existing behavior.
+
+Focused Release microbenchmarks, 50,000 compressed 256-byte writes:
+- Warm-run mean managed allocation: 16.95 MB -> 9.57 MB, approximately 44% less.
+- Producer-thread allocation: 8.55 MB -> 1.57 MB, approximately 82% less.
+- 10,000 unchanged CSV polls: 43,601,584 -> 2,400,128 bytes, 94.5% less.
+These numbers describe allocation churn, not resident memory or gameplay FPS.
+The sink is Stream.Null for this allocation test; real pipe behavior is covered
+by capture tests and blocked/broken/cancelled destination regression tests.
+
+IN-APP PLAYBACK
+Video-only 1080p60: 20.08-second settled sample; 1,200 displayed pictures; zero reported
+lost pictures; 59.76 displayed pictures/second; 3.58% of one CPU, approximately
+0.30% of this PC's normalized CPU capacity. This includes the isolated app host.
+Open request took 306 ms, then first presented frames were observed after another
+558 ms. Hardware decoding was requested. UI 100-ms heartbeat delay: P95 23.1 ms,
+maximum 23.3 ms. This is scheduling delay beyond the requested interval, not an
+input-to-photon latency measurement.
+
+Twenty-one frame steps: median 177.3 ms, P95 178.6 ms, no decoder reopen, and
+pixel progress verified. A fixed-frame-rate source can contain adjacent duplicate
+images; the benchmark allows up to five steps before declaring no pixel progress.
+One initial single-step pixel-equality assertion failed; offline decoding found
+adjacent duplicate source frames, and repeated multi-step presentation checks
+passed. This does not establish exact presentation of every individual step.
+Exact frame presentation remains codec-dependent. This is not an exact-frame
+editing engine, and roughly 177 ms is still noticeable for rapid frame stepping.
+
+Twelve open/play/close cycles left one main window and no native overlay windows.
+Released-page working set rose from 248 to approximately 293 MiB and approached
+a plateau in this short run. Handles oscillated rather than growing each cycle.
+A settled five-second idle sample after all players closed used 0.00% of one CPU.
+Short samples and retained runtime/driver caches do not prove absence of a leak.
+
+After the keyboard-input-site fix, the four-preset matrix used 15-second samples
+with silent 48 kHz stereo AAC, then repeated open/play/close cycles:
+Preset     Displayed pictures/s  CPU*  Reported lost pictures  Closed pages retained
+720p30            30.06          0.32%          0                       0
+1080p60           60.14          0.46%          0                       0
+1440p60           60.08          0.30%          0                       0
+4K30              30.21          0.43%          0                       0
+* Normalized total CPU capacity; isolated app process, including audio decode.
+Statistics update granularity can put the sampled rate slightly above nominal.
+Thirty 1080p60 lifecycle cycles and two per other preset all passed collection
+checks: 36 tracked closed pages, zero retained. Native overlay counts returned
+to one main window. Final pre-collection working set after 30 cycles was 309 MiB;
+collection is an ownership test, not a guarantee of low resident-memory usage.
+Frame-step P95 was 178-205 ms across presets. Hardware presentation is still
+approximate; bounded exact-frame review remains an important next step.
+
+ADDITIONAL VALIDATION
+Five-minute recording: 300 samples over 306.30 seconds of measured wall time,
+including intentional minimize/pause. 18,812 native frame callbacks for the full
+session, 29,387,741 output bytes, normal stop in 255 ms. All 300 sampled microphone
+dropped-frame counters were zero. The old harness's final packet counter reset
+at stop; the corrected harness snapshots packet counters before disposal.
+An additional 120-sample diagnostic run verified 6,335 microphone packets and
+zero drops. Resize, minimize/pause, restore/resume, and fixed-canvas output passed.
+
+Concurrent review: 65.28-second sample, 3,921 displayed pictures, 60.06 pictures/s,
+zero reported lost pictures, 2.73% of one CPU (0.23% normalized total capacity).
+The rest of the five-minute run continued after the review process exited.
+During simultaneous review, capture plus microphone processing/muxing averaged
+15.56% of one CPU (1.30% normalized total) over seconds 5-60, with approximately
+136.5 MiB summed working set. Review added approximately 0.2% normalized CPU.
+
+Native memory finding: active recording working set stabilized near 123 MiB,
+but worker private commitment reached approximately 702 MiB and plateaued over
+the latter three minutes of the five-minute run. A separate diagnostic run had
+3.3-7.9 MiB managed heap and about 9.5 MiB GC commitment, while total private
+commitment reached 546 MiB. Fifteen seconds after stop, worker private commitment
+fell to 29.8 MiB, with 7.1 MiB managed heap. The large active commitment is outside
+the managed heap, consistent with native capture/encoder/driver buffers; its
+exact native allocator has not been identified. It is NOT dismissed as free
+memory or proven harmless. This is an important remaining optimization target.
+
+Final verification:
+- Release compilation completed without warnings or errors; 346 automated tests
+  passed (305 application/storage/export and 41 native/protocol/DSP tests).
+- 178 finalized MKVs, about 833 seconds of media and 43,917 decoded video frames,
+  passed metadata, full decode, sampled-motion, unexpected-black-video, and audio
+  decode checks. No active MKV was left in the completed test directories.
+- An eight-second stream-copy MP4 export decoded and played inside Blackbox.
+- Extended live capture passed system audio plus microphone, live Broadcast to
+  Strong noise removal preset change, resize, pause/resume, switching away from
+  a minimized target, target closure, repeated starts, and parent disconnect.
+  Microphone packets advanced from 246 before switching to 366 afterward,
+  with zero drops. The mixed test-tone segment measured -34.4 dB mean and
+  -27.4 dB maximum volume: encoded audio was not silent.
+- Three DSP runs processed 200 seconds of synthetic input in 1.508-1.537 seconds,
+  with 40 managed benchmark-allocation bytes and identical peak 0.013009426.
+- Packaged main-window UI passed at 1240 x 780 and 1024 x 680, including filters,
+  pixel scrolling, native frame presentation, seek coalescing, static timeline
+  drawing reuse, finalized-segment follow, MKV/MP4 preview, and teardown.
+  The video-only timeline generated its thumbnails once and reused its cache.
+- A five-second settled post-review sample used 0.00% of one CPU. The user's
+  unchanged existing Blackbox also measured 0.00% over a 15-second idle sample.
+  These are finite samples, not idle guarantees.
+
+Diagnostic heap analysis was performed only on an isolated synthetic-test app.
+The dump was removed afterward and is not included in the portable build;
+text root traces remain in the ignored local artifacts directory.
+Tests did not measure physical microphone intelligibility, physical-device
+unplug/reconnect, actual game frame times, protected/anti-cheat windows, or
+multi-hour stability. Those remain open validation work.
+
+NEXT METHODS, IN PRIORITY ORDER
+1. Profile native active-capture memory commitment and allocation ownership,
+   including resize/minimize transitions, encoder queues, and GPU resource pools.
+   Set explicit memory budgets and test long runs before changing the backend.
+2. Bounded asynchronous exact-frame cache for paused review. Measure cache-hit
+   frame latency and memory budget; keep the normal hardware playback path.
+3. Shared GPU-texture live preview with a tiny bounded queue and drop-oldest
+   presentation. Preview must never block capture or copy every frame to WPF.
+4. Native encoder identity/fallback telemetry and timestamps for first capture,
+   first encoded packet, first muxed packet, and first published segment.
+5. Real-game A/B runs with PresentMon frame-time percentiles and fixed settings,
+   followed by hour-long capture/review tests and NVIDIA/AMD/Intel coverage.
+6. Profile remaining per-packet timeout allocations before changing them. Keep
+   cancellation and stalled-pipe behavior as explicit correctness gates.
+7. Consider a native muxer only if measurements justify it. The current video
+   muxer CPU cost is tiny; removing it could save about 14 MiB but would require
+   new audio-sync, segmentation, corruption-recovery, and cancellation testing.
+
+REPRODUCE
+Build Release and use the same binaries, workload, source size, bitrate, warmup,
+and sample durations in both phases. Do not run unrelated test/build commands
+inside a timed matrix. All generated data belongs under artifacts/benchmark-*.
+
+dotnet test Blackbox.sln -c Release
+dotnet build tests/Blackbox.Capture.Smoke -c Release
+Blackbox.Capture.Smoke.exe --benchmark recorder-config.json
+
+Recorder JSON keys: WorkerPath, FfmpegPath, OutputDirectory, SampleSeconds=15,
+Repetitions=2. Optional Stress=true selects 1080p60 resize/minimize/restore;
+IncludeMicrophone=true, MicrophoneId="default" enables Broadcast DSP. Optional
+ConcurrentCommand/ConcurrentArguments starts the in-app playback benchmark.
+
+Playback requires an isolated BLACKBOX_DATA_DIRECTORY environment variable:
+Blackbox.App.exe --performance-benchmark playback-config.json
+Playback JSON: Source=<long test video>, Output=<result JSON>, SampleSeconds=20,
+OpenCloseCycles=12. Source must last longer than warmup plus the timed sample.
+The lifecycle check may explicitly collect garbage in test mode only.
+
+Allocation benchmark: set BLACKBOX_BENCHMARK_OUTPUT to the output JSON path and
+run dotnet test tests/Blackbox.Capture.Tests -c Release --filter
+FullyQualifiedName~CapturePerformanceBenchmarks. Repetition zero is cold/warmup.
+Unset that environment variable afterward.
+
+scripts/Validate-CaptureBenchmark.ps1 checks finalized synthetic-pattern MKVs
+with ffprobe and FFmpeg: frame metadata, decoding, unexpected black video, motion,
+and audio decoding. It is NOT a quality test for arbitrary user footage, which
+may legitimately contain still or black scenes.
+
+scripts/Benchmark-PlaybackMatrix.ps1 creates 120-second stream-copy test sources
+with silent 48 kHz AAC, runs all four playback resolutions, and uses 30 lifecycle
+cycles for 1080p60. Supply PackageDirectory, CaptureMatrixDirectory, and a fresh
+OutputDirectory. It restores the caller's BLACKBOX_DATA_DIRECTORY afterward.
+
+Raw matrix JSON, CPU/GPU samples, allocation JSON, lifecycle data, generated
+test clips, and logs: artifacts/benchmark-20261013 in the source checkout.
+No user recordings, settings, or remembered games are modified by these runs.
+
+PRIMARY TECHNICAL REFERENCES
+GPU engine interpretation: https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/
+WPF input-site ownership: https://github.com/dotnet/wpf/blob/main/src/Microsoft.DotNet.Wpf/src/PresentationCore/System/Windows/InterOp/HwndSourceKeyboardInputSite.cs
+Video host lifecycle: https://github.com/videolan/libvlcsharp/blob/3.x/src/LibVLCSharp.WPF/VideoView.cs
+Player API and conditional frame stepping: https://docs.videolan.me/libvlcsharp/api/LibVLCSharp.Shared.MediaPlayer.html
+Heap analysis tool: https://learn.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-dump
+Future game frame-time measurements: https://github.com/GameTechDev/PresentMon

@@ -1,0 +1,5 @@
+PHOTOSENSITIVITY WARNING
+These background videos contain bright, high-contrast colors and motion.
+They may trigger seizures or discomfort. Stop if uncomfortable.
+Use Blackbox's recording setup window to review the warning before starting.
+Still color bars are available but are not guaranteed safe.

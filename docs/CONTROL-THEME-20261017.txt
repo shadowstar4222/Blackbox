@@ -1,0 +1,30 @@
+BLACKBOX CONTROL THEME
+October 17, 2026 - 2.0.0-preview.16
+
+Shared Blackbox templates replace the remaining Windows checkbox, slider,
+expander, text-field, meter, and tooltip chrome. Checkboxes support checked,
+unchecked, mixed, hover, pressed, keyboard-focus, and disabled states. Sliders
+retain native range, keyboard, rail-click, drag, and snap-to-tick behavior.
+Button interaction overlays preserve Record/Stop action colors. Navigation
+focus no longer changes layout. Scrollbar thumbs highlight on hover/drag.
+
+Review uses the shared toolbar and input templates. Games uses icon tools for
+refresh and removal. Setup uses the existing application icon, dark title bar,
+primary Record/start buttons and red Stop. The tray menu uses the same palette.
+Warnings, thumbnail borders, and recording health colors share theme resources.
+The logo, recording test videos, music, video surfaces, and media behavior are
+unchanged. Windows-owned file pickers and message dialogs remain system UI.
+
+Validation is recorded under artifacts/control-theme-20261017. The isolated WPF
+control gallery checks checkbox automation and two-way binding, visible focus,
+slider keyboard/rail/drag/snap, editable dropdowns, audio-meter fill width,
+visible-only busy animation, and expander automation. All pages render at both
+1240x780 and 1024x680. Playback and diagnostics scrolling regressions remain in
+the full UI check. A separate setup check uses still video with both microphone
+and system-audio recording disabled. No user recording or setting is changed.
+
+PASSED
+367 main tests and 54 native-capture tests (421 total); packaged recorder probe;
+the themed-control gallery and full workspace/playback/scrolling regression at
+both sizes; and the packaged setup/auto-record regression with video-only
+fixtures. Screenshots were inspected for control spacing and dropdown alignment.

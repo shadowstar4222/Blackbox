@@ -7,7 +7,8 @@ public sealed class StorageQuotaEnforcer(
     ISegmentRepository repository,
     IClock clock,
     ILogger<StorageQuotaEnforcer> logger,
-    ISegmentUsageRegistry? usageRegistry = null)
+    ISegmentUsageRegistry? usageRegistry = null,
+    IClipRepository? clipRepository = null)
 {
     public async Task<StoragePruneResult> EnforceAsync(RecordingSettings settings, CancellationToken cancellationToken = default)
     {
@@ -21,6 +22,20 @@ public sealed class StorageQuotaEnforcer(
         var minimumFreeBytes = GigabytesToBytes(settings.MinimumRemainingFreeDiskSpaceGigabytes);
         var oldestAllowedStart = clock.UtcNow - settings.MaximumRetainedDuration;
         var freeBytes = GetAvailableFreeBytes(settings.RecordingLocation);
+        var clipRetainedSegmentIds = clipRepository is null
+            ? new HashSet<Guid>()
+            : await clipRepository.GetRetainedSegmentIdsAsync(cancellationToken);
+        var retainedClipRanges = clipRepository is null
+            ? []
+            : (await clipRepository.GetAllAsync(cancellationToken))
+                .Where(static clip => clip.RetainsSourceSegments)
+                .Select(static clip => (
+                    Start: clip.ActualStartTime ?? clip.RequestedStartTime,
+                    End: clip.ActualEndTime ?? clip.RequestedEndTime))
+                .ToArray();
+        var retainedMarkerRanges = BuildMarkerRanges(
+            await repository.GetMarkersAsync(cancellationToken),
+            segments);
         var deletedSegments = 0;
         long deletedBytes = 0;
 
@@ -31,7 +46,13 @@ public sealed class StorageQuotaEnforcer(
                 continue;
             }
 
-            if (segment.IsProtected || usageRegistry?.IsInUse(segment.Id) == true)
+            if (segment.IsProtected ||
+                usageRegistry?.IsInUse(segment.Id) == true ||
+                clipRetainedSegmentIds.Contains(segment.Id) ||
+                retainedClipRanges.Any(range =>
+                    segment.StartTime < range.End && segment.EndTime > range.Start) ||
+                retainedMarkerRanges.Any(range =>
+                    segment.StartTime < range.End && segment.EndTime > range.Start))
             {
                 continue;
             }
@@ -77,6 +98,48 @@ public sealed class StorageQuotaEnforcer(
         var start = segments.Min(static segment => segment.StartTime);
         var end = segments.Max(static segment => segment.EndTime);
         return end - start;
+    }
+
+    private static IReadOnlyList<(DateTimeOffset Start, DateTimeOffset End)> BuildMarkerRanges(
+        IReadOnlyList<TimelineMarker> markers,
+        IReadOnlyList<RecordingSegment> segments)
+    {
+        var ranges = new List<(DateTimeOffset Start, DateTimeOffset End)>();
+        foreach (var marker in markers)
+        {
+            DateTimeOffset markerTime;
+            if (marker.SessionId == Guid.Empty)
+            {
+                markerTime = marker.CreatedAt;
+            }
+            else
+            {
+                var sessionSegments = segments
+                    .Where(segment => segment.SessionId == marker.SessionId)
+                    .OrderBy(static segment => segment.StartTime)
+                    .ToArray();
+                if (sessionSegments.Length == 0)
+                {
+                    continue;
+                }
+
+                var session = new RecordingSession(
+                    marker.SessionId,
+                    sessionSegments[0].StartTime,
+                    sessionSegments[^1].EndTime,
+                    sessionSegments[0].GameTitle,
+                    sessionSegments,
+                    false,
+                    false);
+                markerTime = RecordingTimeline.ToTimestamp(session, marker.Offset);
+            }
+
+            ranges.Add((
+                markerTime - marker.ContextBefore,
+                markerTime + marker.ContextAfter));
+        }
+
+        return ranges;
     }
 
     private static long GigabytesToBytes(decimal gigabytes)

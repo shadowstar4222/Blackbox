@@ -66,10 +66,21 @@ public sealed class MicrophoneSelectionService(
 
     public async Task<MicrophoneDevice> ApplyAsync(CancellationToken cancellationToken = default)
     {
+        return await ApplyAsync(
+            configurationStore.Current.ProcessingSettings,
+            cancellationToken);
+    }
+
+    public async Task<MicrophoneDevice> ApplyAsync(
+        MicrophoneProcessingSettings processingSettings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(processingSettings);
+        processingSettings.Validate();
         var selected = await ResolveAsync(cancellationToken);
         await microphoneController.ConfigureAsync(
             selected,
-            configurationStore.Current.ProcessingSettings,
+            processingSettings,
             cancellationToken);
         return selected;
     }

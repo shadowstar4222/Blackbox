@@ -23,7 +23,48 @@ public sealed class SqliteGameProfileRepositoryTests
             ExecutableAliases = ["C:\\Games\\Example\\Example-Win64.exe"],
             CaptureGameAudio = false,
             FollowLauncherHandoff = false,
-            PreferGpuActivity = true
+            PreferGpuActivity = true,
+            Overrides = new GameProfileOverrides
+            {
+                Resolution = RecordingResolution.QuadHd1440,
+                FramesPerSecond = 120,
+                AudioBitrateKbps = 320,
+                EncoderPreference = RecordingEncoderPreference.Hardware,
+                SegmentDurationMinutes = 5,
+                MaximumStorageGigabytes = 250,
+                MaximumRetentionHours = 168,
+                CaptureDelaySeconds = 2,
+                CaptureMicrophone = false,
+                MicrophoneProcessing = new MicrophoneProcessingSettings { InputGainDb = 3 },
+                Crop = new CaptureCrop
+                {
+                    LeftPercent = 2,
+                    TopPercent = 2,
+                    RightPercent = 2,
+                    BottomPercent = 2
+                },
+                ExportPreset = new GameExportPreset { Container = GameExportContainer.Mp4 },
+                Notifications = new GameNotificationPreferences { RoutineEvents = false },
+                InputControls = new GameInputControls
+                {
+                    Bindings =
+                    [
+                        new GameInputBinding
+                        {
+                            Action = GameInputAction.AddMarker,
+                            Device = GameInputDevice.Controller,
+                            Input = "GamepadView"
+                        }
+                    ]
+                },
+                AutomaticMarkers = new AutomaticMarkerSettings
+                {
+                    Enabled = true,
+                    DetectAudioSpikes = true,
+                    DetectSceneChanges = true,
+                    Cooldown = TimeSpan.FromSeconds(20)
+                }
+            }
         };
 
         await repository.UpsertAsync(profile);
@@ -40,6 +81,12 @@ public sealed class SqliteGameProfileRepositoryTests
         Assert.False(stored.CaptureGameAudio);
         Assert.False(stored.FollowLauncherHandoff);
         Assert.True(stored.PreferGpuActivity);
+        Assert.Equal(
+            profile.Overrides with { InputControls = null },
+            stored.Overrides with { InputControls = null });
+        Assert.Equal(
+            Assert.Single(profile.Overrides.InputControls!.Bindings),
+            Assert.Single(stored.Overrides.InputControls!.Bindings));
         Assert.Equal(addedAt, stored.AddedAt);
         Assert.Equal(addedAt.AddMinutes(1), stored.UpdatedAt);
 
@@ -80,5 +127,6 @@ public sealed class SqliteGameProfileRepositoryTests
         Assert.True(migrated.CaptureGameAudio);
         Assert.True(migrated.FollowLauncherHandoff);
         Assert.False(migrated.PreferGpuActivity);
+        Assert.False(migrated.Overrides.HasOverrides);
     }
 }

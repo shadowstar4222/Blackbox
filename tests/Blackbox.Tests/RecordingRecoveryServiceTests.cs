@@ -176,6 +176,137 @@ public sealed class RecordingRecoveryServiceTests
         }
     }
 
+    [Fact]
+    public async Task RecoverAsync_does_not_probe_unchanged_healthy_indexed_recordings()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var path = Path.Combine(root, "indexed.mkv");
+            await WriteStableFileAsync(path, "healthy");
+            var repository = new InMemorySegmentRepository();
+            var segment = TestSegments.Create(path, fileSizeBytes: new FileInfo(path).Length, isProtected: true);
+            await repository.UpsertAsync(segment);
+            var probe = new RecoveryProbe();
+            var runner = new RecoveryCommandRunner(true);
+            var service = CreateService(root, repository, probe, runner);
+
+            Assert.Equal(1, (await service.RecoverAsync()).HealthyFiles);
+            Assert.Equal(1, (await service.RecoverAsync()).HealthyFiles);
+            Assert.Equal(0, probe.ProbeCount);
+            Assert.Equal(0, runner.RunCount);
+            Assert.Equal(segment, Assert.Single(await repository.GetAllAsync()));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task RecoverAsync_rechecks_only_changed_files_including_same_size_edits()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var path = Path.Combine(root, "recording.mkv");
+            await WriteStableFileAsync(path, "healthy");
+            var probe = new RecoveryProbe();
+            var service = CreateService(root, new InMemorySegmentRepository(), probe, new RecoveryCommandRunner(true));
+            await service.RecoverAsync();
+            await service.RecoverAsync();
+            Assert.Equal(1, probe.ProbeCount);
+
+            await File.WriteAllTextAsync(path, "HEALTHY");
+            File.SetLastWriteTimeUtc(path, StableFileTimeUtc.AddSeconds(1));
+            await service.RecoverAsync();
+            Assert.Equal(2, probe.ProbeCount);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task RecoverAsync_never_touches_live_active_segments_but_publishes_healthy_orphans()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var prefix = Path.Combine(root, $"2026-07-16 12-00-00-{Guid.NewGuid():N}");
+            var path = prefix + "-0000.active.mkv";
+            var final = prefix + "-0000.mkv";
+            await WriteStableFileAsync(path, "healthy-orphan");
+            var probe = new RecoveryProbe();
+            var service = CreateService(root, new InMemorySegmentRepository(), probe, new RecoveryCommandRunner(true));
+
+            using (var lease = new FileStream(prefix + ".capture.lock", FileMode.OpenOrCreate,
+                       FileAccess.ReadWrite, FileShare.None))
+            {
+                Assert.Equal(1, (await service.RecoverAsync()).SkippedActiveFiles);
+                Assert.Equal(0, probe.ProbeCount);
+                Assert.Equal("healthy-orphan", await File.ReadAllTextAsync(path));
+                Assert.False(File.Exists(final));
+            }
+
+            Assert.Equal(1, (await service.RecoverAsync()).RecoveredFiles);
+            Assert.False(File.Exists(path));
+            Assert.Equal("healthy-orphan", await File.ReadAllTextAsync(final));
+            Assert.Equal(1, probe.ProbeCount);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task RecoverAsync_remuxes_orphan_without_replacing_original_or_existing_finalized_file()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var prefix = Path.Combine(root, $"2026-07-16 12-00-00-{Guid.NewGuid():N}");
+            var path = prefix + "-0000.active.mkv";
+            var final = prefix + "-0000.mkv";
+            await WriteStableFileAsync(path, "broken-original");
+            var probe = new RecoveryProbe(path);
+            var runner = new RecoveryCommandRunner(true);
+            var service = CreateService(root, new InMemorySegmentRepository(), probe, runner);
+
+            var repaired = Assert.Single((await service.RecoverAsync()).Files);
+            Assert.Equal(RecordingRecoveryFileStatus.Recovered, repaired.Status);
+            Assert.Equal(path, repaired.PreservedOriginalPath);
+            Assert.Equal(final, repaired.FilePath);
+            Assert.Equal("broken-original", await File.ReadAllTextAsync(path));
+            Assert.Equal("repaired-container", await File.ReadAllTextAsync(final));
+
+            File.SetLastWriteTimeUtc(final, StableFileTimeUtc);
+            await service.RecoverAsync();
+            Assert.Equal(1, runner.RunCount);
+            Assert.Equal("broken-original", await File.ReadAllTextAsync(path));
+            Assert.Equal("repaired-container", await File.ReadAllTextAsync(final));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecoverAsync_does_not_repeat_failed_recovery_until_original_changes(bool active)
+    {
+        var root = CreateRoot();
+        try
+        {
+            var path = Path.Combine(root,
+                $"2026-07-16 12-00-00-{Guid.NewGuid():N}-0000{(active ? ".active" : "")}.mkv");
+            await WriteStableFileAsync(path, "irreplaceable");
+            var probe = new RecoveryProbe(path);
+            var runner = new RecoveryCommandRunner(false);
+            var service = CreateService(root, new InMemorySegmentRepository(), probe, runner);
+
+            await service.RecoverAsync();
+            await service.RecoverAsync();
+
+            Assert.Equal(1, runner.RunCount);
+            Assert.Equal(1, probe.ProbeCount);
+            Assert.Equal("irreplaceable", await File.ReadAllTextAsync(path));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static RecordingRecoveryService CreateService(
         string root,
         ISegmentRepository repository,
@@ -249,7 +380,7 @@ public sealed class RecordingRecoveryServiceTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return Task.FromResult(new FfmpegInstallation("C:\\FFmpeg", "ffmpeg.exe", "ffprobe.exe", "ffplay.exe"));
+            return Task.FromResult(new FfmpegInstallation("C:\\FFmpeg", "ffmpeg.exe", "ffprobe.exe"));
         }
     }
 

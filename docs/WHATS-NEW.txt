@@ -1,0 +1,181 @@
+BLACKBOX NATIVE PREVIEW
+October 17, 2026 - 2.0.0-preview.17 - local testing build
+
+NEW BUILD
+Run Blackbox.App.exe in this folder.
+Exit any older Blackbox instance from its tray menu first.
+Keep the complete preview folder together. OBS is not required.
+This build is in Blackbox-NATIVE-NEXT. Its executable path is unchanged, so an
+existing Windows startup entry for this folder does not need to be recreated.
+
+COMPACT RECORDING TIMELINE
+The empty marker list no longer becomes a large gray block when the window is
+expanded. Timeline controls use their natural height, with actions close below
+them. Populated marker lists are bounded, scroll smoothly, and retain recycling
+virtualization. Smaller windows still scroll without hiding the action buttons.
+No recording, playback, marker data, or saved settings were changed.
+See TIMELINE-LAYOUT-20261017.txt for validation details.
+
+BLACKBOX CONTROL THEME
+Replaced default Windows checkboxes, sliders, expanders, text fields, meters,
+and tooltips with compact Blackbox controls. Cyan selections, clear keyboard
+focus, and consistent hover/disabled states apply across all pages. The review
+toolbar, recording setup controls, and tray menu now share the same theme.
+Record and Stop keep their action colors when hovered. Existing brand artwork,
+test media, saved settings, and recording behavior are unchanged.
+
+DIAGNOSTIC SCROLLING FIX
+Events now scroll by pixels instead of whole entries. Long, wrapped diagnostics
+can be read smoothly even when one entry is taller than the panel. Recycling
+virtualization remains enabled. See DIAGNOSTICS-SCROLL-20261017.txt.
+
+AUTOMATIC DIAGNOSTIC SETUP RECORDING
+Auto mode now carries into the diagnostic setup window. Start scene & record
+starts recording automatically once the scene is ready, after the warning.
+Enable/disable auto works inside setup and no longer closes its window.
+Stop saves the test without immediately restarting it. Turn auto off/on to
+re-arm, or use Record manually. Closing setup restores remembered-game watching.
+Manual setup recordings are not stopped by changing auto mode. Disabling auto
+does stop a setup recording that auto mode started. See SETUP-AUTO-RECORD-20261017.txt.
+
+CAPTURE FEEDBACK, FRAME STEPPING, AND CLEANER PANELS
+Capture health now reports successful video/output checks, not just problems.
+Native audio displays the captured mix level, quiet/waiting/off states, and
+microphone receipt status. The meter reads existing encoder peak telemetry;
+no extra audio capture stream or PCM preview buffers are enabled. Its 4 Hz UI
+refresh stops when Capture is hidden. Windows 10 correctly labels System mix.
+Frame navigation no longer briefly unpauses the video to update its pixels.
+Microphone now separates Voice, Routing, and Calibration; one Apply action saves
+voice processing and gain. Diagnostics separates Events, Recording setup, and
+Technical details, with compact icon tools and more space for events.
+See PANELS-FRAME-STEP-20261017.txt for validation and limitations.
+
+LESS REPEATED UI
+The left sidebar is now the single recording/watching/readiness indicator.
+Removed the matching footer status, header status badges, repeated window name,
+and routine watching/automation messages on the Capture page. Capture warnings,
+errors and measured video/audio details still appear when relevant.
+Removed generic page subtitles, repeated navigation shortcuts, double dividers,
+and the second back button in video review. The main top-left back button returns
+from review to the library. Ordinary playback no longer says Local playback;
+time-shift indicators remain available. Recording behavior is unchanged.
+
+RECORDING SETUP WINDOW
+Diagnostics now opens a separate capturable setup window, not a playback demo.
+The original colorful background video loops indefinitely, with new layered
+original music. Still color bars are also available. A live overlay becomes part
+of the saved video: output resolution, FPS, video/audio quality and microphone
+status. Scene size/FPS are labeled separately from recording output settings.
+Start scene & music, then use Record / Stop in that window and review the result
+in Blackbox's Recordings. Automatic capture pauses temporarily and resumes when
+the setup window closes. Remembered games and saved preferences are unchanged.
+Photosensitivity confirmation is required; nothing plays automatically on app
+startup. Music starts at 30% volume. Still bars are not guaranteed safe.
+See RECORDING-SETUP-20261017.txt for details and validation.
+
+SEAMLESS MKV REVIEW
+Completed, compatible MKV recordings now play as one continuous virtual input.
+The player no longer stops or replaces its decoder at each segment boundary,
+eliminating both white and black boundary flashes on this path. Only a small
+container index is prepared; existing compressed video/audio is read directly.
+There is no merged temporary recording, re-encoding, or extra video decoder.
+Preparation runs off the UI thread and can be canceled by leaving review.
+Paused cross-segment seeking and frame navigation keep the same input too.
+An opening/seek resume race was fixed. See SEAMLESS-PLAYBACK-20261017.txt.
+Time-shift following and incompatible layouts retain per-segment playback;
+the earlier black-background guard remains for those paths.
+
+AUDIO/VIDEO TIMING FIX
+Preserves the video capture clock instead of forcing an independent constant
+frame schedule that could drift from audio over long recordings. Hardware
+encoding and compressed video stream-copy remain in use. Declared target-FPS
+metadata keeps frame controls and multi-segment exports consistent.
+Five-minute flash/tone testing, pause/resume, in-app playback, and joined MKV/MP4
+exports passed. This applies to new captures; existing files are not rewritten.
+See AUDIO-VIDEO-SYNC-20261016.txt for measurements and test limits.
+
+BENCHMARK AND RELIABILITY PASS
+Reduced compressed-output queue allocations and unchanged segment CSV polling
+allocations. Fixed closed review pages retained by WPF's native-host keyboard
+input registry; repeated-open tests now verify page collection as well as window
+cleanup. Optional memory statistics separate managed heap from native buffers,
+without collecting those statistics during ordinary status updates.
+Video-only recordings now cache their timeline thumbnails without attempting
+an audio waveform job that cannot succeed. This avoids repeated preview work.
+Queue backpressure, cancellation, broken pipes, partial CSV rows,
+and unexpected CSV truncation have focused regression tests. Repeatable recorder
+and in-app playback benchmarks now report per-process costs, frame progress,
+UI responsiveness, memory, handles, lifecycle cleanup, and segment integrity.
+Measurements use this PC's current workload; they are not a cross-hardware or
+competitive fastest-recorder claim. See BENCHMARK-20261013.txt for results.
+
+IN-APP PLAYBACK AND EFFICIENCY
+Sessions, clips, and exported videos now play in the main Blackbox window.
+Use the review back arrow or Escape to return to the library. Microphone
+comparison samples also play inside Blackbox. No external video player opens.
+Time-shift in Recordings follows finalized segments while capture continues.
+It starts about one segment behind the newest finalized footage so it has a
+buffer. Seeking to the edge waits for the next segment; this is not zero-delay
+live capture. The active recording file is never opened by the player.
+Review is muted during capture by default; manually unmuting it can feed review
+audio into a Windows 10 system-mix recording.
+Playback uses one shared, lazily loaded runtime and requests hardware decoding.
+Timeline graphics are cached, segment lookup is indexed, scrubbing coalesces,
+and ordinary frame seeks reuse their decoder. Hardware frame seeks use a short
+muted presentation interval because native paused stepping can redisplay an old
+frame. Exact frame output remains codec-dependent.
+Leaving review or minimizing releases the player and preserves the source cursor.
+Decoder stop/disposal runs in the background. The unused FFplay executable and
+launcher were removed, saving 103,382,528 bytes (about 99 MiB) in this package.
+See PLAYBACK-VALIDATION.md for measurements, checks, and remaining limits.
+
+COMPACT WORKSPACE
+Games lists now scroll smoothly by pixels instead of snapping to whole rows,
+matching the game-settings pane. Long lists remain virtualized.
+Smaller navigation and header, a preview-first Capture page, cleaner tabs and
+scrollbars, and recording controls that remain visible on every page.
+Find command opens searchable quick actions; Ctrl+K opens the same panel.
+The recording strip includes clip duration, save clip, protect, and mark moment.
+Recordings now search application names, dates, and marker labels, with Today,
+Protected, and Needs attention filters plus newest/oldest/longest sorting.
+See PRODUCT-DIRECTION.md for the planned search, highlight, audio, and composition
+work. Those roadmap features are separate from the controls available today.
+
+CLEANUP AND EFFICIENCY
+Removed the desktop's dormant OBS dock, obsolete video-tool downloader,
+nonfunctional settings, and outdated microphone help text. The dock source stays
+deferred and its web framework is no longer shipped in the desktop package.
+Idle recording workers wait for commands, unchanged marker metadata skips
+repeated scans, status consumers share fresh worker events, and previews reuse
+their decoded image. The microphone benchmark processes the same 200 seconds of
+audio in 1.59 seconds instead of 3.30 seconds on this machine.
+Switching from a minimized window now resumes microphone capture with video.
+
+Built-in Windows window capture, hardware-requested H.264, microphone/system
+audio, continuous segmented recording, game-specific folders, and existing
+review/export tools. Window resize, minimize/resume, and closure are handled.
+Automatic capture remains enabled after the recorded game closes.
+
+MICROPHONE FIX
+Game profiles now show an explicit microphone choice instead of an ambiguous
+three-state checkbox. Recording startup verifies real microphone packets before
+it reports success, Recording Guardian shows whether the mic is active or was
+disabled by the game profile, and the Microphone page has a 3-second input test.
+Windows 10 microphone metering no longer reads COM device properties from the
+real-time callback.
+
+VOICE PROCESSING
+The native recorder now processes microphone audio inside Blackbox before it is
+mixed into the recording. Natural, Broadcast, Strong noise removal, and Custom
+profiles include high-pass filtering, fan-noise suppression, expansion, voice
+EQ, compression, de-essing, and limiting. The Microphone page exposes calibration
+and advanced controls, and remembered games can override the global profile.
+
+Read START-HERE.txt inside the preview folder for setup and limitations.
+This is a testable preview, not a completed performance-certified release.
+Helldivers 2 and long gaming sessions still need live testing.
+
+FOLDER GUIDE
+Blackbox-NATIVE-NEXT: current native preview. Run Blackbox.App.exe here.
+DELETE-OLD-BLACKBOX: superseded software versions; safe to delete manually.
+Settings and recordings remain outside the disposable folder.

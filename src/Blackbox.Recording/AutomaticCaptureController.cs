@@ -10,7 +10,9 @@ public sealed class AutomaticCaptureController(
     RecordingSettings recordingSettings,
     IClock clock,
     AutomaticCaptureOptions options,
-    ILogger<AutomaticCaptureController> logger) : IDisposable
+    ILogger<AutomaticCaptureController> logger,
+    GameProfileSettingsService? gameProfileSettingsService = null,
+    RecordingQualityContext? recordingQualityContext = null) : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private GameCaptureTarget? _pendingTarget;
@@ -108,7 +110,7 @@ public sealed class AutomaticCaptureController(
             {
                 Publish(new AutomaticCaptureStatus(
                     AutomaticCaptureState.Starting,
-                    $"Adjusting OBS to {target.Title}'s new window size...",
+                    $"Adjusting capture to {target.Title}'s new window size...",
                     target,
                     recordingCoordinator.IsRecording));
                 await obsController.RefreshGameCaptureAsync(target, cancellationToken);
@@ -147,7 +149,7 @@ public sealed class AutomaticCaptureController(
 
             Publish(new AutomaticCaptureStatus(
                 AutomaticCaptureState.Starting,
-                $"Binding OBS to {target.Title}...",
+                $"Selecting {target.Title}'s capture window...",
                 target,
                 recordingCoordinator.IsRecording));
 
@@ -167,10 +169,19 @@ public sealed class AutomaticCaptureController(
                 _ownsRecording = false;
             }
 
-            await obsController.ConfigureGameCaptureAsync(target, cancellationToken);
-            if (options.CaptureSettleDelay > TimeSpan.Zero)
+            var effectiveProfile = gameProfileSettingsService is null
+                ? null
+                : await gameProfileSettingsService.ResolveAsync(target, cancellationToken);
+            if (effectiveProfile is not null)
             {
-                await Task.Delay(options.CaptureSettleDelay, cancellationToken);
+                recordingQualityContext?.Activate(effectiveProfile);
+            }
+
+            await obsController.ConfigureGameCaptureAsync(target, cancellationToken);
+            var captureDelay = effectiveProfile?.CaptureDelay ?? options.CaptureSettleDelay;
+            if (captureDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(captureDelay, cancellationToken);
             }
 
             if (!recordingCoordinator.IsRecording)
@@ -185,6 +196,7 @@ public sealed class AutomaticCaptureController(
                 _ownsRecording = await recordingCoordinator.TryStartAsync(
                     organizedSettings,
                     target,
+                    effectiveProfile,
                     cancellationToken);
             }
 
@@ -219,11 +231,30 @@ public sealed class AutomaticCaptureController(
             var isRecording = recordingCoordinator.IsRecording;
             Publish(new AutomaticCaptureStatus(
                 AutomaticCaptureState.Starting,
-                $"Switching OBS capture to {target.Title}...",
+                $"Switching capture to {target.Title}...",
                 target,
                 isRecording));
 
-            if (isRecording)
+            if (isRecording && obsController is INativeRecorderController native &&
+                (native.Target?.Identity != target.Identity || native.Target?.CaptureGameAudio != target.CaptureGameAudio))
+            {
+                // A game/audio-policy change needs a new session, destination, and effective profile.
+                // Keep manual recordings manual and automatic recordings owned by this controller.
+                var wasOwned = _ownsRecording;
+                await recordingCoordinator.TryStopAsync(cancellationToken);
+                _ownsRecording = false;
+                var profile = gameProfileSettingsService is null ? null :
+                    await gameProfileSettingsService.ResolveAsync(target, cancellationToken);
+                await obsController.ConfigureGameCaptureAsync(target, cancellationToken);
+                var started = await recordingCoordinator.TryStartAsync(recordingSettings with
+                {
+                    RecordingLocation = RecordingDirectoryLayout.GetSessionDirectory(
+                        recordingSettings.RecordingLocation, target.Title, clock.UtcNow)
+                }, target, profile, cancellationToken);
+                _ownsRecording = wasOwned && started;
+                isRecording = recordingCoordinator.IsRecording;
+            }
+            else if (isRecording)
             {
                 await obsController.RefreshGameCaptureAsync(target, cancellationToken);
             }
@@ -237,7 +268,7 @@ public sealed class AutomaticCaptureController(
             _lastDetectedAt = clock.UtcNow;
 
             logger.LogInformation(
-                "Manually selected {GameTitle} as the active OBS capture target. IsRecording={IsRecording}.",
+                "Manually selected {GameTitle} as the active capture target. IsRecording={IsRecording}.",
                 target.Title,
                 isRecording);
             Publish(new AutomaticCaptureStatus(
@@ -249,8 +280,8 @@ public sealed class AutomaticCaptureController(
                 isRecording
                     ? $"Recording {target.Title}."
                     : IsEnabled
-                        ? $"OBS is ready for {target.Title}; automatic capture is watching it."
-                        : $"OBS is ready for {target.Title}; recording is stopped.",
+                        ? $"Ready for {target.Title}; automatic capture is watching it."
+                        : $"Ready for {target.Title}; recording is stopped.",
                 target,
                 isRecording));
         }

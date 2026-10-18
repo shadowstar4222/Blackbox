@@ -1,0 +1,23 @@
+BLACKBOX DIAGNOSTICS SCROLLING FIX
+October 17, 2026 - 2.0.0-preview.15
+
+The diagnostic event list used item-based scrolling with variable-height,
+wrapped log messages. A message taller than the viewport could be skipped as
+one item, making navigation jump over its contents. The regression reproduced
+this in the previous layout: a requested 13-pixel move skipped the tall row.
+
+The list now uses pixel scrolling while retaining recycling virtualization.
+Full messages remain available; no diagnostic text is truncated or discarded.
+No recording, audio, playback, or setup automation behavior is changed.
+
+Validation: artifacts/diagnostics-scroll-20261017. Synthetic events include a
+150-line first entry and 299 mixed-height rows, plus empty and short filters.
+The UI check exercises wheel scrolling, thumb dragging, final-entry access,
+scroll range bindings, virtualization, and a measured 13-pixel row movement.
+
+PASSED
+357 main tests and 54 native-capture tests (411 total), packaged prerequisite
+probe, and the packaged WPF UI regression at 1240x780 and 1024x680. The baseline
+failed the tall-row movement check; the fixed build passed that check plus wheel
+input, scrollbar dragging, bottom reachability, empty/short filtering, and
+offscreen row virtualization. No live recording or audio test was needed.

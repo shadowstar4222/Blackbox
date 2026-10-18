@@ -9,7 +9,8 @@ public sealed class ObsWebSocketController(
     IObsConnectionSettingsProvider connectionSettingsProvider,
     IRecordingQualitySettingsProvider recordingQualitySettingsProvider,
     ObsSetupRequestBuilder requestBuilder,
-    ILogger<ObsWebSocketController> logger) : IObsController
+    ILogger<ObsWebSocketController> logger,
+    IGameCaptureTransformSettingsProvider? transformSettingsProvider = null) : IObsController
 {
     public Task LaunchAsync(CancellationToken cancellationToken = default)
     {
@@ -113,7 +114,8 @@ public sealed class ObsWebSocketController(
                 target,
                 videoSceneItemId,
                 audioSceneItemId,
-                recordingQualitySettingsProvider.Current),
+                recordingQualitySettingsProvider.Current,
+                transformSettingsProvider?.CurrentCrop),
             cancellationToken);
         logger.LogInformation(
             "OBS scene bound to {GameTitle} ({GameExecutable}) at {Width}x{Height}. GameAudio={CaptureGameAudio}, DetectionSources={DetectionSources}.",
@@ -151,7 +153,8 @@ public sealed class ObsWebSocketController(
                 videoSceneItemId,
                 audioSceneItemId,
                 canvasWidth,
-                canvasHeight),
+                canvasHeight,
+                transformSettingsProvider?.CurrentCrop),
             cancellationToken);
         logger.LogInformation(
             "OBS reframed {GameTitle} after its window changed to {Width}x{Height}; recording output remains {CanvasWidth}x{CanvasHeight}.",

@@ -1,0 +1,27 @@
+BLACKBOX AUTOMATIC RECORDING CONTROL FIX
+October 17, 2026 - 2.0.0-preview.13
+
+Opening recording setup temporarily pauses automatic recording. Previously,
+Blackbox also disabled both automatic-recording controls until setup closed,
+without making that dependency clear. Enable auto now closes an idle setup
+window, clears its temporary target, and resumes watching remembered programs.
+
+If setup is actively recording, the request reports that recording must be
+stopped first. It does not discard or unexpectedly stop that recording.
+The button is also available before a recorder-ready flag has been established;
+the existing recorder check runs on demand when enabling automatic capture.
+Short-lived busy operations still block repeated/concurrent mode changes.
+The tray, Settings toggle, and command palette use the same control state.
+
+Validation uses an isolated profile with no remembered applications. The setup
+guard fixture records only Blackbox's static warning window, with both system
+audio and microphone disabled. No user microphone/system audio is recorded.
+Results: artifacts/auto-capture-fix-20261017.
+
+PASSED
+355 main tests and 48 capture tests (403 total), packaged prerequisite probe,
+and the packaged automatic-capture regression check. The regression verified
+recorder checking on enable, available controls during idle setup, preservation
+of an active setup recording, video-only test capture, closing idle setup on
+enable, clearing its temporary target, operation busy guards, saved startup
+preferences, and releasing the command lock after a rejected request.

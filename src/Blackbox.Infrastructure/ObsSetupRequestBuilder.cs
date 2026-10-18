@@ -148,7 +148,8 @@ public sealed class ObsSetupRequestBuilder
         GameCaptureTarget target,
         int videoSceneItemId,
         int audioSceneItemId,
-        RecordingQualitySettings? recordingQuality = null)
+        RecordingQualitySettings? recordingQuality = null,
+        CaptureCrop? crop = null)
     {
         target.Validate();
         recordingQuality ??= new RecordingQualitySettings();
@@ -159,7 +160,8 @@ public sealed class ObsSetupRequestBuilder
             videoSceneItemId,
             audioSceneItemId,
             width,
-            height);
+            height,
+            crop);
     }
 
     public IReadOnlyList<ObsRequest> BuildGameCaptureActivationRequests(
@@ -167,9 +169,11 @@ public sealed class ObsSetupRequestBuilder
         int videoSceneItemId,
         int audioSceneItemId,
         int canvasWidth,
-        int canvasHeight)
+        int canvasHeight,
+        CaptureCrop? crop = null)
     {
         target.Validate();
+        crop?.Validate();
         if (canvasWidth <= 0 || canvasHeight <= 0)
         {
             throw new InvalidOperationException("The OBS canvas dimensions must be positive.");
@@ -192,13 +196,20 @@ public sealed class ObsSetupRequestBuilder
                     ["boundsType"] = "OBS_BOUNDS_SCALE_INNER",
                     ["boundsAlignment"] = 5,
                     ["boundsWidth"] = canvasWidth,
-                    ["boundsHeight"] = canvasHeight
+                    ["boundsHeight"] = canvasHeight,
+                    ["cropLeft"] = CropPixels(target.WindowWidth, crop?.LeftPercent),
+                    ["cropTop"] = CropPixels(target.WindowHeight, crop?.TopPercent),
+                    ["cropRight"] = CropPixels(target.WindowWidth, crop?.RightPercent),
+                    ["cropBottom"] = CropPixels(target.WindowHeight, crop?.BottomPercent)
                 }
             }),
             SceneItemEnabled(videoSceneItemId, true),
             SceneItemEnabled(audioSceneItemId, target.CaptureGameAudio)
         ];
     }
+
+    private static int CropPixels(int dimension, int? percent) =>
+        percent is null ? 0 : (int)Math.Round(dimension * percent.Value / 100d);
 
     private static JsonObject BuildTrackMap(AudioRoutingProfile profile, AudioCategory category)
     {

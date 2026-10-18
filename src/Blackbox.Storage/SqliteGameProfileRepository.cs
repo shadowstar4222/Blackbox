@@ -2,11 +2,17 @@ using Blackbox.Domain;
 using Microsoft.Data.Sqlite;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Blackbox.Storage;
 
 public sealed class SqliteGameProfileRepository(string databasePath) : IGameProfileRepository
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     private readonly string _connectionString = new SqliteConnectionStringBuilder
     {
         DataSource = databasePath,
@@ -34,7 +40,8 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
                 executable_aliases_json TEXT NOT NULL DEFAULT '[]',
                 capture_game_audio INTEGER NOT NULL DEFAULT 1,
                 follow_launcher_handoff INTEGER NOT NULL DEFAULT 1,
-                prefer_gpu_activity INTEGER NOT NULL DEFAULT 0
+                prefer_gpu_activity INTEGER NOT NULL DEFAULT 0,
+                profile_overrides_json TEXT NOT NULL DEFAULT '{}'
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -42,6 +49,7 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         await EnsureColumnAsync(connection, "capture_game_audio", cancellationToken);
         await EnsureColumnAsync(connection, "follow_launcher_handoff", cancellationToken);
         await EnsureColumnAsync(connection, "prefer_gpu_activity", cancellationToken);
+        await EnsureColumnAsync(connection, "profile_overrides_json", cancellationToken);
     }
 
     public async Task<IReadOnlyList<GameProfile>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -68,7 +76,9 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
                 ExecutableAliases = DeserializeAliases(reader.GetString(reader.GetOrdinal("executable_aliases_json"))),
                 CaptureGameAudio = reader.GetInt32(reader.GetOrdinal("capture_game_audio")) == 1,
                 FollowLauncherHandoff = reader.GetInt32(reader.GetOrdinal("follow_launcher_handoff")) == 1,
-                PreferGpuActivity = reader.GetInt32(reader.GetOrdinal("prefer_gpu_activity")) == 1
+                PreferGpuActivity = reader.GetInt32(reader.GetOrdinal("prefer_gpu_activity")) == 1,
+                Overrides = DeserializeOverrides(
+                    reader.GetString(reader.GetOrdinal("profile_overrides_json")))
             });
         }
 
@@ -84,9 +94,10 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         command.CommandText = """
             INSERT INTO game_profiles (
                 executable_path, display_name, automatic_recording_enabled, added_at, updated_at,
-                executable_aliases_json, capture_game_audio, follow_launcher_handoff, prefer_gpu_activity)
+                executable_aliases_json, capture_game_audio, follow_launcher_handoff, prefer_gpu_activity,
+                profile_overrides_json)
             VALUES ($path, $name, $enabled, $added_at, $updated_at,
-                $aliases, $capture_audio, $follow_handoff, $prefer_gpu)
+                $aliases, $capture_audio, $follow_handoff, $prefer_gpu, $profile_overrides)
             ON CONFLICT(executable_path) DO UPDATE SET
                 display_name = excluded.display_name,
                 automatic_recording_enabled = excluded.automatic_recording_enabled,
@@ -94,7 +105,8 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
                 executable_aliases_json = excluded.executable_aliases_json,
                 capture_game_audio = excluded.capture_game_audio,
                 follow_launcher_handoff = excluded.follow_launcher_handoff,
-                prefer_gpu_activity = excluded.prefer_gpu_activity;
+                prefer_gpu_activity = excluded.prefer_gpu_activity,
+                profile_overrides_json = excluded.profile_overrides_json;
             """;
         command.Parameters.AddWithValue("$path", Path.GetFullPath(profile.ExecutablePath));
         command.Parameters.AddWithValue("$name", profile.DisplayName);
@@ -107,6 +119,9 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         command.Parameters.AddWithValue("$capture_audio", profile.CaptureGameAudio ? 1 : 0);
         command.Parameters.AddWithValue("$follow_handoff", profile.FollowLauncherHandoff ? 1 : 0);
         command.Parameters.AddWithValue("$prefer_gpu", profile.PreferGpuActivity ? 1 : 0);
+        command.Parameters.AddWithValue(
+            "$profile_overrides",
+            JsonSerializer.Serialize(profile.Overrides, JsonOptions));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -134,6 +149,21 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
         catch (JsonException)
         {
             return [];
+        }
+    }
+
+    private static GameProfileOverrides DeserializeOverrides(string json)
+    {
+        try
+        {
+            var overrides = JsonSerializer.Deserialize<GameProfileOverrides>(json, JsonOptions)
+                ?? new GameProfileOverrides();
+            overrides.Validate();
+            return overrides;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            return new GameProfileOverrides();
         }
     }
 
@@ -171,6 +201,8 @@ public sealed class SqliteGameProfileRepository(string databasePath) : IGameProf
                 "ALTER TABLE game_profiles ADD COLUMN follow_launcher_handoff INTEGER NOT NULL DEFAULT 1;",
             "prefer_gpu_activity" =>
                 "ALTER TABLE game_profiles ADD COLUMN prefer_gpu_activity INTEGER NOT NULL DEFAULT 0;",
+            "profile_overrides_json" =>
+                "ALTER TABLE game_profiles ADD COLUMN profile_overrides_json TEXT NOT NULL DEFAULT '{}';",
             _ => throw new ArgumentOutOfRangeException(nameof(columnName))
         };
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);

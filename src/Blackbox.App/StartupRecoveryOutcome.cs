@@ -5,22 +5,30 @@ namespace Blackbox.App;
 public sealed record StartupRecoveryOutcome(
     RecordingRecoveryResult RecordingRecovery,
     int IndexedSessionCount,
-    bool ObsReady,
+    bool RecorderReady,
     bool RecordingAdopted,
     bool AutomaticCaptureResumed)
 {
+    public string? RecorderFailure { get; init; }
+
     public string Message
     {
         get
         {
+            if (!RecorderReady)
+            {
+                return $"Recording engine unavailable: {RecorderFailure ?? "check the recorder installation"}. " +
+                    "Recovery check completed; recording has not started.";
+            }
+
             if (RecordingAdopted && AutomaticCaptureResumed)
             {
-                return "Recovered the active OBS recording and resumed automatic capture.";
+                return "Recovered the active recording and resumed automatic capture.";
             }
 
             if (RecordingAdopted)
             {
-                return "Recovered the active OBS recording.";
+                return "Recovered the active recording.";
             }
 
             if (RecordingRecovery.DamagedFiles > 0)
@@ -33,9 +41,9 @@ public sealed record StartupRecoveryOutcome(
                 return $"Recovered {RecordingRecovery.RecoveredFiles} recording(s) and preserved the originals.";
             }
 
-            return ObsReady
-                ? "Recovery check complete; OBS is ready."
-                : "Recovery check complete; OBS setup is required.";
+            return AutomaticCaptureResumed
+                ? "Recovery check complete; automatic capture resumed."
+                : "Recovery check complete; recording engine is ready.";
         }
     }
 }

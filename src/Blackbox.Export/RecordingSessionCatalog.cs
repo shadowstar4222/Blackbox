@@ -11,12 +11,13 @@ public sealed class RecordingSessionCatalog(ISegmentRepository repository)
     {
         var segments = await repository.GetAllAsync(cancellationToken);
         var markers = await repository.GetMarkersAsync(cancellationToken);
+        var markersBySession = markers.ToLookup(static marker => marker.SessionId);
         var protectedRanges = await repository.GetProtectedRangesAsync(cancellationToken);
         return Build(segments)
             .Select(session => session with
             {
-                Markers = markers
-                    .Where(marker => marker.SessionId == session.Id && marker.Offset <= session.Duration)
+                Markers = markersBySession[session.Id]
+                    .Where(marker => marker.Offset <= session.Duration)
                     .OrderBy(static marker => marker.Offset)
                     .ToArray(),
                 ProtectedRanges = GetProtectedRanges(session, protectedRanges)

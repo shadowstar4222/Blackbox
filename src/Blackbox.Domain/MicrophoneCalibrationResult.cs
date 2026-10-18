@@ -12,6 +12,8 @@ public sealed record MicrophoneCalibrationResult(
 {
     public MicrophoneProcessingSettings CreateProcessingSettings() => new()
     {
+        Preset = MicrophoneVoicePreset.Custom,
+        ProcessingEnabled = true,
         InputGainDb = RecommendedGainDb,
         ExpanderThresholdDb = RecommendedExpanderThresholdDb,
         CompressorThresholdDb = RecommendedCompressorThresholdDb

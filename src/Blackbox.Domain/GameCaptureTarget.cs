@@ -11,15 +11,20 @@ public sealed record GameCaptureTarget(
     int WindowHeight = 1080,
     bool CaptureGameAudio = true)
 {
+    public long WindowHandle { get; init; }
+    public bool IsMinimized { get; init; }
+    public bool IsCapturable { get; init; } = true;
     public string Identity => Path.GetFullPath(ExecutablePath).ToUpperInvariant();
     public string CaptureSourceIdentity =>
-        $"{Identity}|{ObsWindowIdentifier.ToUpperInvariant()}|AUDIO:{CaptureGameAudio}";
+        WindowHandle != 0
+            ? $"{Identity}|PID:{ProcessId}|HWND:{WindowHandle}|AUDIO:{CaptureGameAudio}"
+            : $"{Identity}|{ObsWindowIdentifier.ToUpperInvariant()}|AUDIO:{CaptureGameAudio}";
     public string CaptureBindingIdentity =>
         $"{CaptureSourceIdentity}|SIZE:{WindowWidth}X{WindowHeight}";
 
     public void Validate()
     {
-        if (ProcessId <= 0 ||
+        if (!IsCapturable || IsMinimized || ProcessId <= 0 ||
             string.IsNullOrWhiteSpace(ExecutablePath) ||
             string.IsNullOrWhiteSpace(ExecutableName) ||
             string.IsNullOrWhiteSpace(Title) ||

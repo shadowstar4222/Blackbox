@@ -179,6 +179,74 @@ public sealed class RememberedGameProcessDetectorTests
         Assert.Equal("Running Game", target.Title);
     }
 
+    [Theory]
+    [InlineData(true, true, 1920, 1080)]
+    [InlineData(false, false, 1920, 1080)]
+    [InlineData(false, true, 0, 1080)]
+    [InlineData(false, true, 1920, 0)]
+    public async Task DetectAsync_rejects_minimized_uncapturable_and_empty_windows(
+        bool minimized, bool capturable, int width, int height)
+    {
+        const string path = @"C:\Games\Remembered.exe";
+        var gpu = new StubGpuActivityProbe();
+        var detector = CreateDetector(
+            [Application(path, true, width: width, height: height) with { IsMinimized = minimized, IsCapturable = capturable }],
+            new StubGameProfileRepository([Profile(path, "Game") with { PreferGpuActivity = true }]), gpu);
+
+        Assert.Null(await detector.DetectAsync());
+        Assert.Equal(0, gpu.CallCount);
+    }
+
+    [Fact]
+    public async Task DetectAsync_selects_the_capturable_handle_not_a_minimized_window_of_the_same_executable()
+    {
+        const string path = @"C:\Games\Remembered.exe";
+        var detector = CreateDetector(
+            [
+                Application(path, true) with { WindowHandle = 101, IsMinimized = true },
+                Application(path, false) with { WindowHandle = 102 }
+            ],
+            new StubGameProfileRepository([Profile(path, "Game")]));
+
+        var target = await detector.DetectAsync();
+
+        Assert.NotNull(target);
+        Assert.Equal(102, target.WindowHandle);
+    }
+
+    [Theory]
+    [InlineData("HD2Arsenal.exe")]
+    [InlineData("chrome.exe")]
+    public async Task DetectAsync_does_not_learn_companion_tools_as_launcher_handoffs(string executable)
+    {
+        const string launcher = @"C:\Games\Launcher.exe";
+        var application = Application(@"C:\Tools\" + executable, true) with
+        {
+            AncestorExecutableNames = ["Launcher.exe", "steam.exe"],
+            DetectionSources = GameDetectionSource.SteamProcessTree | GameDetectionSource.ForegroundWindow
+        };
+        var repository = new StubGameProfileRepository([Profile(launcher, "Game")]);
+        var detector = CreateDetector([application], repository);
+
+        Assert.Null(await detector.DetectAsync());
+        Assert.Null(await detector.DetectAsync());
+        Assert.Empty((Assert.Single(await repository.GetAllAsync())).ExecutableAliases);
+    }
+
+    [Fact]
+    public async Task DetectAsync_honors_explicitly_remembered_executable_even_for_a_non_game_tool()
+    {
+        const string path = @"C:\Tools\HD2Arsenal.exe";
+        var detector = CreateDetector([Application(path, false)],
+            new StubGameProfileRepository([Profile(path, "Explicit selection")]));
+
+        var target = await detector.DetectAsync();
+
+        Assert.NotNull(target);
+        Assert.Equal(path, target.ExecutablePath);
+        Assert.Equal(GameDetectionSource.ConfiguredExecutable, target.DetectionSources);
+    }
+
     private static WindowsGameProcessDetector CreateDetector(
         IReadOnlyList<RunningApplication> applications,
         StubGameProfileRepository repository,

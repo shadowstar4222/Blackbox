@@ -11,6 +11,9 @@ public sealed record RunningApplication(
     bool IsForeground,
     GameDetectionSource DetectionSources)
 {
+    public long WindowHandle { get; init; }
+    public bool IsMinimized { get; init; }
+    public bool IsCapturable { get; init; } = true;
     public IReadOnlyList<string> AncestorExecutableNames { get; init; } = [];
     public string Identity => Path.GetFullPath(ExecutablePath).ToUpperInvariant();
 
@@ -22,5 +25,10 @@ public sealed record RunningApplication(
         ObsWindowIdentifier,
         DetectionSources | additionalSources,
         WindowWidth,
-        WindowHeight);
+        WindowHeight)
+    {
+        WindowHandle = WindowHandle,
+        IsMinimized = IsMinimized,
+        IsCapturable = IsCapturable
+    };
 }

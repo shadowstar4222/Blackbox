@@ -6,7 +6,7 @@ Host: Windows 10 Home 22H2, build 19045, x64
 ## User Workflow
 
 1. Keep both remembered games open.
-2. Open `Games`, then `Manage remembered games`.
+2. Open `Games`.
 3. Select the running game that should appear in OBS.
 4. Select `Use for capture`.
 5. Confirm its row says `Active OBS capture` and the heading names the active game.

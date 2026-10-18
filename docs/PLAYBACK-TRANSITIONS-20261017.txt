@@ -1,0 +1,42 @@
+BLACKBOX SEGMENT TRANSITION VALIDATION
+October 17, 2026 - 2.0.0-preview.7
+
+CAUSE AND FIX
+Stopping one VLC input before opening the next exposes a native STATIC window.
+Its default background paints light gray even when the surrounding WPF element
+is black. A native message hook now paints that background black. The hook is
+removed when review closes. No snapshots, extra decoder, per-frame copies, or
+recording/encoding changes are added.
+
+REAL MEDIA CHECKS
+- Two original MKV segments from the October 15 VRChat recording.
+- Two recent variable-frame-rate MKV segments from the October 16 sync fixture.
+- Per fixture: four automatic joins, one loop restart, one finalized-segment
+  arrival, two paused cross-segment seeks, and forward/reverse frame navigation.
+- Before/after native background: average RGB 240/255 -> 0/255 on both fixtures.
+- All 30 handoff probes measured 0/255; 74 actual native paint messages handled.
+- SHA-256 checks confirmed that source media did not change.
+- Review close restored the original application window count.
+- 312 main tests and 41 native recorder tests passed (353 total).
+
+PLAYBACK REGRESSION CHECK
+Five-second animated MP4 sample: 314 displayed pictures, zero lost pictures,
+hardware decoding requested, 8.73% of one CPU core, and 23.33 ms p95 UI heartbeat
+delay. Twenty-three frame steps changed pixels without reopening the decoder.
+Three review open/close cycles left zero retained closed pages after test-only
+collection. Released-player CPU measured 0% over the five-second idle sample.
+These are short local workload measurements, not a long-session or comparative
+performance guarantee. Existing hardware frame-step timing remains unchanged.
+
+REPRODUCTION
+Use --playback-transition-smoke <configuration.json> with an isolated
+BLACKBOX_DATA_DIRECTORY. The JSON has Sources (at least two media paths) and
+Output (a results directory). It writes before/after PNGs and transition results.
+Local fixtures and reports: artifacts\transitions-20261017 in the source tree.
+
+LIMITS
+The brief decoder handoff can still be visible as a dark gap; this is not a
+gapless/preloaded decoder implementation. Background probes isolate the native
+surface rather than measuring every composited display frame. White frames
+actually encoded in a source video are not edited out. Existing recordings do
+not need to be re-recorded or exported to benefit from the playback fix.

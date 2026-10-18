@@ -109,6 +109,25 @@ public sealed class ObsMicrophoneController(
         await rpcClient.SendBatchAsync(connectionSettingsProvider.Current, requests, cancellationToken);
     }
 
+    public async Task SetMutedAsync(
+        bool muted,
+        CancellationToken cancellationToken = default)
+    {
+        var requests = new[]
+        {
+            RawMicrophoneSourceName,
+            ProcessedMicrophoneSourceName
+        }.Select(inputName => new ObsRequest("SetInputMute", new JsonObject
+        {
+            ["inputName"] = inputName,
+            ["inputMuted"] = muted
+        })).ToArray();
+        await rpcClient.SendBatchAsync(
+            connectionSettingsProvider.Current,
+            requests,
+            cancellationToken);
+    }
+
     public async Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default)
     {
         var response = await rpcClient.SendRequestAsync(

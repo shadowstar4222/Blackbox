@@ -1,0 +1,41 @@
+BLACKBOX UI CLEANUP
+October 17, 2026 - 2.0.0-preview.11
+
+The left sidebar is the single visible recording/watching/readiness indicator.
+The current window name remains on Capture and in the sidebar status tooltip.
+
+Removed:
+- Duplicate footer status and its indicator dot.
+- Recorder-ready and repeated window-name header badges.
+- Routine watching/automation text, idle health states and repeated target name.
+- Generic page subtitles and navigation-rail category/descriptor text.
+- No-live-meter / waiting-for-video placeholders when telemetry is unavailable.
+- Redundant links to Microphone and Diagnostics beside the permanent navigation.
+- The second back arrow in review and the permanent Local playback label.
+- Double dividers in Games and Recordings, and the unused status-badge style.
+
+Preserved:
+- Capture warnings, repair/fault information and action errors.
+- Video dimensions/FPS, audio meter when available, and expanded fault evidence.
+- Time-shift/follow state in review.
+- Review back navigation, recording controls, quality settings and Help/tutorial.
+- Full state information in Diagnostics, where it is useful for troubleshooting.
+- Recording-setup overlay settings and warnings, which are intentionally recorded.
+
+VALIDATION
+352 main tests and 43 native tests passed (395 total, no skips).
+Packaged UI checks passed at 1240x780 and 1024x680 across Capture, Recordings,
+Games, Microphone, Diagnostics, Settings and command search.
+Ready / Watching games / Recording each rendered once, in the left sidebar.
+Synthetic health warnings/faults and available video/audio telemetry stayed visible;
+routine and resolved health messages were hidden. Synthetic action failures stayed
+visible. No synthetic fault notifications were sent to the user's desktop.
+
+A muted neutral-motion three-segment fixture validated embedded decoding, frame
+steps, coalesced seeking, timeline caching, finalized-segment follow, and the sole
+main back button returning from review to the recording library. Native player
+windows were released. These checks used an isolated profile, not user recordings.
+No game was launched or app closed; no microphone/audio recording was started.
+
+Evidence: artifacts/ui-cleanup-20261017/profile/ui-snapshots.
+Recording engine code and normal capture behavior were not changed in this pass.

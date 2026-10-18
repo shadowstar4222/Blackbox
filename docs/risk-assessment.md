@@ -17,6 +17,10 @@
 - Crash recovery may preserve damaged files that require clear UI labeling and repeatable probing.
 - MP4 export compatibility can conflict with multi-track workflows.
 - Downloaded capture backends create supply-chain and partial-installation risks.
+- A localhost browser dock can expose recording controls if it trusts ambient browser requests or a predictable URL.
+- Editing OBS custom-dock configuration can destroy unrelated entries if treated as unstructured text.
+- A lookback clip can lose source media if quota cleanup runs before the newest OBS segment is indexed.
+- Automatic audio or scene markers can create noisy false positives without per-game thresholds and cooldowns.
 
 ## Mitigations
 
@@ -30,6 +34,8 @@
 - Run quota deletion tests against real files so file-system and database state transitions stay paired.
 - Download OBS only over HTTPS, validate its published SHA-256 digest, extract through a staging directory, and keep the private copy outside Program Files.
 - Validate every OBS websocket response and make setup repeatable without recreating existing resources.
+- Sample a scaled preview instead of full-resolution frames, confirm sustained faults, cool down repairs, and cap automatic repair attempts so capture monitoring cannot become a retry loop.
+- Never stop a recording as part of guardian repair. Rebind only the currently selected exact window, preserve the output session, and escalate missing infrastructure for operator action.
 - Keep raw and processed microphone sources alive across disconnects, emit silence while unavailable, and restore both paths only when the saved device identifier returns.
 - Cap calibration gain against the loud-voice peak, warn on clipping or suspicious gain control, and retain the untouched raw track for recovery.
 - Download the FFmpeg toolset only over HTTPS, verify the separately published SHA-256 checksum, and install through a unique staging directory.
@@ -48,3 +54,9 @@
 - Stage recovery remuxes beside the source, verify the staged file, atomically replace only after success, and preserve the original in a dedicated backup folder.
 - Adopt a surviving OBS recording after restart instead of issuing a duplicate recording command or interrupting the active output.
 - Expose categorized current-session logs and indexed-media health in the diagnostics window so recovery and capture failures remain inspectable.
+- Bind the dock to IPv4 loopback only, authenticate an unguessable persistent capability path in constant time, require JSON plus a non-simple custom header for mutations, omit CORS permission, cap request bodies, and serialize commands.
+- Ship dock HTML, CSS, images, and JavaScript as embedded local assets with no remote origins, disable caching and referrers, and apply a restrictive Content Security Policy and browser Permissions Policy.
+- Parse the OBS dock list as JSON, preserve unrelated objects, replace only Blackbox's stable UUID, back up before atomic replacement, and make malformed input a no-write failure.
+- Persist clip intent before export, protect both requested time ranges and resolved source IDs, and retain failed-job sources until retry or explicit discard.
+- Keep generated clips in an internal folder that recording scans exclude so exports cannot recursively become new sessions.
+- Disable automatic markers by default, evaluate only the selected recorded game, require sustained OBS evidence, and apply per-game thresholds plus cooldowns.

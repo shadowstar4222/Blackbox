@@ -55,4 +55,31 @@ public sealed class GameCandidateSelectorTests
 
         Assert.Null(result);
     }
+
+    [Fact]
+    public void Classify_keeps_helldivers_and_arsenal_as_separate_applications()
+    {
+        var tree = new Dictionary<int, ProcessTreeEntry>
+        {
+            [26484] = new(26484, 2000, "helldivers2.exe"),
+            [2000] = new(2000, 1000, "steam.exe"),
+            [19716] = new(19716, 1000, "HD2Arsenal.exe"),
+            [1000] = new(1000, 0, "explorer.exe")
+        };
+
+        var helldivers = GameCandidateSelector.Classify(
+            26484,
+            "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Helldivers 2\\bin\\helldivers2.exe",
+            isForeground: false,
+            tree);
+        var arsenal = GameCandidateSelector.Classify(
+            19716,
+            "C:\\Program Files\\HD2Arsenal\\HD2Arsenal.exe",
+            isForeground: false,
+            tree);
+
+        Assert.True(helldivers.HasFlag(GameDetectionSource.SteamLibrary));
+        Assert.True(helldivers.HasFlag(GameDetectionSource.SteamProcessTree));
+        Assert.Equal(GameDetectionSource.None, arsenal);
+    }
 }

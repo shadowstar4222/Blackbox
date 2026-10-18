@@ -25,6 +25,7 @@ public sealed class WindowsGameProcessDetector(
             .ToArray();
         if (profiles.Length == 0)
         {
+            ResetPendingHandoff();
             return null;
         }
 
@@ -134,6 +135,12 @@ public sealed class WindowsGameProcessDetector(
         var matches = new List<GameProfileMatch>();
         foreach (var application in applications)
         {
+            if (!application.IsCapturable || application.IsMinimized ||
+                application.WindowWidth <= 0 || application.WindowHeight <= 0)
+            {
+                continue;
+            }
+
             foreach (var profile in profiles)
             {
                 if (profile.MatchesExecutablePath(application.ExecutablePath))
@@ -151,6 +158,8 @@ public sealed class WindowsGameProcessDetector(
                 var isPendingHandoff = profile.Identity == _pendingHandoffProfileIdentity &&
                     application.Identity == _pendingHandoffExecutableIdentity;
                 if (profile.FollowLauncherHandoff &&
+                    !GameCandidateSelector.IsIgnoredExecutable(application.ExecutableName) &&
+                    !application.ExecutableName.Equals("HD2Arsenal.exe", StringComparison.OrdinalIgnoreCase) &&
                     (isPendingHandoff || application.AncestorExecutableNames.Any(profile.ExecutableNames.Contains)))
                 {
                     matches.Add(new GameProfileMatch(

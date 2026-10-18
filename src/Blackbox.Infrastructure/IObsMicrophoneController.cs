@@ -15,5 +15,7 @@ public interface IObsMicrophoneController
         IProgress<AudioLevelSnapshot>? progress = null,
         CancellationToken cancellationToken = default);
     Task SetProcessingEnabledAsync(bool enabled, CancellationToken cancellationToken = default);
+    Task SetMutedAsync(bool muted, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
     Task<bool> IsRecordingAsync(CancellationToken cancellationToken = default);
 }

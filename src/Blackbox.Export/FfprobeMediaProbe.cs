@@ -127,6 +127,19 @@ internal static class FfprobeOutputParser
 
     private static decimal ReadFrameRate(JsonElement video)
     {
+        // Timestamp-preserving capture is variable-rate. Its probed average can vary
+        // between segments; use the declared target for review steps and compatibility.
+        if (video.TryGetProperty("tags", out var tags))
+        {
+            foreach (var tag in tags.EnumerateObject())
+            {
+                if (tag.Name.Equals("BLACKBOX_NOMINAL_FPS", StringComparison.OrdinalIgnoreCase) &&
+                    tag.Value.ValueKind == JsonValueKind.String &&
+                    decimal.TryParse(tag.Value.GetString(), NumberStyles.None, CultureInfo.InvariantCulture, out var nominal) &&
+                    nominal is >= 1 and <= 120)
+                    return nominal;
+            }
+        }
         var value = ReadString(video, "avg_frame_rate", "0/1");
         var parts = value.Split('/');
         if (parts.Length == 2 &&

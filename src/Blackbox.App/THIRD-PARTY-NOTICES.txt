@@ -1,5 +1,28 @@
 Blackbox third-party notices
 
+Native recording uses ScreenRecorderLib 7.0.1 (MIT):
+https://github.com/sskodje/ScreenRecorderLib
+Full license: licenses/ScreenRecorderLib.txt
+
+Native microphone device handling uses NAudio 2.2.1 (MIT):
+https://github.com/naudio/NAudio
+
+Native microphone noise suppression uses SpeexDSPSharp 1.3.0 (MIT) and
+SpeexDSP (3-clause BSD):
+https://github.com/AvionBlock/SpeexDSPSharp
+https://www.speex.org/
+Full licenses: licenses/SpeexDSPSharp.txt and licenses/SpeexDSP.txt
+
+FFmpeg and ffprobe are bundled without modification. Video playback uses
+LibVLC inside Blackbox; no external video player is launched or bundled.
+Their build/version, source location, and license are in tools/ffmpeg/README.txt
+and tools/ffmpeg/LICENSE. This build includes GPL components.
+https://www.ffmpeg.org/legal.html
+
+The native worker includes Microsoft's unmodified x64 Visual C++ runtime DLLs.
+These retain Microsoft's copyright and redistribution terms:
+https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution
+
 This distribution includes LibVLCSharp.WPF 3.10.0 and
 VideoLAN.LibVLC.Windows 3.0.23.1. Both packages are licensed under
 LGPL-2.1-or-later.

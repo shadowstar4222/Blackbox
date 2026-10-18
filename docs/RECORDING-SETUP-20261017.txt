@@ -1,0 +1,68 @@
+BLACKBOX RECORDING SETUP WINDOW
+October 17, 2026 - 2.0.0-preview.10
+
+Diagnostics > Recording setup window opens a separate, built-in capture target.
+It replaces the short playback demo from preview.9. It does not use OBS or an
+external video player. No scene or music starts automatically at app startup.
+
+1. Stop any existing recording. Choose moving colors or still bars and the
+   scene's desired window size/frame rate. Read and accept the warning.
+2. Open setup window. Automatic capture is temporarily paused; your saved
+   preference and remembered games are not changed.
+3. Read the warning in the new window, then press Start scene & music.
+4. Press Record. The normal Blackbox recorder captures this window and audio.
+   Output settings are controlled by Blackbox's normal quality controls.
+5. Press Stop and use Recordings in Blackbox to review the saved setup capture.
+6. Close the setup window to release its temporary target and resume automatic
+   capture if it was enabled before setup. Closing while recording finalizes
+   the setup recording first.
+
+The original colorful video is retained as a bundled background and loops
+indefinitely in the setup window. Still bars do not run a video decoder.
+Music is an original 80-second arrangement with
+layered electric-piano/bell tones, extended chords, stereo ambience, bass and
+gentle percussion. PCM buffers loop across EOF without restarting the output
+device. Music begins at 30% volume; mute, volume, and pause are available.
+
+The overlay is part of the captured window: output resolution, target FPS,
+H.264 target bitrate, hardware-encoding request, AAC bitrate/sample rate/channels,
+microphone status and voice processing. READY means configured; RECORDING means
+applied. Source size and scene FPS are labeled separately from recorder output.
+Window resize does not imply that a running recording changes output size.
+
+Windows 10 uses system loopback, so other playing applications may be audible.
+Microphone capture follows normal Blackbox settings. A microphone status is not
+a guarantee that a voice is audible: listen to the saved recording to verify it.
+Hardware encoding is requested, not independently proven by the overlay.
+
+PHOTOSENSITIVITY WARNING
+Bright colors, contrast and motion can trigger seizures or discomfort. Moving
+patterns require explicit opt-in. Still bars are not guaranteed safe. Stop
+immediately if uncomfortable. The warning remains visible in the capture and a
+PHOTOSENSITIVITY-WARNING.txt sidecar is saved in the setup recording's folder.
+This tool does not certify photosensitivity safety.
+
+VALIDATION
+- Main suite: 350 passed. Native suite: 43 passed. No skipped tests.
+- Temporary HWND target rejects closed, reused, changed or minimized windows
+  and does not read/write the remembered-game selection while active.
+- Music is 80-second stereo PCM at 48 kHz, with peak headroom and zero endpoints.
+  Loop buffer tests verify full reads across EOF and termination on empty input.
+- Packaged 720p30 background looped successfully in the helper process.
+- The 1080p60 background also passed a muted two-loop check.
+- Captured 23.765 seconds through the normal recorder with microphone disabled:
+  H.264 1264x720, AAC 48 kHz stereo, -29.3 dB mean / -11.6 dB peak.
+- Decoded all 1,421 captured video frames; no black interval in the unobscured
+  scene crop across the loop. Inspected the recorded settings overlay.
+- Resized during capture; output remained fixed and source content resized.
+- Checked 1240x780 / 1024x680 main UI and compact helper layout.
+- Automatic capture paused/restored, saved preferences unchanged, helper exited.
+- Evidence: artifacts/recording-setup-20261017/video-results and video-profile.
+  This is not a multi-hour soak or a guarantee for every GPU/audio device.
+
+REPRODUCTION
+Use --recording-setup-smoke <output-directory> with an isolated
+BLACKBOX_DATA_DIRECTORY. It opens a muted, still scene by default. For an
+explicitly approved moving/music recording, set BLACKBOX_SETUP_LIVE_TEST=1.
+Microphone capture is always disabled in this validation path. Other system
+audio may be included on Windows 10. This validation flag is not normal startup.

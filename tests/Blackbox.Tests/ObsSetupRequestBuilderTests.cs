@@ -142,6 +142,37 @@ public sealed class ObsSetupRequestBuilderTests
     }
 
     [Fact]
+    public void BuildGameCaptureActivationRequests_applies_percentage_crop()
+    {
+        var target = new GameCaptureTarget(
+            42,
+            "C:\\Games\\Example.exe",
+            "Example.exe",
+            "Example Game",
+            "Example Game:ExampleWindow:Example.exe",
+            GameDetectionSource.ConfiguredExecutable,
+            1920,
+            1080);
+        var crop = new CaptureCrop
+        {
+            LeftPercent = 5,
+            TopPercent = 2,
+            RightPercent = 1,
+            BottomPercent = 3
+        };
+
+        var transform = new ObsSetupRequestBuilder()
+            .BuildGameCaptureActivationRequests(target, 10, 20, crop: crop)
+            .Single(static request => request.RequestType == "SetSceneItemTransform")
+            .RequestData?["sceneItemTransform"];
+
+        Assert.Equal(96, transform?["cropLeft"]?.GetValue<int>());
+        Assert.Equal(22, transform?["cropTop"]?.GetValue<int>());
+        Assert.Equal(19, transform?["cropRight"]?.GetValue<int>());
+        Assert.Equal(32, transform?["cropBottom"]?.GetValue<int>());
+    }
+
+    [Fact]
     public void BuildRecordingConfigurationRequests_applies_resolution_fps_and_audio_quality()
     {
         var quality = new RecordingQualitySettings

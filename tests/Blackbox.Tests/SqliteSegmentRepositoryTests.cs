@@ -8,6 +8,38 @@ namespace Blackbox.Tests;
 public sealed class SqliteSegmentRepositoryTests
 {
     [Fact]
+    public async Task Revision_changes_after_committed_writes_but_not_reads()
+    {
+        var database = Path.Combine(Path.GetTempPath(), "blackbox-tests", $"{Guid.NewGuid():N}.db");
+        var repository = new SqliteSegmentRepository(database);
+        await repository.InitializeAsync();
+        var revision = repository.Revision;
+        await repository.GetAllAsync();
+        await repository.GetMarkersAsync();
+        Assert.Equal(revision, repository.Revision);
+
+        var segment = TestSegments.Create("C:\\Recordings\\revision.mkv");
+        await repository.UpsertAsync(segment);
+        Assert.True(repository.Revision > revision);
+        revision = repository.Revision;
+        var marker = new TimelineMarker(Guid.NewGuid(), segment.SessionId, TimeSpan.Zero, "Moment", DateTimeOffset.UtcNow);
+        await repository.AddMarkerAsync(marker);
+        Assert.True(repository.Revision > revision);
+        revision = repository.Revision;
+        await repository.UpdateMarkerPlacementAsync(marker.Id, segment.SessionId, TimeSpan.FromSeconds(1));
+        Assert.True(repository.Revision > revision);
+        revision = repository.Revision;
+        await repository.MarkProtectedRangeAsync(segment.StartTime, segment.EndTime);
+        Assert.True(repository.Revision > revision);
+        revision = repository.Revision;
+        await repository.DeleteMarkerAsync(marker.Id);
+        Assert.True(repository.Revision > revision);
+        revision = repository.Revision;
+        await repository.DeleteByIdAsync(segment.Id);
+        Assert.True(repository.Revision > revision);
+    }
+
+    [Fact]
     public async Task UpsertAsync_persists_segment_metadata()
     {
         var database = Path.Combine(Path.GetTempPath(), "blackbox-tests", $"{Guid.NewGuid():N}.db");
@@ -90,7 +122,11 @@ public sealed class SqliteSegmentRepositoryTests
             segment.SessionId,
             TimeSpan.FromSeconds(30),
             "Good play",
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            TimeSpan.FromSeconds(20),
+            TimeSpan.FromSeconds(8),
+            TimelineMarkerOrigin.AudioSpike,
+            "Audio crossed the configured threshold.");
 
         await repository.AddMarkerAsync(marker);
         await repository.MarkProtectedRangeAsync(
@@ -108,5 +144,30 @@ public sealed class SqliteSegmentRepositoryTests
 
         await repository.DeleteMarkerAsync(marker.Id);
         Assert.Empty(await repository.GetMarkersAsync());
+    }
+
+    [Fact]
+    public async Task Repository_can_place_a_pending_live_marker_in_a_session()
+    {
+        var database = Path.Combine(Path.GetTempPath(), "blackbox-tests", $"{Guid.NewGuid():N}.db");
+        var repository = new SqliteSegmentRepository(database);
+        await repository.InitializeAsync();
+        var marker = new TimelineMarker(
+            Guid.NewGuid(),
+            Guid.Empty,
+            TimeSpan.Zero,
+            "Live marker",
+            DateTimeOffset.UtcNow);
+        var sessionId = Guid.NewGuid();
+        await repository.AddMarkerAsync(marker);
+
+        await repository.UpdateMarkerPlacementAsync(
+            marker.Id,
+            sessionId,
+            TimeSpan.FromSeconds(42));
+
+        var stored = Assert.Single(await repository.GetMarkersAsync());
+        Assert.Equal(sessionId, stored.SessionId);
+        Assert.Equal(TimeSpan.FromSeconds(42), stored.Offset);
     }
 }

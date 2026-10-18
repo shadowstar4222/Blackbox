@@ -11,6 +11,7 @@ public sealed record GameProfile(
     public bool CaptureGameAudio { get; init; } = true;
     public bool FollowLauncherHandoff { get; init; } = true;
     public bool PreferGpuActivity { get; init; }
+    public GameProfileOverrides Overrides { get; init; } = new();
 
     public string Identity => Path.GetFullPath(ExecutablePath).ToUpperInvariant();
 
@@ -57,5 +58,8 @@ public sealed record GameProfile(
                 throw new InvalidOperationException("Game executable aliases must be unique and different from the primary executable.");
             }
         }
+
+        ArgumentNullException.ThrowIfNull(Overrides);
+        Overrides.Validate();
     }
 }

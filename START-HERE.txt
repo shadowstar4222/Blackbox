@@ -1,61 +1,35 @@
-BLACKBOX DESKTOP EXPERIENCE TEST BUILD
+BLACKBOX 2.0 NATIVE PREVIEW
+Current release: 2.0.0-preview.17
 
-1. Extract the entire ZIP to a normal folder.
-2. Double-click Blackbox.App.exe.
-3. Follow the first-run Help tutorial, or open Help again from the sidebar later.
-4. Use Capture > Setup OBS and wait for the ready message.
+1. Extract the complete Windows x64 ZIP.
+2. Run Blackbox.App.exe. OBS and an external video player are not needed.
+3. Start your game or application and leave its window open.
+4. In Games, select the real running window, choose Remember, then Capture.
+5. Press Record, or Enable auto for remembered applications.
+6. In Microphone, choose routing and a voice preset, then Apply.
+7. In Recordings, review a continuous session, add markers, or export one video.
 
-The first setup checks normal and Steam OBS locations first. If OBS is already
-installed, Blackbox prepares its private runtime from those local files without a
-download. Otherwise, it downloads and verifies the official OBS Studio package.
-Administrator access is not required.
+Settings contains recording quality, Start with Windows, automatic watching,
+and Close to notification area. To fully exit, use Blackbox's tray menu.
 
-After setup succeeds:
+The optional Diagnostics recording-setup window is a capturable test scene with
+music and recording-settings overlays. Its bright colors and motion may trigger
+seizures or discomfort. Read and confirm its warning before starting.
 
-1. Start a game and leave its main window running.
-2. Open the Games drawer, click Manage remembered games, select the game under
-   Running applications, and click Remember as game.
-3. Select the remembered profile to control automatic recording, game audio,
-   launcher handoff, GPU preference, and executable aliases.
-4. Open Settings and enable Watch remembered games.
+IMPORTANT PREVIEW LIMITS
+Windows 10 captures system-output audio plus the microphone into one stereo mix;
+other audible applications can be included. Isolated tracks are not available.
+Hardware encoding is requested but may fall back to software. Capture-blocking
+games are not bypassed. Time-shift buffers completed segments, not live frames.
+Test under your normal workload before relying on a long recording.
 
-Open Microphone setup to follow the current Windows default microphone. Check
-any device under Automatic exclusions if Blackbox should never select it, or
-turn automatic selection off and choose one microphone manually.
+Recordings: %USERPROFILE%\Videos\Blackbox\Application\YYYY-MM-DD
+Settings and logs: %LOCALAPPDATA%\Blackbox
 
-Blackbox configures Game Capture as Capture specific window and uses Window
-title must match whenever it binds a remembered application. Protected Steam
-games such as Helldivers 2 are recovered from Steam's active process tracking
-when anti-cheat prevents the normal executable lookup.
+Keep the full portable folder together. Exit Blackbox before replacing it.
+Settings and recordings live outside that folder and should not be removed.
+Keep superseded builds together in one clearly labeled deletable folder.
 
-Blackbox remembers that executable for future runs. When the game starts, it
-detects the live window and size, configures OBS game video and process audio,
-then begins recording. Disable Watch remembered games to stop automatic
-watching. You can pause or remove remembered games from the Games window.
-
-Settings also includes Start with Windows and Close to notification area.
-Windows startup launches Blackbox quietly in the notification area. The
-notification icon can open Blackbox, start or stop recording, protect the
-previous five minutes, toggle game watching, open recordings, or exit.
-
-Recordings and the short setup test recording are stored in your
-Videos\Blackbox folder. Click Recordings to play a continuous session or export
-it as one MKV or MP4. The Blackbox player includes segment-marked scrubbing,
-10-second and segment jumps, frame stepping, speed, loop, audio-track, volume,
-fullscreen, quick tags, and manual event markers.
-
-Timeline thumbnails and waveforms load from the preview cache when available.
-For a recording without a cached preview, click Build preview when you want
-Blackbox to generate those visual assets. Playback does not require a preview.
-
-The private OBS runtime is separate from your normal or Steam OBS profile. Game
-sources remain dormant until an enabled remembered game is running. Blackbox
-can learn a launcher's final game executable after two matching scans, and the
-Games window lets you review or remove every learned alias.
-
-Logs: %LOCALAPPDATA%\Blackbox\logs
-
-For troubleshooting, open Diagnostics and click Support bundle. Blackbox shows
-the privacy contents before it creates the local ZIP. The bundle excludes all
-recordings, screenshots, databases, OBS passwords and settings, microphone
-configuration, saved game profiles, executable lists, and application settings.
+More details in docs/NATIVE-RECORDER.txt and docs/RELEASE-2.0.0-preview.17.txt.
+The packaged copies are START-HERE.txt and RELEASE-2.0.0-preview.17.txt.
+BLACKBOX-DETAILS.txt documents the legacy OBS-based v1.0 release only.

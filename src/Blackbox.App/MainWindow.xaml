@@ -4,16 +4,18 @@
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         Title="Blackbox"
         Icon="Assets/Blackbox.ico"
-        Height="720"
-        Width="1120"
-        MinHeight="640"
-        MinWidth="960"
+        Height="780"
+        Width="1240"
+        MinHeight="680"
+        MinWidth="1024"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="MainWindow_PreviewKeyDown"
         StateChanged="MainWindow_StateChanged">
     <Grid x:Name="ShellRoot" Background="{StaticResource AppBackgroundBrush}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="216" />
+            <ColumnDefinition Width="176" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -22,41 +24,31 @@
                 BorderThickness="0,0,1,0">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="88" />
+                    <RowDefinition Height="64" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid Margin="18,16,14,14">
+                <Grid Margin="14,10,10,10">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="30" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Image Width="34"
-                           Height="34"
+                    <Image Width="28"
+                           Height="28"
                            VerticalAlignment="Center"
                            Source="Assets/Blackbox.png"
                            SnapsToDevicePixels="True" />
                     <StackPanel Grid.Column="1"
                                 Margin="10,0,0,0"
                                 VerticalAlignment="Center">
-                        <TextBlock FontSize="16"
+                        <TextBlock FontSize="15"
                                    FontWeight="Bold"
                                    Text="BLACKBOX" />
-                        <TextBlock Margin="0,2,0,0"
-                                   Style="{StaticResource SecondaryTextStyle}"
-                                   FontSize="11"
-                                   Text="CAPTURE CONSOLE" />
                     </StackPanel>
                 </Grid>
 
                 <StackPanel Grid.Row="1">
-                    <TextBlock Margin="22,7,0,7"
-                               Style="{StaticResource SecondaryTextStyle}"
-                               FontSize="10"
-                               FontWeight="SemiBold"
-                               Text="WORKSPACE" />
-
                     <RadioButton x:Name="HomeNavButton"
                                  GroupName="Navigation"
                                  IsChecked="True"
@@ -90,7 +82,7 @@
                                  GroupName="Navigation"
                                  Style="{StaticResource NavigationButtonStyle}"
                                  Checked="GamesNavButton_Click"
-                                 automation:AutomationProperties.Name="Games drawer">
+                                 automation:AutomationProperties.Name="Games page">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Width="26"
                                        FontFamily="Segoe MDL2 Assets"
@@ -104,7 +96,7 @@
                                  GroupName="Navigation"
                                  Style="{StaticResource NavigationButtonStyle}"
                                  Checked="MicrophoneNavButton_Click"
-                                 automation:AutomationProperties.Name="Microphone drawer">
+                                 automation:AutomationProperties.Name="Microphone page">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Width="26"
                                        FontFamily="Segoe MDL2 Assets"
@@ -118,7 +110,7 @@
                                  GroupName="Navigation"
                                  Style="{StaticResource NavigationButtonStyle}"
                                  Checked="DiagnosticsNavButton_Click"
-                                 automation:AutomationProperties.Name="Diagnostics drawer">
+                                 automation:AutomationProperties.Name="Diagnostics page">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Width="26"
                                        FontFamily="Segoe MDL2 Assets"
@@ -148,7 +140,7 @@
                                  GroupName="Navigation"
                                  Style="{StaticResource NavigationButtonStyle}"
                                  Checked="SettingsNavButton_Click"
-                                 automation:AutomationProperties.Name="Settings drawer">
+                                 automation:AutomationProperties.Name="Settings page">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Width="26"
                                        FontFamily="Segoe MDL2 Assets"
@@ -179,379 +171,169 @@
 
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="72" />
+                <RowDefinition Height="52" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="56" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Border BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,0,0,1"
-                    Background="#1A1B1E">
-                <Grid Margin="24,0">
+                    Background="{StaticResource AppBackgroundBrush}">
+                <Grid Margin="18,0">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center">
+                    <Button x:Name="BackButton"
+                            Width="36"
+                            Height="36"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource IconButtonStyle}"
+                            ToolTip="Back"
+                            Visibility="Collapsed"
+                            Click="BackButton_Click"
+                            Content="&#xE72B;"
+                            automation:AutomationProperties.Name="Back" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="CurrentViewTitleText"
                                    Style="{StaticResource PageTitleStyle}"
                                    Text="Capture" />
-                        <TextBlock x:Name="CurrentViewSubtitleText"
-                                   Margin="0,3,0,0"
-                                   Style="{StaticResource SecondaryTextStyle}"
-                                   Text="Continuous recording controls" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1"
+                    <StackPanel Grid.Column="2"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center">
-                        <Border Style="{StaticResource StatusPillStyle}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse x:Name="ObsStatusDot"
-                                         Width="8"
-                                         Height="8"
-                                         Margin="0,0,7,0"
-                                         Fill="{StaticResource WarningBrush}" />
-                                <TextBlock x:Name="ObsStatusText"
-                                           FontSize="11"
-                                           FontWeight="SemiBold"
-                                           Text="OBS CHECKING" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource StatusPillStyle}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Width="19"
-                                           FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12"
-                                           Foreground="{StaticResource AccentBrush}"
-                                           Text="&#xE7FC;" />
-                                <TextBlock x:Name="HeaderGameText"
-                                           MaxWidth="190"
-                                           FontSize="11"
-                                           Text="NO GAME"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </Border>
+                        <Button Width="142" Height="30" Style="{StaticResource QuietButtonStyle}" Click="OpenCommandPalette_Click" ToolTip="Find a command (Ctrl+K)">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" Margin="0,0,8,0" /><TextBlock Text="Find command" /></StackPanel>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="1"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <Grid Margin="24,22,24,28">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+            <ScrollViewer x:Name="CapturePage" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Margin="18,16">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}"
-                                       Text="Capture status" />
-                            <TextBlock x:Name="StatusText"
-                                       Margin="0,7,24,0"
-                                       FontSize="19"
-                                       FontWeight="SemiBold"
-                                       Text="Checking Blackbox..."
-                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="CurrentGameText" Text="No window selected" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="StatusText" Visibility="Collapsed" Margin="0,5,12,0" Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap" />
                         </StackPanel>
-                        <StackPanel Grid.Column="1"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                            <Button x:Name="ProtectButton"
-                                    Height="38"
-                                    Margin="0,0,8,0"
-                                    ToolTip="Protect previous 5 minutes"
-                                    Click="ProtectButton_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Margin="0,0,8,0"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               Text="&#xE72E;" />
-                                    <TextBlock Text="Protect 5 min" />
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="StopButton"
-                                    Height="38"
-                                    MinWidth="96"
-                                    Margin="0,0,8,0"
-                                    IsEnabled="False"
-                                    ToolTip="Stop the current recording"
-                                    Style="{StaticResource DangerButtonStyle}"
-                                    Click="StopButton_Click"
-                                    Content="Stop" />
-                            <Button x:Name="StartButton"
-                                    Height="38"
-                                    MinWidth="116"
-                                    IsEnabled="False"
-                                    ToolTip="Start a manual continuous recording"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Click="StartButton_Click"
-                                    Content="Start recording" />
-                        </StackPanel>
+                        <Button Grid.Column="1" VerticalAlignment="Top" Click="GamesButton_Click" ToolTip="Choose an application window">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7F4;" Margin="0,0,8,0" /><TextBlock Text="Choose window" /></StackPanel>
+                        </Button>
                     </Grid>
-
-                    <UniformGrid Grid.Row="1"
-                                 Margin="0,22,0,0"
-                                 Columns="3"
-                                 Rows="1">
-                        <Border Margin="0,0,8,0" Style="{StaticResource MetricCardStyle}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                           FontSize="11"
-                                           Text="AUTOMATIC CAPTURE" />
-                                <TextBlock x:Name="AutomaticCaptureStatusText"
-                                           Margin="0,8,0,0"
-                                           FontSize="16"
-                                           FontWeight="SemiBold"
-                                           Text="Off"
-                                           TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                        <Border Margin="4,0" Style="{StaticResource MetricCardStyle}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                           FontSize="11"
-                                           Text="CURRENT GAME" />
-                                <TextBlock x:Name="CurrentGameText"
-                                           Margin="0,8,0,0"
-                                           FontSize="16"
-                                           FontWeight="SemiBold"
-                                           Text="None detected"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </Border>
-                        <Border Margin="8,0,0,0" Style="{StaticResource MetricCardStyle}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                           FontSize="11"
-                                           Text="SEGMENT LENGTH" />
-                                <TextBlock x:Name="SegmentLengthText"
-                                           Margin="0,8,0,0"
-                                           FontSize="16"
-                                           FontWeight="SemiBold"
-                                           Text="-" />
-                            </StackPanel>
-                        </Border>
-                    </UniformGrid>
-
-                    <Grid Grid.Row="2" Margin="0,26,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}"
-                                   Text="Recording backend" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button x:Name="AudioButton"
-                                    Margin="0,0,8,0"
-                                    IsEnabled="False"
-                                    ToolTip="Refresh track routing and the current microphone"
-                                    Click="AudioButton_Click"
-                                    Content="Apply audio" />
-                            <Button x:Name="ObsSetupButton"
-                                    MinWidth="112"
-                                    ToolTip="Install, configure, or verify Blackbox OBS"
-                                    Click="ObsSetupButton_Click"
-                                    Content="Setup OBS" />
-                        </StackPanel>
-                    </Grid>
-
-                    <Border Grid.Row="3"
-                            Margin="0,12,0,0"
-                            Padding="16"
-                            Background="{StaticResource PanelBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6">
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="18" /><ColumnDefinition Width="260" /></Grid.ColumnDefinitions>
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                           FontSize="11"
-                                           Text="RECORDING LOCATION" />
-                                <TextBlock x:Name="LocationText"
-                                           Margin="0,7,20,0"
-                                           Text="-"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                            </StackPanel>
-                            <Button x:Name="OpenRecordingsButton"
-                                    Grid.Column="1"
-                                    Width="38"
-                                    Height="36"
-                                    Style="{StaticResource IconButtonStyle}"
-                                    ToolTip="Open recording folder"
-                                    Click="OpenRecordingsButton_Click"
-                                    Content="&#xE8B7;" />
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Border Height="300" Background="#090A0C" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ClipToBounds="True">
+                                <Grid>
+                                    <Image x:Name="GuardianPreviewImage" Stretch="Uniform" SnapsToDevicePixels="True" />
+                                    <TextBlock x:Name="GuardianPreviewPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               FontFamily="Segoe MDL2 Assets" FontSize="40" Text="&#xE714;" Opacity="0.35" ToolTip="Capture preview" />
+                                </Grid>
+                            </Border>
+                            <Grid Grid.Row="1" Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock x:Name="GuardianVideoText" Visibility="Collapsed" Style="{StaticResource SecondaryTextStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="1" Style="{StaticResource QuietButtonStyle}" Click="RecordingLibraryButton_Click" ToolTip="Review complete recordings"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B2;" Margin="0,0,7,0" /><TextBlock Text="Review" /></StackPanel></Button>
+                            </Grid>
                         </Grid>
-                    </Border>
-
-                    <Grid Grid.Row="4" Margin="0,26,0,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}"
-                                   Text="Quick access" />
-                        <UniformGrid Grid.Row="1"
-                                     Margin="0,12,0,0"
-                                     Columns="5"
-                                     Rows="1">
-                            <Button x:Name="RecordingLibraryButton"
-                                    Margin="0,0,6,0"
-                                    ToolTip="Browse, review, tag, and export recordings"
-                                    Click="RecordingLibraryButton_Click"
-                                    Content="Recordings" />
-                            <Button x:Name="GamesButton"
-                                    Margin="3,0"
-                                    ToolTip="Choose taskbar windows and manage remembered games"
-                                    Click="GamesButton_Click"
-                                    Content="Games" />
-                            <Button x:Name="CalibrateButton"
-                                    Margin="3,0"
-                                    IsEnabled="False"
-                                    ToolTip="Choose microphone routing, exclusions, and calibration"
-                                    Click="CalibrateButton_Click"
-                                    Content="Microphone" />
-                            <Button x:Name="DiagnosticsButton"
-                                    Margin="3,0"
-                                    ToolTip="Inspect health, storage, logs, and recovery"
-                                    Click="DiagnosticsButton_Click"
-                                    Content="Diagnostics" />
-                            <Button x:Name="AutoCaptureButton"
-                                    Margin="6,0,0,0"
-                                    IsEnabled="False"
-                                    ToolTip="Watch remembered games and record them automatically"
-                                    Click="AutoCaptureButton_Click"
-                                    Content="Enable auto" />
-                        </UniformGrid>
+                        <StackPanel Grid.Column="2">
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="CAPTURE HEALTH" FontSize="10" FontWeight="SemiBold" Style="{StaticResource SecondaryTextStyle}" VerticalAlignment="Center" />
+                                <Button x:Name="GuardianCheckButton" Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE72C;" Click="GuardianCheckButton_Click" ToolTip="Check capture health" />
+                            </Grid>
+                            <TextBlock x:Name="CaptureHealthSummaryText" Text="No capture to check" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <TextBlock x:Name="GuardianMessageText" Visibility="Collapsed" TextWrapping="Wrap" Foreground="{StaticResource WarningBrush}" Margin="0,0,0,8" />
+                            <Separator Margin="0,14,0,14" />
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="AUDIO" FontSize="10" FontWeight="SemiBold" Style="{StaticResource SecondaryTextStyle}" VerticalAlignment="Center" />
+                                <Button x:Name="AudioButton" Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE72C;" ToolTip="Apply audio routing" Click="AudioButton_Click" />
+                            </Grid>
+                            <TextBlock x:Name="AudioSignalText" Text="Levels available during capture" Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <Grid x:Name="GuardianAudioMeterRow" Visibility="Collapsed" Margin="0,5,0,0">
+                                <ProgressBar x:Name="GuardianAudioMeter" Height="6" Minimum="0" Maximum="60" />
+                            </Grid>
+                            <TextBlock x:Name="MicrophoneSignalText" Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" />
+                        </StackPanel>
                     </Grid>
+                    <Expander Grid.Row="2" Header="Session details" Margin="0,14,0,0">
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="18" /><ColumnDefinition Width="260" /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="DESTINATION" FontSize="10" Style="{StaticResource SecondaryTextStyle}" />
+                                <Grid Margin="0,5,0,8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LocationText" Text="-" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                                    <Button x:Name="OpenRecordingsButton" Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE8B7;" Click="OpenRecordingsButton_Click" ToolTip="Open recording folder" />
+                                </Grid>
+                                <TextBlock x:Name="GuardianEvidenceText" Text="No capture evidence yet." Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap" MaxHeight="100" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock x:Name="QualitySummaryText" Text="Recording quality" FontWeight="SemiBold" />
+                                <TextBlock x:Name="SegmentLengthText" Text="2 minute segments" Margin="0,5,0,8" Style="{StaticResource SecondaryTextStyle}" />
+                                <WrapPanel>
+                                    <Button x:Name="ObsSetupButton" Content="Check recorder" Click="ObsSetupButton_Click" Style="{StaticResource QuietButtonStyle}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Expander>
                 </Grid>
             </ScrollViewer>
 
+            <Grid x:Name="WorkspacePageHost"
+                  Grid.Row="1"
+                  Background="{StaticResource AppBackgroundBrush}"
+                  ClipToBounds="True"
+                  Visibility="Collapsed" />
+
+            <Border x:Name="CaptureToolbar" Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                <Grid Margin="18,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="AutoCaptureButton" Content="Enable auto" Click="AutoCaptureButton_Click" Margin="0,0,12,0" Style="{StaticResource QuietButtonStyle}" ToolTip="Watch remembered applications" />
+                        <ComboBox x:Name="ClipDurationComboBox" Width="68" Height="30" IsEditable="True" SelectedIndex="1" Margin="0,0,5,0" ToolTip="Clip duration">
+                            <ComboBoxItem Content="30s" /><ComboBoxItem Content="2m" /><ComboBoxItem Content="5m" />
+                        </ComboBox>
+                        <Button x:Name="SaveClipButton" Style="{StaticResource IconButtonStyle}" Content="&#xE714;" Click="SaveClipButton_Click" ToolTip="Save recent clip" />
+                        <Button x:Name="ProtectButton" Style="{StaticResource IconButtonStyle}" Content="&#xE72E;" Click="ProtectButton_Click" ToolTip="Protect previous 5 minutes" />
+                        <Button x:Name="AddMomentButton" Style="{StaticResource IconButtonStyle}" Content="&#xE735;" Click="AddMomentButton_Click" ToolTip="Mark this moment" />
+                        <Separator Margin="10,6" />
+                        <Button x:Name="StopButton" Width="72" Content="Stop" Style="{StaticResource DangerButtonStyle}" Click="StopButton_Click" Margin="0,0,7,0" IsEnabled="False" ToolTip="Stop recording" />
+                        <Button x:Name="StartButton" Width="110" Content="Record" Style="{StaticResource PrimaryButtonStyle}" Click="StartButton_Click" IsEnabled="False" ToolTip="Start recording" />
+                    </StackPanel>
+                </Grid>
+            </Border>
             <ProgressBar x:Name="SetupProgressBar"
-                         Grid.Row="2"
-                         Height="4"
+                         Grid.Row="3"
+                         Height="3"
                          Minimum="0"
                          Maximum="100"
                          Visibility="Collapsed" />
         </Grid>
 
-        <Border x:Name="DrawerScrim"
-                Grid.ColumnSpan="2"
-                Background="#99000000"
-                Opacity="0"
-                Visibility="Collapsed"
-                MouseLeftButtonDown="DrawerScrim_MouseLeftButtonDown" />
-
-        <Border x:Name="DrawerPanel"
-                Grid.ColumnSpan="2"
-                Width="400"
-                HorizontalAlignment="Right"
-                Background="{StaticResource PanelBrush}"
+        <Border x:Name="InlinePagePanel"
+                Grid.Column="1"
+                Margin="0,52,0,59"
+                HorizontalAlignment="Stretch"
+                Background="{StaticResource AppBackgroundBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1,0,0,0"
+                BorderThickness="0"
                 Visibility="Collapsed">
-            <Border.RenderTransform>
-                <TranslateTransform x:Name="DrawerTransform" X="400" />
-            </Border.RenderTransform>
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="72" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <Border BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="0,0,0,1">
-                    <Grid Margin="22,0,16,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="DrawerTitleText"
-                                   VerticalAlignment="Center"
-                                   FontSize="19"
-                                   FontWeight="SemiBold"
-                                   Text="Drawer" />
-                        <Button x:Name="DrawerCloseButton"
-                                Grid.Column="1"
-                                Style="{StaticResource IconButtonStyle}"
-                                ToolTip="Close drawer"
-                                Click="DrawerCloseButton_Click"
-                                Content="&#xE711;" />
-                    </Grid>
-                </Border>
-
-                <ScrollViewer Grid.Row="1"
-                              VerticalScrollBarVisibility="Auto"
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
-                    <Grid Margin="22">
-                        <StackPanel x:Name="GameDrawerContent" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                       Text="CURRENT GAME" />
-                            <TextBlock x:Name="DrawerGameText"
-                                       Margin="0,8,0,22"
-                                       FontSize="20"
-                                       FontWeight="SemiBold"
-                                       Text="None detected"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                       Text="AUTOMATIC CAPTURE" />
-                            <TextBlock x:Name="DrawerAutomaticStatusText"
-                                       Margin="0,8,0,22"
-                                       FontSize="15"
-                                       Text="Off"
-                                       TextWrapping="Wrap" />
-                            <Button x:Name="OpenGameManagerButton"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Click="OpenGameManagerButton_Click"
-                                    Content="Manage remembered games" />
-                        </StackPanel>
-
-                        <StackPanel x:Name="MicrophoneDrawerContent" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                       Text="AUDIO ROUTING" />
-                            <TextBlock Margin="0,8,0,22"
-                                       FontSize="15"
-                                       Text="Full mix, game, voice chat, raw mic, processed mic"
-                                       TextWrapping="Wrap" />
-                            <Button x:Name="DrawerApplyAudioButton"
-                                    Margin="0,0,0,8"
-                                    IsEnabled="False"
-                                    Click="AudioButton_Click"
-                                    Content="Apply audio routing" />
-                            <Button x:Name="DrawerCalibrateButton"
-                                    IsEnabled="False"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Click="CalibrateButton_Click"
-                                    Content="Open microphone setup" />
-                        </StackPanel>
-
-                        <StackPanel x:Name="DiagnosticsDrawerContent" Visibility="Collapsed">
-                            <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                                       Text="SYSTEM STATUS" />
-                            <TextBlock x:Name="DrawerSystemStatusText"
-                                       Margin="0,8,0,22"
-                                       FontSize="15"
-                                       Text="Checking Blackbox..."
-                                       TextWrapping="Wrap" />
-                            <Button x:Name="OpenDiagnosticsWindowButton"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Click="OpenDiagnosticsWindowButton_Click"
-                                    Content="Open diagnostics workspace" />
-                        </StackPanel>
-
-                        <StackPanel x:Name="HelpDrawerContent" Visibility="Collapsed">
+                    <Grid Margin="18,16"
+                          Width="720"
+                          HorizontalAlignment="Left">
+                        <StackPanel x:Name="HelpPageContent" Visibility="Collapsed">
                             <TextBlock Style="{StaticResource SecondaryTextStyle}"
                                        Text="QUICK START" />
                             <TextBlock Margin="0,8,0,18"
@@ -559,19 +341,19 @@
                                        Text="Run these once, then Blackbox can stay in the notification area and record remembered games automatically."
                                        TextWrapping="Wrap" />
 
-                            <TextBlock FontWeight="SemiBold" Text="1. Prepare OBS" />
+                            <TextBlock FontWeight="SemiBold" Text="1. Check the recorder" />
                             <TextBlock Margin="0,4,0,8"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Creates the Blackbox scene, recording tracks, and exact-window game capture source."
+                                       Text="Checks the bundled native capture engine. No account, download, or external recording app is required."
                                        TextWrapping="Wrap" />
                             <Button Margin="0,0,0,16"
                                     Click="TutorialSetupObsButton_Click"
-                                    Content="Check OBS setup" />
+                                    Content="Check recorder" />
 
                             <TextBlock FontWeight="SemiBold" Text="2. Remember a game" />
                             <TextBlock Margin="0,4,0,8"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Open the game first, refresh the taskbar-window list, select it, and choose Remember as game. Use for capture chooses between remembered games that are open together."
+                                       Text="Open the game first, refresh the taskbar-window list, select it, and choose Remember as game, then Use for capture. Manual recording requires this selection and a visible window."
                                        TextWrapping="Wrap" />
                             <Button Margin="0,0,0,16"
                                     Click="TutorialGamesButton_Click"
@@ -604,22 +386,22 @@
                             <TextBlock FontWeight="SemiBold" Text="Start recording / Stop" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Starts or ends a manual continuous session. Segments are joined in the player and during export."
+                                       Text="Starts or ends a continuous session for the running window selected in Games. Recording will not start without a target. Segments are joined in the player and during export."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Protect 5 min" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
                                        Text="Keeps the previous five minutes from automatic storage cleanup."
                                        TextWrapping="Wrap" />
-                            <TextBlock FontWeight="SemiBold" Text="Setup OBS / Check OBS" />
+                            <TextBlock FontWeight="SemiBold" Text="Check recorder" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Builds or verifies the managed OBS profile without changing your personal OBS scenes."
+                                       Text="Verifies the local recording engine. Missing runtime files are reported without downloading anything."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Apply audio" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Refreshes track assignments and routes the current allowed microphone."
+                                       Text="Refreshes the audio mix and the current allowed microphone. Native recordings do not yet have five isolated audio tracks."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Enable auto / Disable auto" />
                             <TextBlock Margin="0,3,0,12"
@@ -629,7 +411,7 @@
                             <TextBlock FontWeight="SemiBold" Text="Recordings" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Opens session review, timeline markers, tags, and continuous-video export."
+                                       Text="Shows session review, timeline markers, tags, and continuous-video export."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Games" />
                             <TextBlock Margin="0,3,0,12"
@@ -639,7 +421,7 @@
                             <TextBlock FontWeight="SemiBold" Text="Microphone" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Controls automatic selection, exclusions, processing, and calibration."
+                                       Text="Controls microphone selection, exclusions, input gain, voice presets, and calibration."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Diagnostics" />
                             <TextBlock Margin="0,3,0,12"
@@ -702,7 +484,7 @@
                             <TextBlock FontWeight="SemiBold" Text="Use for capture" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Makes the selected running remembered game the active OBS target, whether recording is running or stopped."
+                                       Text="Makes the selected running remembered game the capture target. Manual recording requires a selected, open window."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Save profile / Remove profile" />
                             <TextBlock Margin="0,3,0,12"
@@ -721,36 +503,24 @@
                             <TextBlock FontWeight="SemiBold" Text="Apply routing" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Saves automatic selection, exclusions, or the manual microphone and applies it to OBS."
+                                       Text="Saves automatic selection, exclusions, or the selected microphone for the native recorder."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Measure" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Samples room noise, normal speech, or loud speech for processing recommendations."
+                                       Text="Measures background noise, normal speech, and loud speech to recommend microphone levels."
                                        TextWrapping="Wrap" />
                             <TextBlock FontWeight="SemiBold" Text="Apply recommendations / Record comparison" />
                             <TextBlock Margin="0,3,0,12"
                                        Style="{StaticResource SecondaryTextStyle}"
-                                       Text="Saves the measured filters or records before-and-after samples for listening checks."
+                                       Text="Applies calibrated voice settings or records samples with processing off and on. Select a capture window before recording a comparison."
                                        TextWrapping="Wrap" />
                         </StackPanel>
 
-                        <StackPanel x:Name="SettingsDrawerContent" Visibility="Collapsed">
-                            <Grid Margin="0,0,0,20">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock VerticalAlignment="Center"
-                                           FontSize="14"
-                                           Text="Set up OBS when Blackbox starts" />
-                                <ToggleButton x:Name="AutoSetupObsToggle"
-                                              Grid.Column="1"
-                                              Style="{StaticResource SwitchStyle}"
-                                              Click="AutoSetupObsToggle_Click"
-                                              automation:AutomationProperties.Name="Set up OBS when Blackbox starts" />
-                            </Grid>
-                            <Separator Margin="0,0,0,20" />
+                        <StackPanel x:Name="SettingsPageContent" Visibility="Collapsed">
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                            <TextBlock Text="STARTUP" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,16" Style="{StaticResource SecondaryTextStyle}" />
                             <Grid Margin="0,0,0,20">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -796,6 +566,7 @@
                                               automation:AutomationProperties.Name="Keep Blackbox running in notification area" />
                             </Grid>
                             <Separator Margin="0,0,0,20" />
+                            </StackPanel><StackPanel Grid.Column="2">
                             <TextBlock Margin="0,0,0,14"
                                        Style="{StaticResource SecondaryTextStyle}"
                                        Text="RECORDING QUALITY" />
@@ -834,10 +605,35 @@
                                     Content="Apply storage quotas" />
                             <Button Click="OpenRecordingsButton_Click"
                                     Content="Open recording folder" />
+                            </StackPanel></Grid>
                         </StackPanel>
                     </Grid>
                 </ScrollViewer>
             </Grid>
         </Border>
+
+        <Grid x:Name="CommandPaletteOverlay" Grid.ColumnSpan="2" Panel.ZIndex="100" Background="#B0000000" Visibility="Collapsed" MouseLeftButtonDown="CommandPaletteOverlay_MouseLeftButtonDown"
+              FocusManager.IsFocusScope="True" FocusManager.FocusedElement="{Binding ElementName=CommandSearchBox}" KeyboardNavigation.TabNavigation="Cycle">
+            <Border Width="500" MaxHeight="520" Margin="16,68,16,16" VerticalAlignment="Top" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock Text="Quick actions" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Content="&#xE711;" ToolTip="Close quick actions" Click="CloseCommandPalette_Click" />
+                    </Grid>
+                    <TextBox x:Name="CommandSearchBox" Grid.Row="1" Height="34" Style="{StaticResource SearchTextBoxStyle}" Tag="Search commands" TextChanged="CommandSearchBox_TextChanged" PreviewKeyDown="CommandPalette_PreviewKeyDown" automation:AutomationProperties.Name="Search commands" />
+                    <TextBlock x:Name="CommandNoResultsText" Grid.Row="2" Text="No matching actions" Margin="8,20,8,10" Foreground="{StaticResource TextSecondaryBrush}" Visibility="Collapsed" />
+                    <ListBox x:Name="CommandResultsList" Grid.Row="2" Margin="0,10,0,0" MaxHeight="380" BorderThickness="0" HorizontalContentAlignment="Stretch" PreviewKeyDown="CommandPalette_PreviewKeyDown" MouseLeftButtonUp="CommandResultsList_MouseLeftButtonUp">
+                        <ListBox.ItemTemplate><DataTemplate>
+                            <Grid Margin="8,7"><Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}" />
+                                <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" /><TextBlock Text="{Binding Detail}" FontSize="11" Margin="0,3,0,0" Foreground="{StaticResource TextSecondaryBrush}" /></StackPanel>
+                            </Grid>
+                        </DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

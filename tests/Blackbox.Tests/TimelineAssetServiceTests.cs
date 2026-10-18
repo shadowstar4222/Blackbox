@@ -6,6 +6,37 @@ namespace Blackbox.Tests;
 
 public sealed class TimelineAssetServiceTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task Video_only_sessions_cache_thumbnails_without_starting_a_waveform_job(string audioLayout)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "blackbox-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var source = Path.Combine(root, "source.mkv");
+        await File.WriteAllTextAsync(source, "source");
+        try
+        {
+            var segment = TestSegments.Create(source) with { AudioTrackLayout = audioLayout };
+            var session = new RecordingSession(segment.SessionId, segment.StartTime, segment.EndTime,
+                "Video only", [segment], false, false);
+            var registry = new SegmentUsageRegistry();
+            var runner = new AssetWritingRunner(registry, segment.Id);
+            using var service = new TimelineAssetService(new FixedProvisioner(root), runner, registry,
+                new FfmpegOptions { RootDirectory = root, WorkDirectory = Path.Combine(root, "work"),
+                    TimelineCacheDirectory = Path.Combine(root, "cache") }, NullLogger<TimelineAssetService>.Instance);
+            var generated = await service.GetOrCreateAsync(session);
+            var cached = await service.GetOrCreateAsync(session);
+            Assert.Single(generated.Thumbnails);
+            Assert.Empty(generated.Waveform);
+            Assert.True(cached.LoadedFromCache);
+            Assert.Single(cached.Thumbnails);
+            Assert.Equal(1, runner.Calls);
+            Assert.False(registry.IsInUse(segment.Id));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Fact]
     public async Task GetOrCreateAsync_generates_thumbnail_and_waveform_once_then_uses_cache()
     {
@@ -167,7 +198,7 @@ public sealed class TimelineAssetServiceTests
             CancellationToken cancellationToken = default)
         {
             Calls++;
-            return Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe", "ffplay"));
+            return Task.FromResult(new FfmpegInstallation(root, "ffmpeg", "ffprobe"));
         }
     }
 

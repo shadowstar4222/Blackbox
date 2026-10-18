@@ -6,6 +6,8 @@ namespace Blackbox.Storage;
 
 public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepository
 {
+    private long _revision;
+    public long? Revision => Interlocked.Read(ref _revision);
     private readonly string _connectionString = new SqliteConnectionStringBuilder
     {
         DataSource = databasePath,
@@ -49,7 +51,11 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
                 session_id TEXT NOT NULL,
                 offset_ticks INTEGER NOT NULL,
                 label TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                context_before_ticks INTEGER NOT NULL DEFAULT 0,
+                context_after_ticks INTEGER NOT NULL DEFAULT 0,
+                origin INTEGER NOT NULL DEFAULT 0,
+                reason TEXT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_timeline_markers_session
                 ON timeline_markers(session_id, offset_ticks);
@@ -63,6 +69,10 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         await command.ExecuteNonQueryAsync(cancellationToken);
         await EnsureColumnAsync(connection, "is_damaged", cancellationToken);
         await EnsureColumnAsync(connection, "damage_detail", cancellationToken);
+        await EnsureTimelineMarkerColumnAsync(connection, "context_before_ticks", cancellationToken);
+        await EnsureTimelineMarkerColumnAsync(connection, "context_after_ticks", cancellationToken);
+        await EnsureTimelineMarkerColumnAsync(connection, "origin", cancellationToken);
+        await EnsureTimelineMarkerColumnAsync(connection, "reason", cancellationToken);
     }
 
     public async Task UpsertAsync(RecordingSegment segment, CancellationToken cancellationToken = default)
@@ -99,6 +109,7 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
             """;
         AddSegmentParameters(command, segment);
         await command.ExecuteNonQueryAsync(cancellationToken);
+        Interlocked.Increment(ref _revision);
     }
 
     public async Task<IReadOnlyList<RecordingSegment>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -134,7 +145,13 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
                 reader.GetString(reader.GetOrdinal("label")),
                 DateTimeOffset.Parse(
                     reader.GetString(reader.GetOrdinal("created_at")),
-                    System.Globalization.CultureInfo.InvariantCulture)));
+                    System.Globalization.CultureInfo.InvariantCulture),
+                TimeSpan.FromTicks(reader.GetInt64(reader.GetOrdinal("context_before_ticks"))),
+                TimeSpan.FromTicks(reader.GetInt64(reader.GetOrdinal("context_after_ticks"))),
+                (TimelineMarkerOrigin)reader.GetInt32(reader.GetOrdinal("origin")),
+                reader.IsDBNull(reader.GetOrdinal("reason"))
+                    ? null
+                    : reader.GetString(reader.GetOrdinal("reason"))));
         }
 
         return markers;
@@ -142,24 +159,56 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
 
     public async Task AddMarkerAsync(TimelineMarker marker, CancellationToken cancellationToken = default)
     {
-        if (marker.Offset < TimeSpan.Zero || string.IsNullOrWhiteSpace(marker.Label))
-        {
-            throw new ArgumentException("Timeline markers require a non-negative offset and label.", nameof(marker));
-        }
+        marker.Validate();
 
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO timeline_markers (id, session_id, offset_ticks, label, created_at)
-            VALUES ($id, $session_id, $offset_ticks, $label, $created_at);
+            INSERT INTO timeline_markers (
+                id, session_id, offset_ticks, label, created_at,
+                context_before_ticks, context_after_ticks, origin, reason)
+            VALUES (
+                $id, $session_id, $offset_ticks, $label, $created_at,
+                $context_before_ticks, $context_after_ticks, $origin, $reason);
             """;
         command.Parameters.AddWithValue("$id", marker.Id.ToString());
         command.Parameters.AddWithValue("$session_id", marker.SessionId.ToString());
         command.Parameters.AddWithValue("$offset_ticks", marker.Offset.Ticks);
         command.Parameters.AddWithValue("$label", marker.Label);
         command.Parameters.AddWithValue("$created_at", marker.CreatedAt.ToString("O"));
+        command.Parameters.AddWithValue("$context_before_ticks", marker.ContextBefore.Ticks);
+        command.Parameters.AddWithValue("$context_after_ticks", marker.ContextAfter.Ticks);
+        command.Parameters.AddWithValue("$origin", (int)marker.Origin);
+        command.Parameters.AddWithValue("$reason", (object?)marker.Reason ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
+        Interlocked.Increment(ref _revision);
+    }
+
+    public async Task UpdateMarkerPlacementAsync(
+        Guid markerId,
+        Guid sessionId,
+        TimeSpan offset,
+        CancellationToken cancellationToken = default)
+    {
+        if (markerId == Guid.Empty || sessionId == Guid.Empty || offset < TimeSpan.Zero)
+        {
+            throw new ArgumentException("A marker placement requires marker and session IDs plus a non-negative offset.");
+        }
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE timeline_markers
+            SET session_id = $session_id, offset_ticks = $offset_ticks
+            WHERE id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", markerId.ToString());
+        command.Parameters.AddWithValue("$session_id", sessionId.ToString());
+        command.Parameters.AddWithValue("$offset_ticks", offset.Ticks);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        Interlocked.Increment(ref _revision);
     }
 
     public async Task DeleteMarkerAsync(Guid id, CancellationToken cancellationToken = default)
@@ -170,6 +219,7 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         command.CommandText = "DELETE FROM timeline_markers WHERE id = $id;";
         command.Parameters.AddWithValue("$id", id.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
+        Interlocked.Increment(ref _revision);
     }
 
     public async Task<IReadOnlyList<ProtectedTimelineRange>> GetProtectedRangesAsync(
@@ -246,6 +296,7 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         insertCommand.Parameters.AddWithValue("$created_at", DateTimeOffset.UtcNow.ToString("O"));
         await insertCommand.ExecuteNonQueryAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        Interlocked.Increment(ref _revision);
     }
 
     public async Task DeleteByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -256,6 +307,7 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         command.CommandText = "DELETE FROM segments WHERE id = $id;";
         command.Parameters.AddWithValue("$id", id.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
+        Interlocked.Increment(ref _revision);
     }
 
     public async Task ReconcileMissingFilesAsync(CancellationToken cancellationToken = default)
@@ -357,6 +409,52 @@ public sealed class SqliteSegmentRepository(string databasePath) : ISegmentRepos
         {
             "is_damaged" => "ALTER TABLE segments ADD COLUMN is_damaged INTEGER NOT NULL DEFAULT 0;",
             "damage_detail" => "ALTER TABLE segments ADD COLUMN damage_detail TEXT NULL;",
+            _ => throw new ArgumentOutOfRangeException(nameof(columnName))
+        };
+        await alterCommand.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    [SuppressMessage(
+        "Security",
+        "CA2100:Review SQL queries for security vulnerabilities",
+        Justification = "Migration SQL is selected from a closed compile-time allowlist and never includes external input.")]
+    private static async Task EnsureTimelineMarkerColumnAsync(
+        SqliteConnection connection,
+        string columnName,
+        CancellationToken cancellationToken)
+    {
+        var inspectCommand = connection.CreateCommand();
+        inspectCommand.CommandText = "PRAGMA table_info(timeline_markers);";
+        var exists = false;
+        await using (var reader = await inspectCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (reader.GetString(reader.GetOrdinal("name"))
+                    .Equals(columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        if (exists)
+        {
+            return;
+        }
+
+        var alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = columnName switch
+        {
+            "context_before_ticks" =>
+                "ALTER TABLE timeline_markers ADD COLUMN context_before_ticks INTEGER NOT NULL DEFAULT 0;",
+            "context_after_ticks" =>
+                "ALTER TABLE timeline_markers ADD COLUMN context_after_ticks INTEGER NOT NULL DEFAULT 0;",
+            "origin" =>
+                "ALTER TABLE timeline_markers ADD COLUMN origin INTEGER NOT NULL DEFAULT 0;",
+            "reason" =>
+                "ALTER TABLE timeline_markers ADD COLUMN reason TEXT NULL;",
             _ => throw new ArgumentOutOfRangeException(nameof(columnName))
         };
         await alterCommand.ExecuteNonQueryAsync(cancellationToken);

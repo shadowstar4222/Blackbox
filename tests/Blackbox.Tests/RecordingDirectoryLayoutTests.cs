@@ -38,4 +38,21 @@ public sealed class RecordingDirectoryLayoutTests
 
         Assert.Contains($"{Path.DirectorySeparatorChar}Recording{Path.DirectorySeparatorChar}", path);
     }
+
+    [Fact]
+    public void IsInternalPath_excludes_generated_clips_from_recording_sessions()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "Blackbox");
+        var clip = Path.Combine(
+            root,
+            RecordingDirectoryLayout.InstantClipName,
+            "Example Game",
+            "2026-07-25",
+            "clip.mkv");
+
+        Assert.True(RecordingDirectoryLayout.IsInternalPath(root, clip));
+        Assert.False(RecordingDirectoryLayout.IsInternalPath(
+            root,
+            Path.Combine(root, "Example Game", "2026-07-25", "recording.mkv")));
+    }
 }

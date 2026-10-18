@@ -1,0 +1,104 @@
+BLACKBOX NATIVE RECORDER PREVIEW
+October 17, 2026 - 2.0.0-preview.17 - local testing build
+
+START
+1. Exit the older Blackbox from its system tray icon.
+2. Run Blackbox.App.exe in this folder. Keep the entire folder together.
+3. Wait for Ready in the left sidebar. OBS is not used, launched, or installed.
+4. Open the game/application. In Games, select its actual running window,
+   remember it, and choose Use for capture.
+5. Start recording, or enable automatic recording for remembered applications.
+6. Use Recordings to review the continuous timeline and export one video.
+   Review, clips, and exports stay inside Blackbox. While recording, Time-shift
+   follows finalized segments with about one segment of buffering. It does not
+   read the active file or provide a zero-delay feed. Leaving review releases
+   the decoder; return to the library and Review from cursor to resume.
+7. Optional: Diagnostics > Recording setup window opens a temporary capture
+   target. Review the photosensitivity warning, then start the scene. With auto
+   enabled, Start scene & record begins recording when the scene is ready.
+   With auto off, press Record manually. Stop saves the test without restarting.
+   The original colorful video and richer music loop until closed. Output
+   settings are printed into the recording. Auto can be toggled without closing
+   setup; closing restores remembered-game watching when auto is enabled.
+   Nothing plays automatically when Blackbox starts or the setup panel opens.
+
+Use the Blackbox-NATIVE-NEXT folder. Updates keep this executable path unchanged
+and retain your settings and recordings. Completed compatible MKV recordings now
+use a single continuous playback input, including older captures, without a
+merged temporary video. Time-shift following retains per-segment playback.
+The earlier audio timing fix applies to new
+captures; it does not automatically repair already-recorded audio drift.
+
+WINDOWS REQUIREMENT
+Windows 10 2004/build 19041 or newer, x64. Windows Media Foundation must be
+available (Windows N editions may require Microsoft's Media Feature Pack).
+The portable folder includes the .NET runtime, native recorder, Visual C++
+runtime DLLs, and video tools. No OBS or cloud account is required.
+
+WHAT CHANGED
+- Windows Graphics Capture selects a specific window handle and verifies its
+  process identity. It never silently falls back to recording the desktop.
+- Hardware H.264 encoding is requested through Media Foundation. Compressed
+  data is copied into MKV segments without a second video encode.
+- The main app and native recording engine are separate processes. Native
+  failure is reported to the app; completed segments are preserved.
+- First-frame and encoded-output progress are checked before start succeeds.
+- Resizing preserves the whole window inside a fixed-size output canvas.
+- Minimized windows pause recording and resume when restored. A closed window
+  pauses briefly, then finalizes the recording if no replacement is selected.
+  Automatic capture stays enabled and can start again for the next remembered game.
+  In automatic mode, a prolonged unavailable/minimized window can also end the
+  session after the game-detection grace period; restoration starts a new session.
+- Switching to a different game creates a new recording in that game's folder.
+- Low-frequency capture snapshots help identify black/frozen video without
+  copying every video frame to the UI.
+- Window discovery uses a shared short cache and limited-access process reads.
+- Active files are not indexed or exported. Closed segments are promoted only
+  after the muxer writes the trailer; interrupted active files can be recovered.
+- Manual markers and recent clips account for native recording pauses.
+- A profile lock prevents duplicate instances of this version.
+- Recorder status checks inspect only the current segment, not every old segment.
+- Idle workers wait for commands. Recording health checks run four times per
+  second, with status events shared across the app's consumers.
+- Marker retention skips unchanged metadata while idle, and repeated preview
+  images reuse their decoded bitmap.
+- The deferred OBS dock and its web framework are excluded from this package.
+- Obsolete video-tool downloads and no-op startup/dock controls were removed.
+
+AUDIO
+This preview records one stereo AAC mix, not the older five-track OBS layout.
+Windows 10 records the default system-output mix plus the chosen microphone.
+Windows builds 20348+ support process-tree audio capture instead of system mix.
+On Windows 10, other audible applications can be included in the system mix.
+Microphone selection, default-device following, exclusions, mute, and input gain
+are retained. The native microphone path adds a 48 kHz voice chain with
+high-pass filtering, SpeexDSP noise suppression, an expander, two-band voice EQ,
+compression, de-essing, and a final limiter. Natural, Broadcast, Strong noise
+removal, and calibrated Custom profiles can be selected globally or per game.
+Isolated voice-chat tracks and live per-source audio/automatic highlight
+analysis remain disabled in this preview.
+Native AAC choices are 160 and 192 kbps. Legacy 256/320 settings map to 192 kbps.
+
+PERFORMANCE AND LIMITS
+Start with 1080p60, or use 720p30 for a lower workload. Higher resolutions/FPS
+need more GPU headroom. Hardware encoding is requested, but the library can
+fall back to software and does not expose the selected encoder. Check GPU Video
+Encode activity and test under your normal game load before relying on it.
+Protected, exclusive-fullscreen, or capture-blocking games may remain unavailable.
+Borderless/windowed mode is recommended. This build does not bypass anti-cheat
+or Windows capture protections. Helldivers 2 has not been revalidated live yet.
+OBS-specific crop and encoder controls are unavailable in this preview.
+Black/frozen preview warnings require attention; force-resetting a native source
+is not automated yet. Restore the window or stop and restart the recording.
+
+DATA
+Your existing recordings and settings are retained in their normal locations.
+Recordings: %USERPROFILE%\Videos\Blackbox\Application\YYYY-MM-DD
+Settings/logs: %LOCALAPPDATA%\Blackbox
+For isolated developer testing, BLACKBOX_DATA_DIRECTORY selects a separate
+profile and Recordings subdirectory, without changing Windows-startup registration.
+
+VALIDATION
+See docs/native-recorder-validation.md in the source for exact test evidence and
+remaining work, or VALIDATION.md in this package. Superseded software is grouped
+under outputs\DELETE-OLD-BLACKBOX, ready for manual deletion.

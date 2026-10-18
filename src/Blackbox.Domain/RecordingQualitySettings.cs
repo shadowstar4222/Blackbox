@@ -13,7 +13,9 @@ public sealed record RecordingQualitySettings
 {
     public RecordingResolution Resolution { get; init; } = RecordingResolution.FullHd1080;
     public int FramesPerSecond { get; init; } = 60;
-    public int AudioBitrateKbps { get; init; } = 256;
+    public int AudioBitrateKbps { get; init; } = 160;
+
+    public RecordingQualitySettings ForNativeRecording() => this with { AudioBitrateKbps = Math.Min(AudioBitrateKbps, 192) };
 
     public void Validate()
     {
@@ -27,9 +29,9 @@ public sealed record RecordingQualitySettings
             throw new InvalidOperationException("Recording frame rate must be 30, 60, or 120 FPS.");
         }
 
-        if (AudioBitrateKbps is not (160 or 256 or 320))
+        if (AudioBitrateKbps is not (160 or 192 or 256 or 320))
         {
-            throw new InvalidOperationException("Recording audio quality must be 160, 256, or 320 kbps.");
+            throw new InvalidOperationException("Recording audio quality must be 160 or 192 kbps (legacy 256/320 settings are accepted for migration).");
         }
     }
 }

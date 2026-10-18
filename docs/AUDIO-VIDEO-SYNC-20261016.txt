@@ -1,0 +1,46 @@
+BLACKBOX AUDIO/VIDEO SYNC FIX
+October 16, 2026 - 2.0.0-preview.6 - local Windows 10 testing
+
+FINDING
+The user's roughly four-hour recording ended with audio 8.981 seconds longer
+than video. A flash/tone fixture also showed increasing offset in the old
+forced-CFR mode. This was present in media timing, not just the review slider.
+
+CHANGE
+Native video now preserves capture-clock timestamps (IsFixedFramerate=false).
+Late frames are not packed into an independent fixed-frame-count timeline.
+Hardware H.264 remains requested; FFmpeg still copies video, without a second
+video encode. BLACKBOX_NOMINAL_FPS metadata preserves the requested frame-rate
+setting for frame controls and export compatibility, without retiming packets.
+
+VERIFICATION
+- 312 application/export/storage tests and 41 native/protocol/DSP tests passed.
+- Five-minute timed run with system audio, microphone DSP, and pause/resume:
+  11 MKVs, 154 matched flashes/1 kHz pulses, 3.5 ms start-to-end drift.
+- Real SessionExportService joined the timestamped segments to MKV and MP4
+  using video stream-copy. The joined MKV retained all 154 pulse pairs and
+  measured -22.5 ms start-to-end drift (below one 30 FPS frame).
+- In-app exported-video playback: 299 displayed frames over 5.013 seconds,
+  zero lost pictures; 22 frame steps, no decoder reopens, changing pixels,
+  and both closed review pages collected.
+- Extended live test passed resize, minimize/restore, live preset changes,
+  target switch while paused, target closure, restart, and parent disconnect.
+  No microphone frames were dropped at the checked points.
+
+LIMITS
+This is not another four-hour gameplay soak. Pulse timing measures the system
+audio path with microphone mixing enabled, not separate physical-mic speech
+alignment. A small final microphone/AAC drain can outlast the last video frame;
+it is distinct from cumulative drift. Old recordings are unchanged and cannot
+recover missing original capture timestamps automatically.
+
+REPRODUCE
+Build tests/Blackbox.Capture.Smoke, then run:
+  Blackbox.Capture.Smoke.exe --sync <worker.exe> <ffmpeg.exe> <new-output-dir> 300
+Analyze with Python + NumPy:
+  python scripts/Measure-AvSync.py <output-dir> <ffmpeg.exe> --summary --max-drift-ms 80
+Real export integration test inputs:
+  BLACKBOX_SYNC_INTEGRATION_DIRECTORY=<output-dir>
+  BLACKBOX_FFMPEG_DIRECTORY=<folder-containing-bin>
+Run NativeTimestampExportIntegrationTests with these set.
+Raw local evidence: artifacts/sync-20261016.

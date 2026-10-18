@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Blackbox.Infrastructure\Blackbox.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\dock.html" LogicalName="Blackbox.Dock.Assets.dock.html" />
+    <EmbeddedResource Include="Assets\dock.css" LogicalName="Blackbox.Dock.Assets.dock.css" />
+    <EmbeddedResource Include="Assets\dock.js" LogicalName="Blackbox.Dock.Assets.dock.js" />
+    <EmbeddedResource Include="..\Blackbox.App\Assets\Blackbox.png"
+                      Link="Assets\blackbox.png"
+                      LogicalName="Blackbox.Dock.Assets.blackbox.png" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

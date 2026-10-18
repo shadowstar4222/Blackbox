@@ -1,0 +1,29 @@
+BLACKBOX COMPACT RECORDING TIMELINE
+October 17, 2026 - 2.0.0-preview.17
+
+An empty marker ListBox stretched into the surplus height of the timeline,
+creating a large gray rectangle when the window expanded. The marker list now
+collapses when empty. A populated list is transparent, content-sized up to
+180 pixels, and uses virtualized pixel scrolling. Timeline rows use their
+natural height; actions sit below the controls instead of below empty space.
+On shorter windows, timeline details scroll and actions remain accessible.
+The centered no-recording-selected state is preserved.
+
+Only layout changed. No user recordings, markers, notes, recording settings,
+capture behavior, or playback behavior were modified.
+
+Validation: artifacts/timeline-layout-20261017. The baseline reproduced the
+empty gray panel and failed the new regression. The fixed layout is exercised
+at 1240x980, 1920x1080, 1240x780, and 1024x680, with and without preview assets,
+and with 0, 3, and 200 synthetic markers (24 resize/content combinations).
+Checks cover empty-list collapse, bounded height, action visibility and spacing,
+last-marker reachability, recycling virtualization, and the centered empty
+state. Screenshots are compared visually. Fixtures use isolated settings and
+neutral pre-existing sample media, not the user's recordings.
+
+PASSED
+369 main tests plus 54 native-capture tests (423 total), the packaged recorder
+prerequisite probe, all 24 timeline cases and the centered empty-state check,
+and the full workspace/playback/scrolling regression. Final screenshots are in
+validated-profile/ui-snapshots under the validation directory. Marker labels,
+context, and removal tools retain separate columns as the list grows wider.

@@ -1,14 +1,16 @@
-BLACKBOX DETAILED GUIDE
+BLACKBOX LEGACY OBS GUIDE (v1.0.0)
 =======================
 
-This is the long-form Blackbox manual. For the short project overview and
-installation steps, see README.md.
+This manual describes the older OBS-based v1.0.0 release, not the current
+2.0 native recorder. For current installation and usage, see README.md and
+docs/NATIVE-RECORDER.txt. OBS setup and isolated-track instructions below do
+not apply to the native preview.
 
 Blackbox is a Windows desktop recorder for continuously capturing games and other application windows through a private OBS Studio backend. It records interruption-resistant MKV segments, presents them as one continuous session, and provides the tools needed to review, mark, protect, mix, and export the footage without managing OBS by hand.
 
 Blackbox is built with .NET 8, WPF, SQLite, OBS Studio, FFmpeg, and LibVLC. The current build supports Windows 10 version 2004 (build 19041) or later on 64-bit systems.
 
-> Blackbox v1.0.0 is the first public Windows x64 release. The capture, recovery, review, export, microphone, and automatic game-selection workflows are implemented and tested. The planned OBS dock remains future work.
+> Historical reference only. The OBS dock remains deferred and is excluded from the native desktop package.
 
 ## Contents
 
@@ -66,6 +68,15 @@ The original segments remain the durable source of truth. Continuous playback an
 - Configures Game Capture as `Capture specific window` with `Window title must match` and the exact live OBS window identifier.
 - Keeps Blackbox's scene and profile separate from the user's personal or Steam OBS configuration.
 
+### OBS Dock
+
+- Embeds a compact control surface in Blackbox's managed portable OBS.
+- Shows recording state, elapsed time, current game, automatic-capture state, and Blackbox status.
+- Starts or stops recording, toggles automatic capture, protects five minutes, and adds a live timeline marker.
+- Opens the Blackbox timeline or microphone controls from OBS.
+- Registers only in the managed portable OBS `user.ini`; personal OBS scenes, profiles, and docks are not changed.
+- Serves embedded assets on `127.0.0.1` through a persistent random capability URL with no remote web dependencies.
+
 ### Audio And Microphones
 
 - Records five named audio tracks for the full mix, game, voice chat, raw microphone, and processed microphone.
@@ -81,6 +92,9 @@ The original segments remain the durable source of truth. Continuous playback an
 - Provides an embedded LibVLC player with play, pause, mute, volume, speed, looping, fullscreen, audio-track selection, 10-second jumps, segment jumps, and frame stepping.
 - Draws numbered segment boundaries, cached thumbnails, and a full-mix waveform on the timeline.
 - Supports quick tags, manual event markers, marker navigation, and marker removal.
+- Saves recent footage as restart-safe instant clips with a pending/ready/failed inbox and direct source-range navigation.
+- Stores notes on sessions, markers, instant clips, and selected timeline ranges.
+- Supports per-game, opt-in audio-spike and major-scene-change markers with reasons, context, and cooldowns.
 - Protects selected ranges and the previous five minutes from storage cleanup.
 - Exports a whole session or selected range to one MKV or MP4.
 - Supports per-track mute, solo, volume, and optional separate 24-bit PCM WAV exports.
@@ -96,9 +110,18 @@ The original segments remain the durable source of truth. Continuous playback an
 - Creates a privacy-reviewed support bundle with capped and redacted event data.
 - Keeps settings writes atomic and uses SQLite WAL mode for safe concurrent access.
 
+### Recording Guardian
+
+- Shows a scaled live preview of the exact OBS game-capture source.
+- Reports the active window, output resolution, frame rate, recording-output state, and game-audio level.
+- Confirms sustained black, frozen, silent, missing-source, and disconnected-OBS conditions.
+- Rebinds and refits the selected source with a capped retry budget while preserving the recording output.
+- Records the evidence, active profile, action, and result in Diagnostics and local logs.
+- Notifies for recording, capture switching, microphone, low-storage, repair, recovery, and fault events.
+
 ### Desktop Experience
 
-- OBS-inspired dark WPF interface with Capture, Recordings, Games, Microphone, Diagnostics, Settings, and Help workspaces.
+- OBS-inspired dark WPF interface with in-place Capture, Recordings, Games, Microphone, Diagnostics, Settings, and Help workspaces.
 - Notification-area controls for recording, protection, automatic capture, recordings, and application exit.
 - Optional close-to-notification-area and minimize-to-notification-area behavior.
 - Optional current-user Windows startup with a quiet `--background` launch.
@@ -141,7 +164,7 @@ Blackbox stores its private runtime and settings under `%LOCALAPPDATA%\Blackbox`
 ### Remember A Game Or Application
 
 1. Start the program and leave its main taskbar window open.
-2. In Blackbox, open **Games** and select **Manage remembered games**.
+2. In Blackbox, open **Games**.
 3. Select the program under **Open application windows**.
 4. Select **Remember as game**.
 5. Leave **Record automatically** enabled for that profile if it should participate in automatic capture.
@@ -241,11 +264,12 @@ Blackbox keeps recordings separate from application state:
 | Location | Contents |
 | --- | --- |
 | `%USERPROFILE%\Videos\Blackbox` | Recordings, exports, and recovery backups |
-| `%LOCALAPPDATA%\Blackbox\blackbox.db` | Segment, profile, marker, and protected-range metadata |
+| `%LOCALAPPDATA%\Blackbox\blackbox.db` | Segment, profile, marker, clip-job, source-ownership, note, and protected-range metadata |
 | `%LOCALAPPDATA%\Blackbox\obs-portable` | Private OBS runtime and portable OBS data |
 | `%LOCALAPPDATA%\Blackbox\ffmpeg` | Verified FFmpeg, FFprobe, and FFplay tools |
 | `%LOCALAPPDATA%\Blackbox\timeline-cache` | Generated thumbnails and waveform data |
 | `%LOCALAPPDATA%\Blackbox\logs` | Rolling diagnostic logs |
+| `%LOCALAPPDATA%\Blackbox\obs-dock.json` | Private local dock token and preferred loopback port |
 | `%LOCALAPPDATA%\Blackbox\*.json` | Connection, microphone, capture, and desktop preferences |
 
 Removing the application folder does not remove recordings or local application data. Back up both the Videos and Local AppData locations when migrating Blackbox to another computer.
@@ -285,6 +309,7 @@ Blackbox keeps capture infrastructure behind interfaces and concentrates lifecyc
 | Project | Responsibility |
 | --- | --- |
 | `Blackbox.App` | WPF UI, dependency injection, tray icon, hotkeys, startup recovery, diagnostics, and LibVLC player |
+| `Blackbox.Dock` | Authenticated loopback service, embedded OBS dock UI, and managed portable-OBS dock registration |
 | `Blackbox.Domain` | Immutable models, validation, settings, and repository contracts |
 | `Blackbox.Infrastructure` | OBS websocket control, portable OBS provisioning, Windows process/device discovery, settings, logging, and support bundles |
 | `Blackbox.Recording` | Recording lifecycle, automatic capture, microphone monitoring/calibration, protection, and OBS setup orchestration |
@@ -313,6 +338,8 @@ Blackbox is designed as a local desktop application:
 
 - It does not require a cloud account or upload recordings.
 - OBS websocket access is bound to localhost and uses a generated password.
+- OBS dock access binds only to `127.0.0.1`, uses a separate 256-bit capability token in its path, requires JSON plus a custom command header, and sends no CORS permission.
+- Dock responses disable caching and referrers, restrict scripts, styles, images, and connections to the same local origin, and request no camera, microphone, or location browser permissions.
 - Blackbox does not inject code into games, Steam, or voice-chat processes.
 - The private OBS runtime does not modify the user's personal OBS scenes or profiles.
 - Completed media is imported only after the file is stable and non-empty.
@@ -335,6 +362,15 @@ Support bundles exclude recordings, screenshots, the SQLite database, OBS passwo
 5. Use **Check OBS** after setup completes to validate a real output file.
 
 Blackbox does not control the user's normal OBS instance. Its managed `obs64.exe` runs from `%LOCALAPPDATA%\Blackbox\obs-portable`.
+
+### The OBS Dock Is Missing
+
+1. Open Blackbox Settings and use **Install / repair** under **OBS Dock**.
+2. Reopen Blackbox's private OBS if it was already running when registration changed.
+3. Use **Open preview** to confirm that the local dock service is available.
+4. Check `%LOCALAPPDATA%\Blackbox\logs` if Settings reports that registration needs repair.
+
+Blackbox preserves unrelated custom docks. If the existing `ExtraBrowserDocks` value is malformed, Blackbox leaves `user.ini` unchanged rather than replacing unknown data. Correct the malformed OBS entry or restore `user.ini.blackbox-backup`, then retry.
 
 ### OBS Shows A Black Game Preview
 
@@ -380,12 +416,13 @@ Logs are stored in `%LOCALAPPDATA%\Blackbox\logs`. Use the Diagnostics support-b
 
 ## Testing And Project Status
 
-Milestone 7G, active remembered-game switching, is complete.
+Milestone 8, the local OBS dock, Milestone 9 Recording Guardian, Game Profiles 2.0, and the first Milestone 11 instant-clip and annotation implementation are present in the development source. The public v1.0.0 package remains the validated Milestone 7G build.
 
 Current verification on Windows 10 x64:
 
 - Release build: zero warnings and zero errors.
-- Automated suite: 150 passed, zero failed, zero skipped.
+- Public v1.0.0 automated suite: 150 passed, zero failed, zero skipped.
+- Current source automated suite: 216 passed, zero failed, zero skipped.
 - Live private OBS startup and websocket setup verified.
 - Exact title-matched game-capture settings verified.
 - Windows default-microphone routing verified.
@@ -406,19 +443,16 @@ Validation reports are kept under [`docs`](docs/).
 | [`docs/roadmap.md`](docs/roadmap.md) | Completed milestones and planned work |
 | [`docs/milestone-7-hardening-report.md`](docs/milestone-7-hardening-report.md) | Hardening and optimization audit |
 | [`docs/milestone-7g-game-switching-test.md`](docs/milestone-7g-game-switching-test.md) | Current active-game switching acceptance checks |
+| [`docs/milestone-8-obs-dock-test.md`](docs/milestone-8-obs-dock-test.md) | OBS dock security, registration, controls, and acceptance checks |
+| [`docs/milestone-11-instant-clips-test.md`](docs/milestone-11-instant-clips-test.md) | Instant clips, notes, marker context, source ownership, and automatic-marker checks |
 
 Additional milestone-specific microphone, player, export, automatic-capture, recovery, and desktop validation procedures are available in the same directory.
 
 ## Roadmap
 
-Completed work includes recording coordination, quota protection, multi-track audio, microphone calibration, automatic OBS setup, continuous review and export, remembered-game capture, recovery and diagnostics, desktop quality-of-life improvements, exact capture reliability, onboarding, and active remembered-game switching.
+Completed development work includes recording coordination, quota protection, multi-track audio, microphone calibration, automatic OBS setup, continuous review and export, remembered-game capture, recovery and diagnostics, desktop quality-of-life improvements, exact capture reliability, onboarding, active remembered-game switching, and the local OBS Dock Edition.
 
-The next planned milestone is the **OBS Dock Edition**:
-
-- localhost control surface shared with the desktop app;
-- recording, protection, marker, microphone, and automatic-capture controls inside OBS;
-- direct timeline launch and status reporting;
-- one-click dock registration that does not modify personal scenes or profiles.
+Planned Milestones 9 through 17 cover recording health and live preview, advanced game profiles and controller controls, instant clips and automatic markers, local transcription and library search, highlight production and queued export, multi-window composition and privacy, a paired local companion, isolated game-integration plugins, and verified updates with rollback.
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the detailed milestone history and acceptance criteria.
 

@@ -103,20 +103,24 @@ public sealed class TimelineAssetService(
                 throw new InvalidDataException("FFmpeg did not produce timeline thumbnails.");
             }
 
-            progress?.Report(new RecordingLibraryProgress("Generating audio waveform...", 56));
-            var pcmPath = Path.Combine(stagingDirectory, "waveform.pcm");
-            await commandRunner.RunAsync(
-                installation.FfmpegPath,
-                TimelineAssetArgumentBuilder.BuildWaveform(concatPath, pcmPath),
-                session.Duration,
-                new Progress<double>(percent => progress?.Report(new RecordingLibraryProgress(
-                    "Generating audio waveform...",
-                    56 + percent * 0.4))),
-                cancellationToken);
-            var waveform = WaveformSampler.Sample(
-                await File.ReadAllBytesAsync(pcmPath, cancellationToken),
-                WaveformBucketCount);
-            File.Delete(pcmPath);
+            IReadOnlyList<double> waveform = [];
+            if (session.Segments.All(static segment => !string.IsNullOrWhiteSpace(segment.AudioTrackLayout)))
+            {
+                progress?.Report(new RecordingLibraryProgress("Generating audio waveform...", 56));
+                var pcmPath = Path.Combine(stagingDirectory, "waveform.pcm");
+                await commandRunner.RunAsync(
+                    installation.FfmpegPath,
+                    TimelineAssetArgumentBuilder.BuildWaveform(concatPath, pcmPath),
+                    session.Duration,
+                    new Progress<double>(percent => progress?.Report(new RecordingLibraryProgress(
+                        "Generating audio waveform...",
+                        56 + percent * 0.4))),
+                    cancellationToken);
+                waveform = WaveformSampler.Sample(
+                    await File.ReadAllBytesAsync(pcmPath, cancellationToken),
+                    WaveformBucketCount);
+                File.Delete(pcmPath);
+            }
 
             var interval = session.Duration.TotalSeconds / thumbnailFiles.Length;
             var manifest = new TimelineManifest(

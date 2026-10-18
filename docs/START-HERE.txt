@@ -1,60 +1,35 @@
-BLACKBOX CAPTURE QUALITY OF LIFE BUILD
+BLACKBOX 2.0 NATIVE PREVIEW
+Current release: 2.0.0-preview.17
 
-1. Extract the entire ZIP to a normal folder.
-2. Double-click Blackbox.App.exe.
-3. Wait for the status to show "OBS is configured and ready."
+1. Extract the complete Windows x64 ZIP.
+2. Run Blackbox.App.exe. OBS and an external video player are not needed.
+3. Start your game or application and leave its window open.
+4. In Games, select the real running window, choose Remember, then Capture.
+5. Press Record, or Enable auto for remembered applications.
+6. In Microphone, choose routing and a voice preset, then Apply.
+7. In Recordings, review a continuous session, add markers, or export one video.
 
-Blackbox now prepares its private OBS runtime automatically when it starts. It
-checks normal and Steam OBS locations first, including secondary Steam
-libraries. If OBS is already installed, Blackbox prepares its private runtime
-from those local files. Otherwise, it downloads and verifies the official OBS
-Studio package. Administrator access is not required.
+Settings contains recording quality, Start with Windows, automatic watching,
+and Close to notification area. To fully exit, use Blackbox's tray menu.
 
-Open Settings to control:
+The optional Diagnostics recording-setup window is a capturable test scene with
+music and recording-settings overlays. Its bright colors and motion may trigger
+seizures or discomfort. Read and confirm its warning before starting.
 
-- Set up OBS when Blackbox starts
-- Start with Windows
-- Automatic recording at startup
-- Close to notification area
-- Recording resolution
-- Recording frame rate
-- Recording audio quality
+IMPORTANT PREVIEW LIMITS
+Windows 10 captures system-output audio plus the microphone into one stereo mix;
+other audible applications can be included. Isolated tracks are not available.
+Hardware encoding is requested but may fall back to software. Capture-blocking
+games are not bypassed. Time-shift buffers completed segments, not live frames.
+Test under your normal workload before relying on a long recording.
 
-Use "Apply recording quality" after changing resolution, FPS, or audio quality.
-"Check OBS" remains available when you want Blackbox to make and validate a
-short setup-check recording.
+Recordings: %USERPROFILE%\Videos\Blackbox\Application\YYYY-MM-DD
+Settings and logs: %LOCALAPPDATA%\Blackbox
 
-To use automatic recording:
+Keep the full portable folder together. Exit Blackbox before replacing it.
+Settings and recordings live outside that folder and should not be removed.
+Keep superseded builds together in one clearly labeled deletable folder.
 
-1. Start the program or game and leave its main window running.
-2. Open Games and select Manage remembered games.
-3. Choose it under Running applications and select Remember as game.
-4. Select Use for capture whenever multiple remembered games are open and you
-   want to choose which one OBS records.
-5. Enable Automatic recording at startup in Settings.
-
-Blackbox watches only applications you choose. When one starts, it binds OBS to
-the live window and process audio, then records automatically. If the window is
-resized, Blackbox reframes the OBS source without stopping the recording.
-Switching the active game also updates OBS without stopping a recording that is
-already running.
-
-Recordings are stored under Videos\Blackbox:
-
-- Manual\YYYY-MM-DD for manual recordings
-- Application Name\YYYY-MM-DD for automatic recordings
-
-The Recordings workspace scans those folders recursively and presents segmented
-MKV files as continuous sessions. It can play, mark, protect, and export a
-session as one MKV or MP4.
-
-The private OBS runtime is separate from your normal or Steam OBS profile.
-Blackbox game sources remain dormant until an enabled remembered application is
-running.
-
-Logs: %LOCALAPPDATA%\Blackbox\logs
-
-For troubleshooting, open Diagnostics and select Support bundle. Blackbox shows
-the privacy contents before creating the local ZIP. The bundle excludes
-recordings, screenshots, databases, OBS passwords and settings, microphone
-configuration, saved profiles, executable lists, and application settings.
+More details in docs/NATIVE-RECORDER.txt and docs/RELEASE-2.0.0-preview.17.txt.
+The packaged copies are START-HERE.txt and RELEASE-2.0.0-preview.17.txt.
+BLACKBOX-DETAILS.txt documents the legacy OBS-based v1.0 release only.

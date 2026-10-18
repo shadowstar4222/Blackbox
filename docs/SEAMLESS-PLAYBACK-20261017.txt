@@ -1,0 +1,56 @@
+BLACKBOX CONTINUOUS PLAYBACK VALIDATION
+October 17, 2026 - 2.0.0-preview.8
+
+IMPLEMENTATION
+Compatible completed MKV segments are exposed as one seekable Matroska input.
+A bounded structural index supplies retimed cluster headers and keyframe cues;
+encoded video/audio blocks are read unchanged from the original source ranges.
+VLC keeps one input, decoder, video surface, and playback clock across joins.
+There is no merged recording on disk, re-encode, second decoder, or video-frame
+copy. Only the current source file stays open. Preparation is cancellable and
+runs outside the UI thread; review close releases callbacks, stream, and leases.
+
+VALIDATION
+- Old VRChat recording, recent variable-frame-rate recording, synthetic animated
+  H.264/AAC, and the five-minute flash/tone fixture passed transition checks.
+- Tested boundaries had zero decoder/input reopen, zero video-output loss,
+  zero exposed-background paints, and progressing displayed frames.
+- Paused cross-segment seeks, forward/reverse frame navigation, and loop restart
+  passed. Looping the entire recording can still perform a seek/restart.
+- Synthetic decoded video SHA-256 matched the original sequence. Encoded AAC
+  packet SHA-256 also matched. Source-file hashes remained unchanged.
+- Five-minute virtual playback using real recorder CSV durations: 154 matched
+  flash/tone pulses; start-to-end drift -1.5 ms; median offset 19.5 ms.
+  A first fixture incorrectly used container audio-tail durations instead of
+  recorder timeline durations and failed sync; the corrected fixture uses the
+  same duration source as actual recording ingestion. Production keeps the
+  repository's existing segment durations and does not infer a new clock.
+- Full 118-segment/9.91 GiB session opened and played; three repeated opens/closes
+  took 1.89-1.92 seconds per cycle, including presentation and close delay.
+  Its five-second sample displayed 153 pictures with zero lost pictures,
+  using 6.23% of one CPU core. The fixture's initial 13.41-second request also
+  reprobed all 118 media files; ordinary review uses already-indexed metadata.
+- Eight-segment synthetic index read 3,924 metadata bytes in 5.8-26.6 ms.
+  Repeated benchmark: 148 displayed pictures, zero lost, 6.24% of one CPU core;
+  21 frame steps changed pixels without reopening the input. No closed review
+  pages remained retained. Released-player CPU measured 0% on repeat, versus
+  1.25% for the real-session sample; an initial synthetic run had a transient
+  50% idle sample that was not reproduced. These are short local measurements.
+- Release main tests: 341 passed; recorder tests: 41 passed (382 total).
+  Includes 29 new tests for EBML bounds, format compatibility, retiming, cues,
+  timestamp-width growth, CRC removal, payload preservation, seeking, and cleanup.
+
+LIMITS
+Continuous input currently covers finalized, compatible native/FFmpeg MKV
+layouts. Different codecs/track layouts, unsupported containers, and time-shift
+following retain per-file playback; those paths are not advertised as gapless.
+Actual missing frames, capture pauses, or black frames already encoded in source
+files cannot be recovered. Original source timestamps/relative A/V timing are
+preserved. This is not a four-hour playback soak or a guarantee for every codec.
+
+REPRODUCTION
+Use --playback-transition-smoke with an isolated BLACKBOX_DATA_DIRECTORY.
+Configuration includes Sources and Output; optional Durations supplies actual
+recording timeline durations. SaveVirtualInput is test-only and writes a sample
+virtual file for FFmpeg verification, not part of normal review.
+Local reports and fixtures: artifacts\seamless-20261017.

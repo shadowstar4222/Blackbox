@@ -96,4 +96,4 @@ public static class RecordingTimeline
     }
 }
 
-public sealed record PlaybackSegmentPosition(int SegmentIndex, TimeSpan SegmentOffset);
+public readonly record struct PlaybackSegmentPosition(int SegmentIndex, TimeSpan SegmentOffset);

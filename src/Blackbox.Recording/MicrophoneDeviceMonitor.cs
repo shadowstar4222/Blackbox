@@ -21,6 +21,8 @@ public sealed class MicrophoneDeviceMonitor(
         MicrophoneConnectionState.Unknown,
         clock.UtcNow);
 
+    public event Action<MicrophoneDeviceStatus>? StatusChanged;
+
     public MicrophoneDeviceStatus CurrentStatus => Volatile.Read(ref _currentStatus);
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -99,11 +101,15 @@ public sealed class MicrophoneDeviceMonitor(
                     configuration.DeviceId,
                     cancellationToken);
                 Volatile.Write(ref _currentStatus, current);
+                if (current.DeviceId != previous.DeviceId || current.State != previous.State)
+                {
+                    StatusChanged?.Invoke(current);
+                }
                 if (current.State == MicrophoneConnectionState.Disconnected &&
                     previous.State != MicrophoneConnectionState.Disconnected)
                 {
                     logger.LogWarning(
-                        "The configured microphone disconnected; OBS sources remain active to preserve silence and track timing.");
+                        "The configured microphone disconnected; check the selected device and recording audio.");
                 }
                 else if (current.State == MicrophoneConnectionState.Connected &&
                     (selectionChanged || previous.State == MicrophoneConnectionState.Disconnected))
@@ -113,7 +119,7 @@ public sealed class MicrophoneDeviceMonitor(
                         configuration.ProcessingSettings,
                         cancellationToken);
                     logger.LogInformation(
-                        "Restored microphone routing to both paths. Reason={RoutingReason}.",
+                        "Applied microphone routing. Reason={RoutingReason}.",
                         selectionChanged ? "Windows default changed" : "device reconnected");
                 }
             }

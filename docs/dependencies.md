@@ -3,16 +3,16 @@
 ## Runtime
 
 - Windows 10 version 2004, build 19041 or later.
-- .NET 8 Desktop Runtime.
-- OBS Studio with obs-websocket support, provisioned as a private portable runtime by Blackbox on first use.
-- An existing standard or Steam OBS installation, or internet access for first-time download fallback.
-- FFmpeg, FFprobe, and FFplay, automatically downloaded and checksum-verified on first recordings-library use.
+- .NET 8 Desktop Runtime, included in the portable package.
+- Windows Graphics Capture, Media Foundation, and the x64 Visual C++ runtime bundled with the worker.
+- FFmpeg and FFprobe, included for local muxing, probing, timeline assets, recovery, and export. FFplay is no longer shipped or required.
 - SQLite via `Microsoft.Data.Sqlite`.
 - Windows `RegisterHotKey` through `user32.dll` for global hotkeys.
 - Windows top-level-window APIs plus the Toolhelp process snapshot API for the non-invasive running-game picker.
 - Windows PDH (`pdh.dll`) GPU Engine performance counters for optional per-process activity corroboration.
-- OBS Application Audio Capture for isolated per-process audio sources.
-- OBS websocket input-volume events and Windows Audio Capture device properties for calibration and connection monitoring.
+- NAudio WASAPI capture and resampling for the native 48 kHz microphone path.
+- SpeexDSP noise suppression through SpeexDSPSharp for native microphone processing.
+- LibVLCSharp.WPF and one lazily initialized VideoLAN runtime for in-app recording review; hardware decoding is requested when available.
 
 ## NuGet
 
@@ -22,8 +22,12 @@
 - `Microsoft.Extensions.Logging.Abstractions`: logging contracts in non-UI projects.
 - `Serilog.Extensions.Hosting`: structured logging integration.
 - `Serilog.Sinks.File`: rolling diagnostic logs.
+- `NAudio`: Windows microphone capture, PCM conversion, metering, and filtering.
+- `SpeexDSPSharp`: managed SpeexDSP preprocessor bindings and native noise suppression.
+- `ScreenRecorderLib`: Windows Graphics Capture and Media Foundation recording worker.
 - `xunit`: automated tests.
 
-## Planned
-
-- A localhost control surface for the OBS dock edition.
+The deferred `Blackbox.Dock` project depends on ASP.NET Core and retains its own
+tests. It is excluded from the native desktop application and portable package.
+Older OBS integration source remains for the deferred dock and compatibility
+tests; the current application does not register an OBS recorder or installer.

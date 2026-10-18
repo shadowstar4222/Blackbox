@@ -51,14 +51,44 @@ public sealed class TimelineWaveformControl : FrameworkElement
     public TimeSpan SelectionEnd { get; set; }
     public TimeSpan CursorPosition { get; set; }
     public bool ShowSegmentBands { get; set; }
+    private DrawingGroup? _staticDrawing;
+    private Size _cachedSize;
+    private bool _staticDirty = true;
+    internal int StaticLayerBuildCount { get; private set; }
 
     public event EventHandler<TimeSpan>? ScrubRequested;
 
-    public void Refresh() => InvalidateVisual();
+    public void Refresh()
+    {
+        _staticDirty = true;
+        InvalidateVisual();
+    }
+
+    public void RefreshCursor() => InvalidateVisual();
 
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
+        if (_staticDrawing is null || _staticDirty || _cachedSize != RenderSize)
+        {
+            var drawing = new DrawingGroup();
+            using (var context = drawing.Open()) DrawStatic(context);
+            drawing.Freeze();
+            _staticDrawing = drawing;
+            _cachedSize = RenderSize;
+            _staticDirty = false;
+            StaticLayerBuildCount++;
+        }
+        drawingContext.DrawDrawing(_staticDrawing);
+        if (Duration > TimeSpan.Zero && ActualWidth > 0 && ActualHeight > 0)
+        {
+            var cursorX = ToX(CursorPosition);
+            drawingContext.DrawLine(CursorPen, new Point(cursorX, 0), new Point(cursorX, ActualHeight));
+        }
+    }
+
+    private void DrawStatic(DrawingContext drawingContext)
+    {
         var bounds = new Rect(0, 0, ActualWidth, ActualHeight);
         drawingContext.DrawRectangle(BackgroundBrush, null, bounds);
         if (Duration <= TimeSpan.Zero || ActualWidth <= 0 || ActualHeight <= 0)
@@ -121,8 +151,6 @@ public sealed class TimelineWaveformControl : FrameworkElement
             }
         }
 
-        var cursorX = ToX(CursorPosition);
-        drawingContext.DrawLine(CursorPen, new Point(cursorX, 0), new Point(cursorX, ActualHeight));
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

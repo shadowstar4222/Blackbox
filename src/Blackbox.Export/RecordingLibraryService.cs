@@ -12,52 +12,50 @@ public sealed class RecordingLibraryService(
     IFfmpegProvisioner ffmpegProvisioner,
     RecordingSessionCatalog catalog,
     RecordingSettings recordingSettings,
-    ILogger<RecordingLibraryService> logger)
+    ILogger<RecordingLibraryService> logger,
+    IClock? clock = null,
+    IClipRepository? clipRepository = null)
 {
     private static readonly TimeSpan ContinuationTolerance = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan MaximumOverlap = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan PendingMarkerRetention = TimeSpan.FromDays(7);
+    private readonly IClock _clock = clock ?? new SystemClock();
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly Dictionary<string, RecordingFileState> _observedFiles = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task<IReadOnlyList<RecordingSession>> RefreshAsync(
         IProgress<RecordingLibraryProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        await _refreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await RefreshCoreAsync(progress, cancellationToken);
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    private async Task<IReadOnlyList<RecordingSession>> RefreshCoreAsync(
+        IProgress<RecordingLibraryProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         recordingSettings.Validate();
         await repository.InitializeAsync(cancellationToken);
         Directory.CreateDirectory(recordingSettings.RecordingLocation);
-        var mediaFiles = Directory
-            .EnumerateFiles(recordingSettings.RecordingLocation, "*", SearchOption.AllDirectories)
-            .Where(IsRecordingFile)
-            .Where(path => !RecordingDirectoryLayout.IsInternalPath(
-                recordingSettings.RecordingLocation,
-                path))
+        var mediaFiles = RecordingFileState.Enumerate(recordingSettings.RecordingLocation)
             .Select(static path => new FileInfo(Path.GetFullPath(path)))
             .Where(static file => file.Exists && file.Length > 0 &&
                 DateTimeOffset.UtcNow - file.LastWriteTimeUtc > TimeSpan.FromSeconds(1))
             .OrderBy(static file => file.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        if (mediaFiles.Length == 0)
-        {
-            progress?.Report(new RecordingLibraryProgress("No completed recordings found.", 100));
-            return [];
-        }
-
         var existingSegments = (await repository.GetAllAsync(cancellationToken))
             .ToDictionary(
                 static segment => Path.GetFullPath(segment.FilePath),
                 StringComparer.OrdinalIgnoreCase);
-        var filesRequiringProbe = mediaFiles.Count(file =>
-            !existingSegments.TryGetValue(file.FullName, out var existing) ||
-            existing.FileSizeBytes != file.Length ||
-            existing.IsDamaged);
-        if (filesRequiringProbe > 0)
-        {
-            var provisionProgress = new Progress<FfmpegProvisionProgress>(update =>
-                progress?.Report(new RecordingLibraryProgress(
-                    update.Message,
-                    update.Percent is null ? null : update.Percent * 0.45)));
-            await ffmpegProvisioner.EnsureInstalledAsync(provisionProgress, cancellationToken);
-        }
-
+        var provisioned = false;
         var candidates = new List<MediaCandidate>(mediaFiles.Length);
         for (var index = 0; index < mediaFiles.Length; index++)
         {
@@ -67,9 +65,11 @@ public sealed class RecordingLibraryService(
                 $"Indexing {file.Name}...",
                 45 + (index + 1) * 45d / mediaFiles.Length));
             existingSegments.TryGetValue(file.FullName, out var existing);
+            var snapshot = new RecordingFileState(file.FullName, file.Length, file.LastWriteTimeUtc);
+            var observed = _observedFiles.TryGetValue(file.FullName, out var previousSnapshot);
             if (existing is not null &&
                 existing.FileSizeBytes == file.Length &&
-                !existing.IsDamaged)
+                (observed ? previousSnapshot == snapshot : !existing.IsDamaged))
             {
                 candidates.Add(MediaCandidate.FromExisting(
                     file,
@@ -77,7 +77,20 @@ public sealed class RecordingLibraryService(
                     RecordingDirectoryLayout.GetApplicationName(
                         recordingSettings.RecordingLocation,
                         file.FullName)));
+                _observedFiles[file.FullName] = snapshot;
                 continue;
+            }
+
+            using var readLease = RecordingFileState.TryOpenReadLease(file.FullName);
+            if (readLease is null || RecordingFileState.Capture(file.FullName) != snapshot)
+            {
+                continue;
+            }
+
+            if (!provisioned)
+            {
+                await ffmpegProvisioner.EnsureInstalledAsync(cancellationToken: cancellationToken);
+                provisioned = true;
             }
 
             try
@@ -105,19 +118,39 @@ public sealed class RecordingLibraryService(
                     "Recording {RecordingPath} could not be read and was marked as damaged.",
                     file.FullName);
             }
+
+            _observedFiles[file.FullName] = snapshot;
         }
 
+        SetNativeStartTimes(candidates);
         var groups = GroupCandidates(candidates.OrderBy(static candidate => candidate.StartTime).ToArray());
         foreach (var group in groups)
         {
-            var sessionId = CreateDeterministicId(group[0].File.FullName);
+            var sessionId = group.Select(static candidate => candidate.Existing?.SessionId)
+                .FirstOrDefault(static id => id is not null)
+                ?? group[0].NativeFile?.RecordingId
+                ?? CreateDeterministicId(group[0].File.FullName);
             foreach (var candidate in group)
             {
-                await repository.UpsertAsync(candidate.ToSegment(sessionId), cancellationToken);
+                var segment = candidate.ToSegment(candidate.Existing?.SessionId ?? sessionId);
+                if (segment != candidate.Existing)
+                {
+                    await repository.UpsertAsync(segment, cancellationToken);
+                }
             }
         }
 
+        var presentPaths = mediaFiles.Select(static file => file.FullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in _observedFiles.Keys.Where(path => !presentPaths.Contains(path)).ToArray())
+        {
+            _observedFiles.Remove(path);
+        }
+
         var sessions = await catalog.GetSessionsAsync(cancellationToken);
+        if (await ResolvePendingMarkersAsync(sessions, cancellationToken))
+        {
+            sessions = await catalog.GetSessionsAsync(cancellationToken);
+        }
         progress?.Report(new RecordingLibraryProgress(
             $"Found {sessions.Count} recording session(s).",
             100));
@@ -132,6 +165,8 @@ public sealed class RecordingLibraryService(
         RecordingSession session,
         TimeSpan offset,
         string? label = null,
+        TimeSpan contextBefore = default,
+        TimeSpan contextAfter = default,
         CancellationToken cancellationToken = default)
     {
         if (offset < TimeSpan.Zero || offset > session.Duration)
@@ -144,7 +179,11 @@ public sealed class RecordingLibraryService(
             session.Id,
             offset,
             string.IsNullOrWhiteSpace(label) ? $"Marker {FormatOffset(offset)}" : label.Trim(),
-            DateTimeOffset.UtcNow);
+            _clock.UtcNow,
+            contextBefore,
+            contextAfter,
+            TimelineMarkerOrigin.Manual);
+        marker.Validate();
         await repository.AddMarkerAsync(marker, cancellationToken);
         logger.LogInformation(
             "Added marker {MarkerId} to recording session {RecordingSessionId} at {MarkerOffset}.",
@@ -154,8 +193,75 @@ public sealed class RecordingLibraryService(
         return marker;
     }
 
-    public Task DeleteMarkerAsync(Guid markerId, CancellationToken cancellationToken = default) =>
-        repository.DeleteMarkerAsync(markerId, cancellationToken);
+    public async Task DeleteMarkerAsync(
+        Guid markerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (clipRepository is not null)
+        {
+            await clipRepository.DeleteMarkerDependenciesAsync(markerId, cancellationToken);
+        }
+
+        await repository.DeleteMarkerAsync(markerId, cancellationToken);
+    }
+
+    private async Task<bool> ResolvePendingMarkersAsync(
+        IReadOnlyList<RecordingSession> sessions,
+        CancellationToken cancellationToken)
+    {
+        var changed = false;
+        var pendingMarkers = (await repository.GetMarkersAsync(cancellationToken))
+            .Where(static marker => marker.SessionId == Guid.Empty)
+            .ToArray();
+        foreach (var marker in pendingMarkers)
+        {
+            var session = sessions
+                .Where(candidate =>
+                    marker.CreatedAt >= candidate.StartTime - ContinuationTolerance &&
+                    marker.CreatedAt <= candidate.EndTime + ContinuationTolerance)
+                .OrderBy(candidate => GetDistance(candidate, marker.CreatedAt))
+                .FirstOrDefault();
+            if (session is not null)
+            {
+                var offset = RecordingTimeline.ToOffset(session, marker.CreatedAt);
+                await repository.UpdateMarkerPlacementAsync(
+                    marker.Id,
+                    session.Id,
+                    offset,
+                    cancellationToken);
+                logger.LogInformation(
+                    "Placed live marker {MarkerId} in session {SessionId} at {MarkerOffset}.",
+                    marker.Id,
+                    session.Id,
+                    offset);
+                changed = true;
+            }
+            else if (_clock.UtcNow - marker.CreatedAt > PendingMarkerRetention)
+            {
+                await DeleteMarkerAsync(marker.Id, cancellationToken);
+                logger.LogWarning(
+                    "Removed stale live marker {MarkerId} because no recording session contained it.",
+                    marker.Id);
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private static TimeSpan GetDistance(
+        RecordingSession session,
+        DateTimeOffset timestamp)
+    {
+        if (timestamp < session.StartTime)
+        {
+            return session.StartTime - timestamp;
+        }
+
+        return timestamp > session.EndTime
+            ? timestamp - session.EndTime
+            : TimeSpan.Zero;
+    }
 
     public async Task<ProtectedTimelineRange> ProtectRangeAsync(
         RecordingSession session,
@@ -177,8 +283,22 @@ public sealed class RecordingLibraryService(
     private static IReadOnlyList<List<MediaCandidate>> GroupCandidates(IReadOnlyList<MediaCandidate> candidates)
     {
         var groups = new List<List<MediaCandidate>>();
+        var nativeGroups = new Dictionary<string, List<MediaCandidate>>(StringComparer.OrdinalIgnoreCase);
         foreach (var candidate in candidates)
         {
+            if (candidate.NativeFile is { } native)
+            {
+                if (!nativeGroups.TryGetValue(native.PrefixPath, out var nativeGroup))
+                {
+                    nativeGroup = [];
+                    nativeGroups.Add(native.PrefixPath, nativeGroup);
+                    groups.Add(nativeGroup);
+                }
+
+                nativeGroup.Add(candidate);
+                continue;
+            }
+
             if (groups.Count == 0)
             {
                 groups.Add([candidate]);
@@ -188,7 +308,8 @@ public sealed class RecordingLibraryService(
             var current = groups[^1];
             var previous = current[^1];
             var gap = candidate.StartTime - previous.EndTime;
-            if (gap > ContinuationTolerance || gap < -MaximumOverlap || !AreCompatible(previous, candidate))
+            if (previous.NativeFile is not null || gap > ContinuationTolerance ||
+                gap < -MaximumOverlap || !AreCompatible(previous, candidate))
             {
                 groups.Add([candidate]);
             }
@@ -209,17 +330,40 @@ public sealed class RecordingLibraryService(
         left.AudioTrackTitles.Count == right.AudioTrackTitles.Count &&
         left.VideoCodec.Equals(right.VideoCodec, StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsRecordingFile(string path)
+    private void SetNativeStartTimes(List<MediaCandidate> candidates)
     {
-        if (path.Contains(".partial.", StringComparison.OrdinalIgnoreCase) ||
-            path.Contains(".active.", StringComparison.OrdinalIgnoreCase))
+        var candidateIndexes = candidates.Select(static (candidate, index) => (candidate.File.FullName, index))
+            .ToDictionary(static item => item.FullName, static item => item.index, StringComparer.OrdinalIgnoreCase);
+        foreach (var group in candidates.Where(static candidate => candidate.NativeFile is not null)
+                     .GroupBy(static candidate => candidate.NativeFile!.PrefixPath, StringComparer.OrdinalIgnoreCase))
         {
-            return false;
-        }
+            var ordered = group.OrderBy(static candidate => candidate.NativeFile!.SegmentIndex).ToArray();
+            var offsets = ordered.Any(static candidate => candidate.Existing is null)
+                ? ordered[0].NativeFile!.ReadSegmentRanges()
+                : new Dictionary<int, (TimeSpan Start, TimeSpan Duration)>();
+            MediaCandidate? previous = null;
+            foreach (var candidate in ordered)
+            {
+                var current = candidate;
+                var native = candidate.NativeFile!;
+                if (candidate.Existing is null)
+                {
+                    var hasRange = offsets.TryGetValue(native.SegmentIndex, out var range);
+                    var start = hasRange
+                        ? native.RecordingStart + range.Start
+                        : previous?.NativeFile?.SegmentIndex == native.SegmentIndex - 1
+                            ? previous.EndTime
+                            : native.RecordingStart + TimeSpan.FromMinutes(
+                                (double)native.SegmentIndex * recordingSettings.SegmentDurationMinutes);
+                    // AAC packets can overhang the video boundary by a few milliseconds.
+                    // Use the closed-segment timeline to prevent cumulative review/marker drift.
+                    current = candidate with { StartTime = start, Duration = hasRange && range.Duration < candidate.Duration ? range.Duration : candidate.Duration };
+                    candidates[candidateIndexes[candidate.File.FullName]] = current;
+                }
 
-        var extension = Path.GetExtension(path);
-        return extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase);
+                previous = current;
+            }
+        }
     }
 
     private static Guid CreateDeterministicId(string value)
@@ -250,6 +394,9 @@ public sealed class RecordingLibraryService(
         string? DamageDetail)
     {
         public DateTimeOffset EndTime => StartTime + Duration;
+        public RecordingSegment? Existing { get; init; }
+        public bool WasProbed { get; init; }
+        public NativeRecordingFile? NativeFile { get; } = NativeRecordingFile.TryParse(File.FullName);
 
         public static MediaCandidate FromExisting(
             FileInfo file,
@@ -270,7 +417,7 @@ public sealed class RecordingLibraryService(
             segment.IsProtected,
             ParseAudioTitles(segment.AudioTrackLayout),
             segment.IsDamaged,
-            segment.DamageDetail);
+            segment.DamageDetail) { Existing = segment };
 
         public static MediaCandidate FromProbe(
             FileInfo file,
@@ -279,7 +426,7 @@ public sealed class RecordingLibraryService(
             string applicationName) => new(
             file,
             existing?.Id ?? Guid.NewGuid(),
-            ParseStartTime(file),
+            existing?.StartTime ?? ParseStartTime(file),
             probe.Duration,
             existing?.GameExecutable ?? string.Empty,
             applicationName == "Recording"
@@ -294,7 +441,7 @@ public sealed class RecordingLibraryService(
             existing?.IsProtected ?? false,
             probe.AudioTrackTitles,
             false,
-            null);
+            null) { Existing = existing, WasProbed = true };
 
         public static MediaCandidate FromDamaged(
             FileInfo file,
@@ -330,7 +477,15 @@ public sealed class RecordingLibraryService(
                 detail);
         }
 
-        public RecordingSegment ToSegment(Guid sessionId) => new(
+        public RecordingSegment ToSegment(Guid sessionId) => Existing is not null && !WasProbed
+            ? Existing with
+            {
+                GameTitle = GameTitle,
+                FileSizeBytes = File.Length,
+                IsDamaged = IsDamaged,
+                DamageDetail = DamageDetail
+            }
+            : new(
             SegmentId,
             sessionId,
             StartTime,

@@ -1,0 +1,62 @@
+BLACKBOX PANEL AND FRAME-STEP FIXES
+October 17, 2026 - 2.0.0-preview.12
+
+CAPTURE FEEDBACK
+Preview.11 hid routine status to remove duplicates, leaving the health inspector
+empty when no warning was active. The inspector now shows specific video/output
+check results, while Ready/Watching/Recording remains only in the sidebar.
+Healthy checks are not a guarantee that every frame or sound is correct.
+
+The native recorder's existing audio callback supplies a bounded peak reading.
+PCM packet previews stay disabled. No new WASAPI stream, audio decoder, or raw
+audio copying is added for the meter. The worker reports a 250 ms peak window;
+readings expire after one second without packets. Invalid values are rejected.
+The Capture page displays cached telemetry at 4 Hz only while visible and
+recording. Guardian analysis retains its existing three-second interval.
+
+System mix is labeled on Windows 10; process/application mix is labeled on
+supported newer Windows builds. This meter covers captured game/system audio,
+not the separately processed microphone. Microphone off/receiving/waiting status
+is shown separately and is not a microphone loudness meter.
+
+FRAME NAVIGATION
+Removed the hardware-decoder workaround that resumed video for 150-220 ms.
+Single forward steps use VLC NextFrame without a time seek or normal playback.
+Reverse/coalesced steps seek while paused, then request one decoded frame.
+Resuming playback clears the native step pause before dispatching its seek.
+Hardware decoding, shared continuous MKV input, and queued-step coalescing stay
+enabled. There is no second decoder or FFmpeg job for each click.
+Frame offsets use the recording's declared FPS; variable-cadence recordings can
+contain duplicate frames or uneven timestamps, so they are not a frame index.
+
+COMPACT PANELS
+Microphone: Voice / Routing / Calibration. Advanced voice controls are collapsed
+by default. Processing and gain share one Apply action. Calibration uses mic
+icon tools; the temporary level meter is visible during measurement.
+Diagnostics: Events / Recording setup / Technical details. The raw recorder
+evidence and recovery report no longer crowd the event view. Logs remain
+virtualized. Leaving the setup tab revokes photosensitivity consent.
+
+VALIDATION
+355 main tests and 48 native-capture tests passed (403 total). Packaged worker
+prerequisite probe and packaged UI/playback smoke tests passed.
+Unit suites and packaged WPF UI/playback smoke tests use isolated test data;
+user recordings/settings are not changed. UI coverage includes 1240x780 and
+1024x680, every new tab, advanced controls, positive/failed health, audio states,
+and setup consent gating. Playback checks pixel changes in both directions,
+stable paused pixels, zero Playing events during stepping, no decoder reopen,
+seek coalescing, next-finalized-segment follow, and hidden-player pause.
+Both tested window sizes completed 14 frame steps each; the first forward step
+changed pixels, reverse stepping changed pixels, and paused pixels stayed still.
+User-approved live recording test also passed with microphone capture disabled.
+The 23.722-second file contains H.264 1264x720 video and AAC 48 kHz stereo audio;
+audio decoded successfully. All 22 sampled encoder peaks were available, ranging
+from -24.85 to -14.20 dBFS. Capture displayed live levels and verified output;
+leaving Capture stopped its meter timer. Setup preferences/automatic capture
+were restored. The initial harness navigation used Click instead of the radio
+button's Checked event; this test-only issue was corrected before the final run.
+See artifacts/panel-frame-fixes-20261017 for logs, screenshots, and results.
+
+Implementation reference for gain callbacks with packet preview disabled:
+https://github.com/sskodje/ScreenRecorderLib/blob/master/ScreenRecorderLibNative/AudioManager.cpp
+https://github.com/sskodje/ScreenRecorderLib/blob/master/ScreenRecorderLib/Callback.h

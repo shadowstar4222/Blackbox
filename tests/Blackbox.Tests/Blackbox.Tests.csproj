@@ -18,9 +18,11 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="../../src/Blackbox.App/ManualCaptureTargetResolver.cs" Link="App/ManualCaptureTargetResolver.cs" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Blackbox.Dock\Blackbox.Dock.csproj" />
     <ProjectReference Include="..\..\src\Blackbox.Domain\Blackbox.Domain.csproj" />
     <ProjectReference Include="..\..\src\Blackbox.Export\Blackbox.Export.csproj" />
     <ProjectReference Include="..\..\src\Blackbox.Infrastructure\Blackbox.Infrastructure.csproj" />

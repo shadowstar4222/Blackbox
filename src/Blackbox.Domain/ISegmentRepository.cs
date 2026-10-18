@@ -2,11 +2,18 @@ namespace Blackbox.Domain;
 
 public interface ISegmentRepository
 {
+    // A null revision keeps repositories without change tracking on the uncached path.
+    long? Revision => null;
     Task InitializeAsync(CancellationToken cancellationToken = default);
     Task UpsertAsync(RecordingSegment segment, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RecordingSegment>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TimelineMarker>> GetMarkersAsync(CancellationToken cancellationToken = default);
     Task AddMarkerAsync(TimelineMarker marker, CancellationToken cancellationToken = default);
+    Task UpdateMarkerPlacementAsync(
+        Guid markerId,
+        Guid sessionId,
+        TimeSpan offset,
+        CancellationToken cancellationToken = default);
     Task DeleteMarkerAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProtectedTimelineRange>> GetProtectedRangesAsync(CancellationToken cancellationToken = default);
     Task<bool> ExistsByPathAsync(string filePath, CancellationToken cancellationToken = default);

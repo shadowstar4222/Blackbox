@@ -1,6 +1,7 @@
 using Blackbox.Domain;
 using Blackbox.Export;
 using Blackbox.Storage;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Blackbox.Tests;
@@ -112,6 +113,110 @@ public sealed class StorageQuotaEnforcerTests
         {
             Directory.Delete(root, true);
         }
+    }
+
+    [Fact]
+    public async Task EnforceAsync_retains_footage_covered_by_a_pending_clip_request()
+    {
+        var root = CreateTempDirectory();
+        var now = DateTimeOffset.Parse("2026-07-25T20:00:00Z");
+        var segments = new InMemorySegmentRepository();
+        var retainedPath = CreateSegmentFile(root, "retained.mkv");
+        var disposablePath = CreateSegmentFile(root, "disposable.mkv");
+        var retained = TestSegments.Create(
+            retainedPath,
+            now.AddMinutes(-10),
+            TimeSpan.FromMinutes(2),
+            fileSizeBytes: 800);
+        var disposable = TestSegments.Create(
+            disposablePath,
+            now.AddMinutes(-2),
+            TimeSpan.FromMinutes(1),
+            fileSizeBytes: 800);
+        await segments.UpsertAsync(retained);
+        await segments.UpsertAsync(disposable);
+        var clips = new SqliteClipRepository(Path.Combine(root, "blackbox.db"));
+        await clips.InitializeAsync();
+        await clips.AddAsync(new InstantClip
+        {
+            Id = Guid.NewGuid(),
+            RequestedAt = now,
+            RequestedStartTime = retained.StartTime.AddSeconds(10),
+            RequestedEndTime = retained.EndTime.AddSeconds(-10),
+            Label = "Pending clip",
+            Status = InstantClipStatus.Pending,
+            UpdatedAt = now
+        });
+        var enforcer = new StorageQuotaEnforcer(
+            segments,
+            new FixedClock(now),
+            NullLogger<StorageQuotaEnforcer>.Instance,
+            clipRepository: clips);
+
+        try
+        {
+            var result = await enforcer.EnforceAsync(new RecordingSettings
+            {
+                RecordingLocation = root,
+                MaximumStorageGigabytes = 0.000001m,
+                MaximumRetainedDuration = TimeSpan.FromHours(1)
+            });
+
+            Assert.Equal(1, result.DeletedSegments);
+            Assert.True(File.Exists(retainedPath));
+            Assert.False(File.Exists(disposablePath));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task EnforceAsync_retains_context_for_an_unplaced_live_marker()
+    {
+        var root = CreateTempDirectory();
+        var now = DateTimeOffset.Parse("2026-07-25T20:00:00Z");
+        var repository = new InMemorySegmentRepository();
+        var retainedPath = CreateSegmentFile(root, "marker-context.mkv");
+        var disposablePath = CreateSegmentFile(root, "unmarked.mkv");
+        var retained = TestSegments.Create(
+            retainedPath,
+            now.AddMinutes(-10),
+            TimeSpan.FromMinutes(2),
+            fileSizeBytes: 800);
+        var disposable = TestSegments.Create(
+            disposablePath,
+            now.AddMinutes(-2),
+            TimeSpan.FromMinutes(1),
+            fileSizeBytes: 800);
+        await repository.UpsertAsync(retained);
+        await repository.UpsertAsync(disposable);
+        await repository.AddMarkerAsync(new TimelineMarker(
+            Guid.NewGuid(),
+            Guid.Empty,
+            TimeSpan.Zero,
+            "Live marker",
+            now.AddMinutes(-9),
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromSeconds(10),
+            TimelineMarkerOrigin.Live));
+        var enforcer = new StorageQuotaEnforcer(
+            repository,
+            new FixedClock(now),
+            NullLogger<StorageQuotaEnforcer>.Instance);
+
+        var result = await enforcer.EnforceAsync(new RecordingSettings
+        {
+            RecordingLocation = root,
+            MaximumStorageGigabytes = 0.000001m,
+            MaximumRetainedDuration = TimeSpan.FromHours(1)
+        });
+
+        Assert.Equal(1, result.DeletedSegments);
+        Assert.True(File.Exists(retainedPath));
+        Assert.False(File.Exists(disposablePath));
     }
 
     private static string CreateTempDirectory()
